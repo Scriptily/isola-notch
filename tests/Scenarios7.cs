@@ -976,4 +976,25 @@ public static partial class Scenarios
         Eq(false, AudioService.IsBluetoothOutput("HDAUDIO", new Guid("00000000-0000-0000-ffff-ffffffffffff"), "Speakers (Realtek(R) Audio)", paired), "the built-in speakers aren't");
         Eq(false, AudioService.IsBluetoothOutput("INTELAUDIO", new Guid("cdcae645-6e5e-5f75-a10f-adbbd63226c0"), "Speakers (Intel Smart Sound)", paired), "INTELAUDIO speakers that aren't a paired device aren't");
     }
+
+    [Scenario("the Microsoft Store version never updates itself: no GitHub check, even when asked, and Settings says the Store does it")]
+    public static void StoreVersionDoesntSelfUpdate()
+    {
+        var (_, _, clock) = NewIsland();
+        var gh = new FakeGitHub { ReleasesJson = "[{\"tag_name\":\"v9.0.0\",\"draft\":false,\"prerelease\":false,\"body\":\"sha256: " + new string('a', 64) + "\",\"assets\":[]}]" };
+        var upd = new Updater(clock, gh) { Current = new Version(1, 1, 0), IsDev = () => false, Cfg = () => new Config() };
+        try
+        {
+            Packaging.Override = true;
+            upd.Start();
+            upd.CheckAsync(true).Wait();
+            clock.Advance(7 * 3600);
+            Eq(0, gh.Requests.Count, "no request to GitHub, scheduled or asked for");
+            Eq("Updated by the Microsoft Store", upd.Status, "status");
+            Packaging.Override = false;
+            upd.CheckAsync(true).Wait();
+            True(gh.Requests.Count > 0, "the GitHub install still checks");
+        }
+        finally { Packaging.Override = null; }
+    }
 }

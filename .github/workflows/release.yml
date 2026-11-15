@@ -106,3 +106,49 @@ jobs:
           if ($LASTEXITCODE -eq 0) { "changelog unchanged"; exit 0 }
           git commit -m "Changelog: VirusTotal result for $env:VERSION"
           git push origin HEAD:main
+
+      # ---- Microsoft Store: the same version, from the same tag ----------------
+      # Built for every tag that has the store/ folder and kept as an artifact.
+      # Submitted only once the repository variable STORE_PRODUCT_ID is set (after
+      # the first, manual submission is live; Microsoft's update API needs that)
+      # with the Partner Center secrets AZURE_AD_TENANT_ID, AZURE_AD_APPLICATION_CLIENT_ID,
+      # AZURE_AD_APPLICATION_SECRET and SELLER_ID. The Store certifies it in up to
+      # three business days and updates installed copies itself.
+      - name: Build the Microsoft Store package
+        id: msix
+        if: hashFiles('src/store/build-msix.ps1') != ''
+        shell: pwsh
+        working-directory: src
+        run: |
+          .\store\build-msix.ps1 -SkipTiles
+          "path=$((Resolve-Path "dist\Isola-$env:VERSION.msix").Path)" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v7
+        if: steps.msix.outcome == 'success'
+        with:
+          name: Isola-${{ env.VERSION }}-msix
+          path: ${{ steps.msix.outputs.path }}
+          if-no-files-found: error
+
+      - name: Set up the Microsoft Store CLI
+        if: steps.msix.outcome == 'success' && vars.STORE_PRODUCT_ID != ''
+        uses: microsoft/microsoft-store-apppublisher@v1.4
+
+      - name: Submit to the Microsoft Store
+        if: steps.msix.outcome == 'success' && vars.STORE_PRODUCT_ID != ''
+        shell: pwsh
+        working-directory: src
+        env:
+          TENANT: ${{ secrets.AZURE_AD_TENANT_ID }}
+          SELLER: ${{ secrets.SELLER_ID }}
+          CLIENT: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          PRODUCT: ${{ vars.STORE_PRODUCT_ID }}
+        run: |
+          $id = Get-Content -Raw store\identity.json | ConvertFrom-Json
+          if ($id.Name -like 'Isola.Development*') { throw "store/identity.json still has the placeholder identity: copy the values from Partner Center first" }
+          if (-not ($env:TENANT -and $env:SELLER -and $env:CLIENT -and $env:SECRET)) { throw "the Partner Center secrets aren't all set" }
+          msstore reconfigure --tenantId $env:TENANT --sellerId $env:SELLER --clientId $env:CLIENT --clientSecret $env:SECRET
+          if ($LASTEXITCODE) { throw "msstore reconfigure failed" }
+          msstore publish "${{ steps.msix.outputs.path }}" -id $env:PRODUCT
+          if ($LASTEXITCODE) { throw "msstore publish failed" }

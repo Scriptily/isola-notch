@@ -61,6 +61,8 @@ public sealed class Updater
 
     public void Start()
     {
+        // the Microsoft Store version is updated by the Store, never by itself
+        if (Packaging.IsStore) { Status = "Updated by the Microsoft Store"; return; }
         Schedule(45);   // let startup settle first
         // setups downloaded for earlier updates stayed in the temp folder, one per version
         try
@@ -81,6 +83,7 @@ public sealed class Updater
     /// <summary>Check now; install if newer and allowed (or if <paramref name="userAsked"/>).</summary>
     public async Task CheckAsync(bool userAsked)
     {
+        if (Packaging.IsStore) { Set("Updated by the Microsoft Store"); return; }
         var cfg = Cfg();
         Ui.Post(() => Schedule(Math.Max(1, cfg.UpdateCheckHours) * 3600));
         if (!cfg.AutoUpdate && !userAsked) return;

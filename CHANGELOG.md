@@ -5,6 +5,16 @@ changes for breaking or very large changes, the minor number for new features,
 and the patch number for fixes only. Each release's section below is also its
 GitHub release notes.
 
+## [Unreleased]
+
+### Added
+
+- A Microsoft Store version, built from every release tag with the same
+  version (store/README.md). As a Store app, Isola is updated by the Store
+  instead of updating itself, starts with Windows through its package's
+  startup task, and keeps its settings in the same folder as the GitHub
+  version.
+
 ## [1.1.0] - 2026-11-15
 
 ### Added

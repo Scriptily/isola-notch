@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Microsoft Store package. build-msix.ps1 fills in the tokens: the identity
+  from store/identity.json (the values Partner Center gives the reserved name)
+  and the version from VERSION.
+
+  Why each unusual line is here:
+  - RegistryWriteVirtualization / FileSystemWriteVirtualization disabled (with
+    the unvirtualizedResources capability): a package's writes to HKCU and
+    AppData normally go to a private copy. Hiding Windows' own banners works by
+    changing each app's real notification settings, which a private copy would
+    never touch, and the data folder is shared with the GitHub install so moving
+    between them keeps settings, notes and the shelf.
+  - userNotificationListener: reading notifications from a package needs it.
+  - bluetooth, radios: AirPods' battery broadcast and the Bluetooth switch.
+  - The startup task replaces the sign-in task and Run entry of the GitHub
+    install; Isola turns it on when "Start with Windows" is on.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 desktop desktop6 rescap">
+
+  <Identity Name="{{Name}}" Publisher="{{Publisher}}" Version="{{Version}}" ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Isola</DisplayName>
+    <PublisherDisplayName>{{PublisherDisplayName}}</PublisherDisplayName>
+    <Logo>store\StoreLogo.png</Logo>
+    <Description>A dynamic island for Windows: notifications, media and a launcher at the top of your screen.</Description>
+    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="Isola" Executable="Isola.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Isola"
+        Description="A dynamic island for Windows"
+        BackgroundColor="transparent"
+        Square150x150Logo="store\Square150x150Logo.png"
+        Square44x44Logo="store\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="store\Wide310x150Logo.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <desktop:Extension Category="windows.startupTask" Executable="Isola.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="IsolaStartup" Enabled="false" DisplayName="Isola" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <Capability Name="privateNetworkClientServer" />
+    <uap3:Capability Name="userNotificationListener" />
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+    <DeviceCapability Name="bluetooth" />
+    <DeviceCapability Name="radios" />
+  </Capabilities>
+</Package>

@@ -731,6 +731,8 @@ public sealed unsafe partial class App
         bool want = cfg.StartWithWindows;
         if (autostartWas == want) return;
         autostartWas = want;
+        // the Store version starts through its package's startup task instead
+        if (Packaging.IsStore) { _ = Task.Run(() => Packaging.SyncStartupTaskAsync(want)); return; }
         string exe = Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "Isola.exe");
         // schtasks takes a moment: off the UI thread
         Task.Run(() =>

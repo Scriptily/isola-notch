@@ -1,0 +1,6 @@
+{
+  "_comment": "Placeholders until the name is reserved in Partner Center (Product identity page). Replace all three with its exact values; they are public, not secrets.",
+  "Name": "Isola.Development",
+  "Publisher": "CN=Isola Development",
+  "PublisherDisplayName": "Isola"
+}

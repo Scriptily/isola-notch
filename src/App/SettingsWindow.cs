@@ -725,8 +725,13 @@ public sealed unsafe partial class SettingsWindow
         canvas.Text($"GPU: {Gfx.AdapterName}  ·  Memory: {proc.WorkingSet64 / 1048576.0:0} MB working set, {proc.PrivateMemorySize64 / 1048576.0:0} MB private", new Box(b.X + 20, b.Y + 34, b.W - 36, 18), 11.5f, Col.White.A(0.55f));
         canvas.Text($"Data folder: {Paths.Home}", new Box(b.X + 20, b.Y + 54, b.W - 36, 18), 11.5f, Col.White.A(0.55f));
         L.Header("Updates");
-        Toggle(L, "autoupd", "Update automatically", svc.Updates?.Status ?? "", work.AutoUpdate, v => work.AutoUpdate = v);
-        Button(L, "updnow", "Check for updates", $"Running v{(svc.Updates != null ? Updater.Short(svc.Updates.Current) : "?")}", "Check now", () => { checkAt = Ui.Clock.Now; apply(work.Clone()); _ = svc.Updates?.CheckAsync(true); }, svc.Updates?.Busy == true || Spinning(checkAt));
+        if (Packaging.IsStore)
+            Button(L, "updstore", "Updates", "The Microsoft Store keeps Isola up to date", "Open Store", () => Win32.ShellExecute("ms-windows-store://downloadsandupdates"));
+        else
+        {
+            Toggle(L, "autoupd", "Update automatically", svc.Updates?.Status ?? "", work.AutoUpdate, v => work.AutoUpdate = v);
+            Button(L, "updnow", "Check for updates", $"Running v{(svc.Updates != null ? Updater.Short(svc.Updates.Current) : "?")}", "Check now", () => { checkAt = Ui.Clock.Now; apply(work.Clone()); _ = svc.Updates?.CheckAsync(true); }, svc.Updates?.Busy == true || Spinning(checkAt));
+        }
         L.Header("Logs");
         Toggle(L, "verbose", "Verbose log", "Everything the island decides, for diagnosing glitches later", work.VerboseLog, v => work.VerboseLog = v);
         Button(L, "log", "Log file", Paths.LogFile, "Open log", () => { Log.Flush(); Win32.ShellExecute(Paths.LogFile); });
