@@ -39,7 +39,8 @@ business days, and the Store updates installed copies itself.
    "Isola" was taken, so the Store name is **Isola Notch** (the app still calls
    itself Isola).
 3. **Copy the identity.** Done: `identity.json` holds the values from the
-   product's Product identity page.
+   product's Product identity page. The Store ID is **9NW22R7PVDQT**
+   (listing: https://apps.microsoft.com/detail/9NW22R7PVDQT).
 4. **First submission, by hand.** Upload `dist\Isola-<version>.msix` and fill in
    the listing (text below). Microsoft's update automation only works for an
    app that's already live.
@@ -91,4 +92,4 @@ made from sample data by `make_screenshots.py`.
 
 > runFullTrust: Isola is a desktop app. It draws its window at the top of the screen with Direct2D, reads media sessions, Bluetooth devices and the clipboard history, and controls Phone Link calls through UI Automation, none of which run in an app container.
 >
-> unvirtualizedResources: to show each notification once, Isola turns off Windows' own banner and chime for each app while it shows notifications itself (a setting the user controls, explained in the app and the privacy policy). Those are the user's real per-app notification settings under HKCU\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings; with registry virtualization the change would go to a private copy and Windows would keep showing its banners. Isola saves the original values first and restores them when it stops, on quit, on sign-out, after a crash, and on uninstall. It also keeps its settings in %LOCALAPPDATA%\Isola, shared with the version from GitHub, so people moving between the two keep their settings.
+> unvirtualizedResources (the form allows 500 characters): So each notification shows once, Isola can turn off Windows' own banner and chime per app while it shows notifications itself. This is a user setting, explained in the app and the privacy policy. These are the user's real settings under HKCU\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings, so virtualized writes would do nothing. Originals are saved first and restored on quit, sign-out, crash and uninstall.
