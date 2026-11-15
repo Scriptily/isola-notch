@@ -65,9 +65,9 @@ The first public release.
 
 ### VirusTotal
 
-2 of 69 security vendors flagged `IsolaSetup.exe` on 2026-11-15. [Full report](https://www.virustotal.com/gui/file/a56960f656205ef37889f469112df6b23208bb8d1b85f14bff737f21a8d04b78)
+2 of 71 security vendors flagged `IsolaSetup.exe` on 2026-11-15. [Full report](https://www.virustotal.com/gui/file/eadf6631841398d7deba1fe98403dee29580c8ec2a562419526aa5684940e92a)
 
-- Bkav: W32.Malware.33DC69CE
-- Rising: Trojan.Kryptik@AI.82 (RDML:WPM+Tubt2AgGazkc3euQmQ)
+- Bkav: W32.Malware.DC1A85E5
+- Rising: Trojan.Kryptik@AI.82 (RDML:ZYZ9i+F12CoNAy15plJ/Gg)
 
 The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
