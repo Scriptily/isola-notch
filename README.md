@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="assets/readme/hello.gif" alt="Isola's notch saying hello as it starts" width="640">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hello-dark.gif">
+    <img src="assets/readme/hello-light.gif" alt="Isola's notch saying hello as it starts" width="640">
+  </picture>
 </p>
 
 <p align="center">
@@ -22,7 +25,7 @@ happening as it happens (a notification, a call, a song, your AirPods
 connecting) and opens into a dashboard when you click it. Press `Alt+Space`
 and it turns into a launcher.
 
-<p align="center"><img src="assets/readme/open.gif" alt="The island opening into the Home dashboard" width="651"></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/open-dark.gif"><img src="assets/readme/open-light.gif" alt="The island opening into the Home dashboard" width="651"></picture></p>
 
 ## Light on your PC
 
@@ -48,7 +51,7 @@ back if Isola ever stops (more on that [below](#what-it-changes-in-windows)).
 
 ### Popups
 
-<p align="center"><img src="assets/readme/popups.gif" alt="A message, an incoming call, a song, AirPods and a timer, one after another" width="484"></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/popups-dark.gif"><img src="assets/readme/popups-light.gif" alt="A message, an incoming call, a song, AirPods and a timer, one after another" width="484"></picture></p>
 
 Notifications with the sending app's icon, calls from your phone through Phone
 Link (answer or decline right on the island), track changes, Bluetooth devices
@@ -64,8 +67,8 @@ pick from, or you can turn them off.
 
 | | |
 |---|---|
-| <img src="assets/readme/home.png" alt="Home Assistant tiles" width="420"> | <img src="assets/readme/weather.png" alt="Weather" width="420"> |
-| <img src="assets/readme/notes.png" alt="Notes and to-dos" width="420"> | <img src="assets/readme/timer.png" alt="Timer" width="420"> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/home-dark.png"><img src="assets/readme/home-light.png" alt="Home Assistant tiles" width="420"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/weather-dark.png"><img src="assets/readme/weather-light.png" alt="Weather" width="420"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/notes-dark.png"><img src="assets/readme/notes-light.png" alt="Notes and to-dos" width="420"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/timer-dark.png"><img src="assets/readme/timer-light.png" alt="Timer" width="420"></picture> |
 
 Click the island and scroll sideways through the tabs:
 
@@ -86,7 +89,7 @@ Click the island and scroll sideways through the tabs:
 
 ### Search and commands
 
-<p align="center"><img src="assets/readme/search.gif" alt="Typing 15% of 80 into the launcher" width="734"></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/search-dark.gif"><img src="assets/readme/search-light.gif" alt="Typing 15% of 80 into the launcher" width="734"></picture></p>
 
 `Alt+Space` (or pull the island down) opens a launcher that answers as you
 type: math (`15% of 80`), units (`10 km to mi`), colors (`#ff8800`), the time
@@ -95,7 +98,7 @@ in a city, and more than 60 commands for power, Windows settings and your folder
 volume, and `g`, `yt`, `w` or `gh` followed by a query search the web. Apps and
 files come first. Type `help` to see everything.
 
-<p align="center"><img src="assets/readme/commands.png" alt="The help list in the launcher" width="560"></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/commands-dark.png"><img src="assets/readme/commands-light.png" alt="The help list in the launcher" width="560"></picture></p>
 
 ### Settings
 

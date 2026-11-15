@@ -50,7 +50,9 @@
 
   <ItemGroup>
     <Compile Include="src\**\*.cs" />
-    <None Include="assets\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Only what the app loads at run time: the logos and README images in
+         assets\ stay out of the install. -->
+    <None Include="assets\island.ico" CopyToOutputDirectory="PreserveNewest" />
     <InternalsVisibleTo Include="Isola.Tests" />
   </ItemGroup>
 

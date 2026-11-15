@@ -12,6 +12,8 @@ GitHub release notes.
 - A Home Assistant token saved before 1.0.0, or typed into the config file by
   hand, stayed in plain text on disk until a setting next changed. Isola now
   encrypts it the first time it starts.
+- The install carried the project's logo images, which the app never uses.
+  Only its icon is installed now.
 
 ## [1.0.0] - 2026-11-15
 

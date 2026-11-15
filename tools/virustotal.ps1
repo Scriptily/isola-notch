@@ -12,9 +12,11 @@
   that already exists and update its notes:
 
 .EXAMPLE
-  .\tools\virustotal.ps1 -Version 1.0.0
+  .\tools\virustotal.ps1 -Rescan 1.0.0
 #>
-param([string]$Version)
+# Not "-Version": build.ps1 dot-sources this file, and a parameter named
+# Version would overwrite its $version (PowerShell names ignore case).
+param([string]$Rescan)
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Net.Http
@@ -69,7 +71,7 @@ function Invoke-VirusTotal([string]$File) {
             $a = Get-VtJson $client "https://www.virustotal.com/api/v3/analyses/$analysis"
             Write-Host "   analysis $($a.data.attributes.status)"
         } while ($a.data.attributes.status -ne 'completed' -and ((Get-Date) - $t0).TotalMinutes -lt 15)
-        if ($a.data.attributes.status -ne 'completed') { throw "VirusTotal didn't finish the analysis in 15 minutes; run tools\virustotal.ps1 -Version <x.y.z> later" }
+        if ($a.data.attributes.status -ne 'completed') { throw "VirusTotal didn't finish the analysis in 15 minutes; run tools\virustotal.ps1 -Rescan <x.y.z> later" }
         # The file's report can lag the finished analysis by a minute or two.
         $t0 = Get-Date
         do {
@@ -77,7 +79,7 @@ function Invoke-VirusTotal([string]$File) {
             $known = Get-VtJson $client "https://www.virustotal.com/api/v3/files/$sha"
         } while (-not $known.data.attributes.last_analysis_results -and ((Get-Date) - $t0).TotalMinutes -lt 5)
     }
-    if (-not $known.data.attributes.last_analysis_results) { throw "VirusTotal has no report for $sha yet; run tools\virustotal.ps1 -Version <x.y.z> later" }
+    if (-not $known.data.attributes.last_analysis_results) { throw "VirusTotal has no report for $sha yet; run tools\virustotal.ps1 -Rescan <x.y.z> later" }
     $attr = $known.data.attributes
     $s = $attr.last_analysis_stats
     $flagged = @($attr.last_analysis_results.PSObject.Properties | Where-Object { $_.Value.category -in 'malicious', 'suspicious' } |
@@ -117,16 +119,16 @@ function Add-ScanToChangelog([string]$Path, [string]$Version, $scan) {
     [IO.File]::WriteAllText($Path, $new.TrimEnd() + "`n")
 }
 
-if ($Version) {
+if ($Rescan) {
     # An existing release: scan its published asset and refresh the notes.
     $root = Split-Path $PSScriptRoot -Parent
-    $repo = "Scriptily/isola-notch"; $tag = "v$Version"
-    $tmp = Join-Path ([IO.Path]::GetTempPath()) "isola-vt-$Version"
+    $repo = "Scriptily/isola-notch"; $tag = "v$Rescan"
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) "isola-vt-$Rescan"
     New-Item -ItemType Directory -Force $tmp | Out-Null
     gh release download $tag --repo $repo --pattern IsolaSetup.exe --dir $tmp --clobber
     if ($LASTEXITCODE) { throw "couldn't download $tag" }
     $scan = Invoke-VirusTotal (Join-Path $tmp 'IsolaSetup.exe')
-    Add-ScanToChangelog (Join-Path $root 'CHANGELOG.md') $Version $scan
+    Add-ScanToChangelog (Join-Path $root 'CHANGELOG.md') $Rescan $scan
     $notes = gh release view $tag --repo $repo --json body --jq .body
     if ($LASTEXITCODE) { throw "couldn't read the notes of $tag" }
     $notes = [regex]::Replace(($notes -join "`n"), "(?ms)^### VirusTotal\r?\n.*?(?=^### |^---|\z)", "").TrimEnd()
