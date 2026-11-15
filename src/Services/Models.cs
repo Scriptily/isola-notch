@@ -22,8 +22,14 @@ public sealed class MediaInfo
     public string ArtKey = "";         // changes when the art changes
     public Color4[] Palette;           // dominant colors of the art, vivid
     public bool IsVideo;
+    public double PlayingSince = double.NaN;   // monotonic seconds it last started playing; NaN while paused
 
     public string TrackKey => $"{SessionId}|{Title}|{Artist}";
+
+    /// <summary>A session with nothing to show but the app: Chrome's "A site is playing media", an empty title, or the app's own name.</summary>
+    public bool IsPlaceholder =>
+        string.IsNullOrWhiteSpace(Title) || Title.Contains("is playing media", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(Title.Trim(), AppName?.Trim(), StringComparison.OrdinalIgnoreCase);
     public double LivePosition(double now) =>
         Duration <= 0 ? Position : Math.Clamp(Position + (Playing ? (now - PositionStamp) * Rate : 0), 0, Duration);
 }

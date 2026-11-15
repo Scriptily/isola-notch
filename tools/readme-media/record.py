@@ -58,12 +58,19 @@ def isola_running():
 
 
 def quit_island():
-    h = u.FindWindowW("Isola.Input", None)
-    if h:
-        u.PostMessageW(h, WM_QUIT_ISLAND, 0, 0)
-    t0 = time.time()
-    while isola_running() and time.time() - t0 < 10:
-        time.sleep(0.2)
+    # An installed island started by the previous take may still be coming up
+    # (Explorer launches it asynchronously): ask again until none is left for a
+    # moment, or the development build would find it running and exit.
+    for _ in range(4):
+        h = u.FindWindowW("Isola.Input", None)
+        if h:
+            u.PostMessageW(h, WM_QUIT_ISLAND, 0, 0)
+        t0 = time.time()
+        while isola_running() and time.time() - t0 < 10:
+            time.sleep(0.2)
+        time.sleep(1.5)
+        if not isola_running():
+            return
 
 
 def rect(h):

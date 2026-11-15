@@ -17,6 +17,26 @@ GitHub release notes.
   each app's Windows notification setting and puts it back.
 - Isola.exe and IsolaSetup.exe show Isola as product and company in their file
   properties.
+- The volume popup shows the muted speaker and 0 when muted, instead of a
+  "Muted" label that didn't fit.
+- Settings uses a stronger tint when maximized, so a busy background doesn't
+  wash color across the whole window.
+
+### Fixed
+
+- Hovering video previews on a web page (a TikTok profile, for example) made
+  the island switch between the page and the song playing two or three times a
+  second, re-coloring its glow each time. A newly playing session now has to
+  keep playing for a moment (longer if it's only "a site is playing media")
+  before it takes over. Sessions you pick, and falling back when one closes,
+  are still instant.
+- Each of those short-lived sessions left three event subscriptions behind.
+- Sound previews in Settings: a ringtone picked within three seconds of
+  another was cut short by the first one's stop. Short sounds now start with a
+  moment of silence, longer on Bluetooth headphones, so an output waking from
+  idle no longer clips them or swallows them until a second click.
+- The "Spotify isn't playing on any device" line sat right under the play
+  button; it now has room of its own.
 
 ## [1.0.1] - 2026-11-15
 

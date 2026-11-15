@@ -695,6 +695,7 @@ public sealed class HudPage : Page
             c.Text(label ?? "", new Box(a.X + 36, a.Y, a.W - 50, a.H), 13, Col.White.A(0.9f * t), FontWeight.SemiBold);
             return;
         }
+        // muted: the crossed-out speaker and "0" (the word "Muted" didn't fit where the number goes)
         char g = k switch
         {
             HudKind.Brightness => Glyph.Brightness,
@@ -706,6 +707,6 @@ public sealed class HudPage : Page
         var track = new Box(a.X + 38, a.CY - 3, a.W - 38 - 50, 6);
         c.Fill(track, Col.White.A(0.18f * t), 3);
         c.Fill(new Box(track.X, track.Y, Math.Max(6, track.W * shown), 6), (k == HudKind.Mute ? Col.Gray(0.5f) : accent).A(t), 3);
-        c.Text(k == HudKind.Mute ? "Muted" : $"{Math.Round(v * 100)}", new Box(a.Right - 46, a.Y, 34, a.H), 12, Col.White.A(0.8f * t), FontWeight.SemiBold, HAlign.Right);
+        c.Text(k == HudKind.Mute ? "0" : $"{Math.Round(v * 100)}", new Box(a.Right - 46, a.Y, 34, a.H), 12, Col.White.A(0.8f * t), FontWeight.SemiBold, HAlign.Right);
     }
 }

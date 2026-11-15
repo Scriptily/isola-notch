@@ -23,6 +23,8 @@ public sealed partial class MediaService : IMediaSourceEx
     readonly Dictionary<string, GSession> sessions = new();
     readonly Dictionary<string, MediaInfo> infos = new();
     string pinned;          // user picked a session explicitly
+    readonly Dictionary<string, Action> unhook = new();
+    long recheck;
     public MediaInfo Current { get; private set; }
     public IReadOnlyList<MediaInfo> Sessions => infos.Values.ToList();
     public double LastPlayingAt { get; private set; } = -1e9;
@@ -71,6 +73,9 @@ public sealed partial class MediaService : IMediaSourceEx
         }
         foreach (var gone in sessions.Keys.Where(k => !seen.Contains(k)).ToList())
         {
+            // A site's preview opens and closes a session every few hundred ms;
+            // without this every one left three event subscriptions behind.
+            if (unhook.Remove(gone, out var off)) { try { off(); } catch { } }
             sessions.Remove(gone); infos.Remove(gone);
             if (pinned == gone) pinned = null;
             Log.I("media", $"session closed: {gone}");
@@ -80,9 +85,13 @@ public sealed partial class MediaService : IMediaSourceEx
 
     void Hook(GSession s, string id)
     {
-        s.MediaPropertiesChanged += (_, _) => _ = RefreshProps(id);
-        s.PlaybackInfoChanged += (_, _) => Ui.Post(() => { RefreshPlayback(id); Choose(); });
-        s.TimelinePropertiesChanged += (_, _) => Ui.Post(() => { if (RefreshTimeline(id) && Current?.SessionId == id) Changed?.Invoke(); });
+        Windows.Foundation.TypedEventHandler<GSession, MediaPropertiesChangedEventArgs> props = (_, _) => _ = RefreshProps(id);
+        Windows.Foundation.TypedEventHandler<GSession, PlaybackInfoChangedEventArgs> playback = (_, _) => Ui.Post(() => { RefreshPlayback(id); Choose(); });
+        Windows.Foundation.TypedEventHandler<GSession, TimelinePropertiesChangedEventArgs> timeline = (_, _) => Ui.Post(() => { if (RefreshTimeline(id) && Current?.SessionId == id) Changed?.Invoke(); });
+        s.MediaPropertiesChanged += props;
+        s.PlaybackInfoChanged += playback;
+        s.TimelinePropertiesChanged += timeline;
+        unhook[id] = () => { s.MediaPropertiesChanged -= props; s.PlaybackInfoChanged -= playback; s.TimelinePropertiesChanged -= timeline; };
     }
 
     async Task RefreshProps(string id)
@@ -138,6 +147,8 @@ public sealed partial class MediaService : IMediaSourceEx
             var pi = s.GetPlaybackInfo();
             bool was = m.Playing;
             m.Playing = pi.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            if (m.Playing && !was) m.PlayingSince = clock.Now;
+            else if (!m.Playing) m.PlayingSince = double.NaN;
             m.CanNext = pi.Controls.IsNextEnabled; m.CanPrev = pi.Controls.IsPreviousEnabled;
             m.CanSeek = pi.Controls.IsPlaybackPositionEnabled; m.CanPlayPause = pi.Controls.IsPlayPauseToggleEnabled || pi.Controls.IsPlayEnabled || pi.Controls.IsPauseEnabled;
             int? repeat = pi.AutoRepeatMode switch { Windows.Media.MediaPlaybackAutoRepeatMode.Track => 1, Windows.Media.MediaPlaybackAutoRepeatMode.List => 2, null => -1, _ => 0 };
@@ -191,23 +202,12 @@ public sealed partial class MediaService : IMediaSourceEx
     internal static bool TimelineMoved(double predicted, double reported, double oldDuration, double newDuration) =>
         Math.Abs(reported - predicted) > 1.0 || Math.Abs(newDuration - oldDuration) > 0.5;
 
-    /// <summary>
-    /// Which session to show: one the user picked; else whatever is playing
-    /// (Windows' "current" is often a paused tab); else Windows' current.
-    /// </summary>
     void Choose()
     {
         var ignored = Ignored();
-        MediaInfo pick = null;
-        if (pinned != null && infos.TryGetValue(pinned, out var p)) pick = p;
-        pick ??= infos.Values.FirstOrDefault(i => i.Playing && !IsIgnored(i, ignored) && !string.IsNullOrEmpty(i.Title) && i.SessionId == SafeCurrentId());
-        pick ??= infos.Values.FirstOrDefault(i => i.Playing && !IsIgnored(i, ignored) && !string.IsNullOrEmpty(i.Title));
-        if (pick == null)
-        {
-            string cur = SafeCurrentId();
-            if (cur != null && infos.TryGetValue(cur, out var c) && !IsIgnored(c, ignored)) pick = c;
-        }
-        pick ??= infos.Values.FirstOrDefault(i => !IsIgnored(i, ignored) && !string.IsNullOrEmpty(i.Title));
+        var (pick, recheckAt) = Pick(Current, infos.Values.ToList(), pinned, SafeCurrentId(), i => IsIgnored(i, ignored), clock.Now);
+        Ui.Cancel(ref recheck);
+        if (!double.IsNaN(recheckAt)) recheck = Ui.After(Math.Max(0.05, recheckAt - clock.Now + 0.02), Choose);
         if (!ReferenceEquals(pick, Current))
         {
             var old = Current;
@@ -216,6 +216,44 @@ public sealed partial class MediaService : IMediaSourceEx
             if (pick != null && !string.IsNullOrEmpty(pick.Title) && old?.TrackKey != pick.TrackKey) TrackChanged?.Invoke(old, pick);
         }
         Changed?.Invoke();
+    }
+
+    /// <summary>How long a session that just started playing has to keep playing before it takes over the island.</summary>
+    internal const double Settle = 1.5, PlaceholderSettle = 4;
+
+    /// <summary>
+    /// Which session to show: one the user picked; else whatever is playing
+    /// (Windows' "current" is often a paused tab); else Windows' current.
+    ///
+    /// A session that has only just started playing doesn't take over from the
+    /// one on screen until it has kept playing a moment (longer if it's only a
+    /// "site is playing media" placeholder). Hovering videos on a profile page
+    /// opens and closes a session every few hundred ms; without the wait the
+    /// island switched to it and back each time, re-coloring its glow on every
+    /// switch, two or three times a second. Returns the pick and, while a
+    /// newcomer is waiting, when to look again (NaN otherwise).
+    /// </summary>
+    internal static (MediaInfo pick, double recheckAt) Pick(MediaInfo current, IReadOnlyList<MediaInfo> all, string pinned,
+        string windowsCurrent, Func<MediaInfo, bool> ignored, double now)
+    {
+        MediaInfo want = null;
+        if (pinned != null) want = all.FirstOrDefault(i => i.SessionId == pinned);
+        want ??= all.FirstOrDefault(i => i.Playing && !ignored(i) && !string.IsNullOrEmpty(i.Title) && i.SessionId == windowsCurrent);
+        want ??= all.FirstOrDefault(i => i.Playing && !ignored(i) && !string.IsNullOrEmpty(i.Title));
+        if (want == null)
+        {
+            var c = all.FirstOrDefault(i => i.SessionId == windowsCurrent);
+            if (c != null && !ignored(c)) want = c;
+        }
+        want ??= all.FirstOrDefault(i => !ignored(i) && !string.IsNullOrEmpty(i.Title));
+        bool currentAlive = current != null && all.Contains(current) && !ignored(current);
+        if (currentAlive && want != null && !ReferenceEquals(want, current) && want.SessionId != pinned && want.Playing)
+        {
+            double settle = want.IsPlaceholder && !current.IsPlaceholder ? PlaceholderSettle : Settle;
+            double since = double.IsNaN(want.PlayingSince) ? now : want.PlayingSince;
+            if (now - since < settle) return (current, since + settle);
+        }
+        return (want, double.NaN);
     }
 
     static bool IsIgnored(MediaInfo i, IReadOnlyCollection<string> ignored) =>

@@ -259,8 +259,13 @@ public sealed unsafe partial class SettingsWindow
         // Windows' acrylic is the blurred desktop behind the window; a light
         // tint keeps text readable while it shows through. (The heavy tint and
         // a drawn grain over it read as a flat, grainy gray: the glass never showed.)
-        c.Fill(new Box(0, 0, 220, H), Col.Hex(0x202026, 0.42f));
-        c.Fill(new Box(220, 0, W - 220, H), Col.Hex(0x18181c, 0.58f));
+        // Maximized, the glass spans the whole screen: whatever is behind (the
+        // wallpaper, a page full of thumbnails) showed through as a wash of color
+        // across all of it, where the windowed glass mostly sits over dark app
+        // windows. A maximized window gets a stronger tint, as Windows' own do.
+        float max = ux.Anim("set:max", Win32.IsZoomed(hwnd) ? 1 : 0, SpringSpec.Smooth);
+        c.Fill(new Box(0, 0, 220, H), Col.Hex(0x202026, 0.42f + 0.30f * max));
+        c.Fill(new Box(220, 0, W - 220, H), Col.Hex(0x18181c, 0.58f + 0.26f * max));
         // sidebar
         c.Text("Isola", new Box(24, 22, 190, 30), 18, Col.White, FontWeight.SemiBold);
         c.Text("Settings", new Box(24, 46, 190, 20), 12, Col.White.A(0.5f), FontWeight.Medium);

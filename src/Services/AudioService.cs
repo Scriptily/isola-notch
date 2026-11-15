@@ -111,6 +111,9 @@ public sealed partial class AudioService
 {
     static readonly Guid CLSID_Enumerator = new("BCDE0395-E52F-467C-8E3D-C4579291692E");
     static readonly PROPERTYKEY PKEY_FriendlyName = new() { fmtid = new Guid("a45c254e-df1c-4efd-8020-67d146a850e0"), pid = 14 };
+    // DEVPKEY_Device_EnumeratorName: the bus the endpoint's device hangs off; DEVPKEY_Device_ContainerId: the physical device it belongs to
+    static readonly PROPERTYKEY PKEY_EnumeratorName = new() { fmtid = new Guid("a45c254e-df1c-4efd-8020-67d146a850e0"), pid = 24 };
+    static readonly PROPERTYKEY PKEY_ContainerId = new() { fmtid = new Guid("8c7ed206-3f8a-4827-b3ab-ae9e1faefc6c"), pid = 2 };
     readonly StrategyBasedComWrappers cw = new();
     IMMDeviceEnumerator enumr;
     IAudioEndpointVolume vol;
@@ -120,6 +123,31 @@ public sealed partial class AudioService
     public float Volume { get; private set; }
     public bool Muted { get; private set; }
     public string DeviceName { get; private set; } = "";
+    /// <summary>The default output's bus ("HDAUDIO", "BTHENUM", "INTELAUDIO", ...) and the physical device it belongs to.</summary>
+    public string Bus { get; private set; } = "";
+    public Guid ContainerId { get; private set; }
+
+    /// <summary>
+    /// Whether an output is a Bluetooth device. The bus alone can't tell: with
+    /// Intel's Bluetooth audio offload, AirPods' headphone output reports
+    /// "INTELAUDIO" (as built-in speakers do on many Intel laptops), not
+    /// "BTHENUM". What does tell is the container: every part of one physical
+    /// device shares a container ID, so an output belongs to a paired Bluetooth
+    /// device when their containers match. An older pairing can leave an output
+    /// with a stale container, so a match on the device's name counts too.
+    /// </summary>
+    internal static bool IsBluetoothOutput(string bus, Guid container, string friendlyName, IEnumerable<BtDevice> paired)
+    {
+        if ((bus ?? "").StartsWith("BTH", StringComparison.OrdinalIgnoreCase)) return true;
+        var list = paired?.ToList() ?? new();
+        if (container != Guid.Empty && list.Any(d => Guid.TryParse(d.ContainerId, out var g) && g == container)) return true;
+        // "Headphones (AirPods Pro 2 - Find My)": the part in parentheses is the device
+        string n = friendlyName ?? "";
+        int open = n.LastIndexOf('('), close = n.LastIndexOf(')');
+        string device = open >= 0 && close > open ? n[(open + 1)..close] : n;
+        device = BluetoothService.CleanName(device);
+        return device.Length > 0 && list.Any(d => string.Equals(BluetoothService.CleanName(d.Name), device, StringComparison.OrdinalIgnoreCase));
+    }
     public event Action<bool, float> VolumeChanged;      // UI thread
     public event Action<string> OutputChanged;           // UI thread, friendly name
     float smoothed;
@@ -142,12 +170,12 @@ public sealed partial class AudioService
             {
                 if (id == boundId) return;
                 Bind();
-                Log.I("audio", "default output -> " + DeviceName);
+                Log.I("audio", $"default output -> {DeviceName} on {Bus}");
                 OutputChanged?.Invoke(DeviceName);
             });
             enumr.RegisterEndpointNotificationCallback(devCb);
             Bind();
-            Log.I("audio", $"output '{DeviceName}' volume {Volume:P0}{(Muted ? " muted" : "")}");
+            Log.I("audio", $"output '{DeviceName}' on {Bus} volume {Volume:P0}{(Muted ? " muted" : "")}");
         }
         catch (Exception ex) { Log.E("audio", "Core Audio unavailable: no volume HUD or waveform levels", ex); }
     }
@@ -169,14 +197,31 @@ public sealed partial class AudioService
             meter = (IAudioMeterInformation)cw.GetOrCreateObjectForComInstance(pm, CreateObjectFlags.None); Marshal.Release(pm);
         }
         DeviceName = FriendlyName(dev) ?? "Speakers";
+        Bus = FriendlyName(dev, PKEY_EnumeratorName) ?? "";
+        ContainerId = Container(dev);
     }
 
-    static string FriendlyName(IMMDevice dev)
+    static Guid Container(IMMDevice dev)
+    {
+        try
+        {
+            if (dev.OpenPropertyStore(0, out var ps) < 0) return Guid.Empty;
+            if (ps.GetValue(PKEY_ContainerId, out var pv) < 0) return Guid.Empty;
+            var g = pv.vt == 72 /* VT_CLSID */ && pv.p != 0 ? Marshal.PtrToStructure<Guid>(pv.p) : Guid.Empty;
+            PropVariantClear(ref pv);
+            return g;
+        }
+        catch { return Guid.Empty; }
+    }
+
+    static string FriendlyName(IMMDevice dev) => FriendlyName(dev, PKEY_FriendlyName);
+
+    static string FriendlyName(IMMDevice dev, PROPERTYKEY key)
     {
         try
         {
             if (dev.OpenPropertyStore(0, out var ps) < 0) return null;
-            if (ps.GetValue(PKEY_FriendlyName, out var pv) < 0) return null;
+            if (ps.GetValue(key, out var pv) < 0) return null;
             string s = pv.vt == 31 && pv.p != 0 ? Marshal.PtrToStringUni(pv.p) : null;
             PropVariantClear(ref pv);
             return s;

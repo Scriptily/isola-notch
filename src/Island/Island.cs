@@ -351,9 +351,7 @@ public sealed partial class Island
     double lastTrackAt = double.NegativeInfinity;
     readonly Dictionary<string, double> announced = new();
 
-    internal static bool IsPlaceholder(MediaInfo m) =>
-        string.IsNullOrWhiteSpace(m?.Title) || m.Title.Contains("is playing media", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(m.Title.Trim(), m.AppName?.Trim(), StringComparison.OrdinalIgnoreCase);
+    internal static bool IsPlaceholder(MediaInfo m) => m == null || m.IsPlaceholder;
 
     void Announce()
     {
@@ -610,6 +608,7 @@ public sealed partial class Island
             SetMode(Mode.Expanded, "showcase");
             if (t >= 0) Tab = t;
         }
+        else if (head == "hud") Hud(arg == "mute" ? HudKind.Mute : HudKind.Volume, 0.62f);
         else if (head == "search")
         {
             SetMode(Mode.Search, "showcase");

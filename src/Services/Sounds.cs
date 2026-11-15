@@ -68,6 +68,23 @@ public static class Sounds
     static GCHandle playing;
     static readonly object gate = new();
 
+    // An idle output dozes: Bluetooth headphones drop the start of a sound while
+    // the link wakes (several hundred ms), and laptop speakers power down too. A
+    // short chime then came out clipped, or not at all until a second click
+    // found the device awake. Short sounds start with a little silence for the
+    // wake-up to eat; looping ones don't, so their rhythm stays even.
+    internal const double LeadIn = 0.15, LeadInBluetooth = 0.4;
+
+    /// <summary>Whether the default output is a Bluetooth device (set by the app from AudioService).</summary>
+    public static Func<bool> OutputIsBluetooth = () => false;
+
+    /// <summary>Where a sound goes: PlaySound from memory, or a stand-in in tests (which mustn't make noise).</summary>
+    internal static Func<nint, uint, bool> Output = (wav, flags) => Win32.PlaySoundMem(wav, 0, flags);
+    internal static Action Silence = () => Win32.PlaySound(null, 0, 0);
+
+    /// <summary>"kind:variant" of the sound playing, or null.</summary>
+    public static string Playing { get; private set; }
+
     /// <summary>Plays a sound (its chosen <paramref name="variant"/>) at <paramref name="volume"/> (0..1). Never throws.</summary>
     public static void Play(string kind, float volume, string variant = null)
     {
@@ -76,15 +93,25 @@ public static class Sounds
             if (kind == null || volume <= 0.001f) return;
             variant = Valid(kind, variant);
             int vkey = (int)Math.Round(Math.Clamp(volume, 0, 1) * 20);   // cached in 5% steps
+            double lead = Loops(kind) ? 0 : OutputIsBluetooth() ? LeadInBluetooth : LeadIn;
+            var key = (kind + ":" + variant + ":" + lead, vkey);
             byte[] wav;
             lock (gate)
             {
-                if (!cache.TryGetValue((kind + ":" + variant, vkey), out wav)) cache[(kind + ":" + variant, vkey)] = wav = Render(kind, vkey / 20f, variant);
+                if (!cache.TryGetValue(key, out wav)) cache[key] = wav = Render(kind, vkey / 20f, variant, lead);
                 Stop();
                 // PlaySound reads the memory while it plays: keep it pinned until the next sound
                 playing = GCHandle.Alloc(wav, GCHandleType.Pinned);
                 uint flags = Win32.SND_MEMORY | Win32.SND_ASYNC | Win32.SND_NODEFAULT | (Loops(kind) ? Win32.SND_LOOP : 0);
-                Win32.PlaySoundMem(playing.AddrOfPinnedObject(), 0, flags);
+                bool ok = Output(playing.AddrOfPinnedObject(), flags);
+                if (!ok)
+                {
+                    // refused (the device was busy switching): once more, a moment later
+                    Log.W("sound", $"{kind}: PlaySound refused; trying again");
+                    Thread.Sleep(40);
+                    ok = Output(playing.AddrOfPinnedObject(), flags);
+                }
+                Playing = ok ? kind + ":" + variant : null;
             }
         }
         catch (Exception ex) { Log.D("sound", $"{kind}: {ex.Message}"); }
@@ -94,9 +121,24 @@ public static class Sounds
     {
         lock (gate)
         {
-            try { Win32.PlaySound(null, 0, 0); } catch { }
+            try { Silence(); } catch { }
             if (playing.IsAllocated) playing.Free();
+            Playing = null;
         }
+    }
+
+    static long previewStop;
+
+    /// <summary>
+    /// Settings: hear a sound as it's picked; a looping one plays a few seconds.
+    /// Each preview cancels the previous one's stop, which otherwise cut short a
+    /// ringtone picked within three seconds of another.
+    /// </summary>
+    public static void Preview(string kind, float volume, string variant)
+    {
+        Ui.Cancel(ref previewStop);
+        Play(kind, volume, variant);
+        if (Loops(kind)) previewStop = Ui.After(3.2, () => { previewStop = 0; Stop(); });
     }
 
     // ---- synthesis ------------------------------------------------------------
@@ -134,7 +176,7 @@ public static class Sounds
     }
 
     /// <summary>The sound as a 16-bit mono WAV, peaking at <paramref name="volume"/> of full scale. Public for tests.</summary>
-    public static byte[] Render(string kind, float volume, string variant = null)
+    public static byte[] Render(string kind, float volume, string variant = null, double leadIn = 0)
     {
         variant = Valid(kind, variant);
         float[] buf;
@@ -221,7 +263,7 @@ public static class Sounds
             float edge = i >= buf.Length - fade ? (buf.Length - 1 - i) / (float)fade : 1;
             buf[i] *= g * edge;
         }
-        return Wav(buf);
+        return Wav(buf, (int)(leadIn * Rate));
     }
 
     static float[] DeviceSound(string kind, string voice)
@@ -243,14 +285,15 @@ public static class Sounds
         return buf;
     }
 
-    static byte[] Wav(float[] s)
+    static byte[] Wav(float[] s, int silence = 0)
     {
         using var ms = new MemoryStream();
         using var w = new BinaryWriter(ms);
-        int data = s.Length * 2;
+        int data = (silence + s.Length) * 2;
         w.Write("RIFF"u8); w.Write(36 + data); w.Write("WAVE"u8);
         w.Write("fmt "u8); w.Write(16); w.Write((short)1); w.Write((short)1); w.Write(Rate); w.Write(Rate * 2); w.Write((short)2); w.Write((short)16);
         w.Write("data"u8); w.Write(data);
+        for (int i = 0; i < silence; i++) w.Write((short)0);
         foreach (var v in s) w.Write((short)Math.Clamp(v * 32767, -32768, 32767));
         w.Flush();
         return ms.ToArray();

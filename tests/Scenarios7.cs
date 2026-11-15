@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Net;
 using System.Net.Sockets;
@@ -861,5 +862,118 @@ public static partial class Scenarios
             Eq(false, HomeAssistant.InsecureRemote(ok), ok);
         foreach (var bad in new[] { "http://ha.example.com", "http://203.0.113.9:8123" })
             Eq(true, HomeAssistant.InsecureRemote(bad), bad);
+    }
+
+    [Scenario("hovering previews on a web page doesn't flip the island between them and the song; media that keeps playing still takes over")]
+    public static void MediaSessionsSettle()
+    {
+        var spotify = new MediaInfo { SessionId = "Spotify.exe", AppName = "Spotify", Title = "After Death", Artist = "From Ashes to New", Playing = true, PlayingSince = 0 };
+        var all = new List<MediaInfo> { spotify };
+        Func<MediaInfo, bool> none = _ => false;
+        MediaInfo current = spotify;
+        double now = 100;
+        int flips = 0;
+        void Step(string windowsCurrent)
+        {
+            var (pick, _) = MediaService.Pick(current, all, null, windowsCurrent, none, now);
+            if (!ReferenceEquals(pick, current)) flips++;
+            current = pick;
+        }
+        // as logged: Chrome's session appears playing, Windows makes it "current", and it closes 0.7 s later
+        for (int i = 0; i < 20; i++)
+        {
+            var chrome = new MediaInfo { SessionId = "Chrome", AppName = "Chrome", Title = "A site is playing media", Playing = true, PlayingSince = now };
+            all.Add(chrome); Step("Chrome");
+            now += 0.35; Step("Chrome");
+            now += 0.35; all.Remove(chrome); Step("Spotify.exe");
+            now += 0.05;
+        }
+        Eq(0, flips, "the island stays on Spotify through 20 hover previews");
+        Eq("Spotify", current.AppName, "and shows Spotify");
+
+        // a video that keeps playing does take over, once it has played a moment
+        var video = new MediaInfo { SessionId = "Chrome", AppName = "Chrome", Title = "A site is playing media", Playing = true, PlayingSince = now };
+        all.Add(video);
+        var (p1, recheck) = MediaService.Pick(current, all, null, "Chrome", none, now + 1);
+        Eq("Spotify", p1.AppName, "a placeholder playing for 1 s waits");
+        True(Math.Abs(recheck - (now + MediaService.PlaceholderSettle)) < 1e-9, "and asks to be looked at again when its wait is up: " + recheck);
+        var (p2, _) = MediaService.Pick(current, all, null, "Chrome", none, now + MediaService.PlaceholderSettle + 0.01);
+        Eq("Chrome", p2.AppName, "after the wait it is shown");
+        all.Remove(video);
+
+        // a real title waits less
+        var yt = new MediaInfo { SessionId = "Chrome", AppName = "Chrome", Title = "Lo-fi beats", Artist = "Some Channel", Playing = true, PlayingSince = now };
+        all.Add(yt);
+        Eq("Spotify", MediaService.Pick(current, all, null, "Chrome", none, now + 1).pick.AppName, "a titled video playing for 1 s still waits");
+        Eq("Chrome", MediaService.Pick(current, all, null, "Chrome", none, now + MediaService.Settle + 0.01).pick.AppName, "and is shown after 1.5 s");
+
+        // picking a session yourself is instant, and the shown one closing falls back at once
+        Eq("Chrome", MediaService.Pick(current, all, "Chrome", "Chrome", none, now).pick.AppName, "a session you pick shows at once");
+        var (p3, _) = MediaService.Pick(yt, new List<MediaInfo> { spotify }, null, "Spotify.exe", none, now);
+        Eq("Spotify", p3.AppName, "when the shown session closes, the island falls back immediately");
+        Eq("Chrome", MediaService.Pick(null, all, null, "Chrome", none, now).pick.AppName, "with nothing shown yet, what's playing shows at once");
+    }
+
+    [Scenario("sound previews: a new pick isn't cut short by the last one's stop, short sounds start with silence for a dozing output (longer on Bluetooth), and a refused PlaySound is retried")]
+    public static void SoundPreviews()
+    {
+        var (_, _, clock) = NewIsland();
+        var calls = new List<(int silentSamples, uint flags)>();
+        bool refuseNext = false;
+        var oldOut = Sounds.Output; var oldSilence = Sounds.Silence; var oldBt = Sounds.OutputIsBluetooth;
+        // count the leading silent samples of the WAV PlaySound is handed (data starts at byte 44)
+        Sounds.Output = (wav, flags) =>
+        {
+            int bytes = Marshal.ReadInt32(wav, 40), n = 0;
+            while (n < bytes / 2 && Marshal.ReadInt16(wav, 44 + n * 2) == 0) n++;
+            calls.Add((n, flags));
+            if (refuseNext) { refuseNext = false; return false; }
+            return true;
+        };
+        Sounds.Silence = () => { };
+        try
+        {
+            Sounds.Stop();
+            // a ringtone picked two seconds after another plays its full preview
+            Sounds.Preview(Sounds.Call, 0.6f, "marimba");
+            clock.Advance(2);
+            Sounds.Preview(Sounds.Call, 0.6f, "classic");
+            clock.Advance(1.3);
+            Eq("call:classic", Sounds.Playing, "still playing 1.3 s in (the first pick's stop used to end it here)");
+            clock.Advance(2.0);
+            Eq(null, Sounds.Playing, "and stops after its own 3.2 s");
+            True(calls[^1].silentSamples < 2205, $"a looping sound has no lead-in, its rhythm stays even ({calls[^1].silentSamples} silent samples)");
+
+            // a chime starts with silence the output can wake up on; longer on Bluetooth
+            calls.Clear();
+            Sounds.OutputIsBluetooth = () => false;
+            Sounds.Play(Sounds.Notification, 0.6f, "glass");
+            True(calls[^1].silentSamples >= (int)(Sounds.LeadIn * 44100) * 0.95, $"wired: {calls[^1].silentSamples} silent samples first");
+            Sounds.OutputIsBluetooth = () => true;
+            Sounds.Play(Sounds.Notification, 0.6f, "glass");
+            True(calls[^1].silentSamples >= (int)(Sounds.LeadInBluetooth * 44100) * 0.95, $"Bluetooth: {calls[^1].silentSamples} silent samples first");
+
+            // a refused PlaySound is tried once more
+            calls.Clear(); refuseNext = true;
+            Sounds.Play(Sounds.Connect, 0.6f, "soft");
+            Eq(2, calls.Count, "asked twice");
+            Eq("connect:soft", Sounds.Playing, "and it plays");
+        }
+        finally { Sounds.Stop(); Sounds.Output = oldOut; Sounds.Silence = oldSilence; Sounds.OutputIsBluetooth = oldBt; }
+    }
+
+    [Scenario("a Bluetooth output is recognized by its device's container or name, also when its bus says INTELAUDIO (Intel's Bluetooth offload)")]
+    public static void BluetoothOutputDetected()
+    {
+        // as read on a real laptop: AirPods' audio output on INTELAUDIO, sharing the AirPods' container
+        var airpods = new BtDevice { Name = "AirPods Pro 2", ContainerId = "{4FBB8107-B5F4-53CB-967E-878471744784}" };
+        var paired = new[] { airpods, new BtDevice { Name = "MX Master 3", ContainerId = "{11111111-2222-3333-4444-555555555555}" } };
+        var c = new Guid("4fbb8107-b5f4-53cb-967e-878471744784");
+        Eq(true, AudioService.IsBluetoothOutput("INTELAUDIO", c, "Headphones (AirPods Pro 2 - Find My)", paired), "INTELAUDIO, same container: Bluetooth");
+        Eq(true, AudioService.IsBluetoothOutput("INTELAUDIO", c, "Headphones (Renamed in Sound settings)", paired), "the container alone is enough, whatever the output is called");
+        Eq(true, AudioService.IsBluetoothOutput("INTELAUDIO", new Guid("5c043815-6c05-5e1d-9ffd-44f86b015be5"), "Headphones (AirPods Pro 2 - Find My)", paired), "a stale container, but the paired device's name: Bluetooth");
+        Eq(true, AudioService.IsBluetoothOutput("BTHENUM", Guid.Empty, "Speaker (Something)", Array.Empty<BtDevice>()), "a Bluetooth bus: Bluetooth");
+        Eq(false, AudioService.IsBluetoothOutput("HDAUDIO", new Guid("00000000-0000-0000-ffff-ffffffffffff"), "Speakers (Realtek(R) Audio)", paired), "the built-in speakers aren't");
+        Eq(false, AudioService.IsBluetoothOutput("INTELAUDIO", new Guid("cdcae645-6e5e-5f75-a10f-adbbd63226c0"), "Speakers (Intel Smart Sound)", paired), "INTELAUDIO speakers that aren't a paired device aren't");
     }
 }

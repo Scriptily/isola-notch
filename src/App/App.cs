@@ -122,6 +122,7 @@ public sealed unsafe partial class App
     {
         svc.Audio = new AudioService();
         svc.Audio.Start();
+        Sounds.OutputIsBluetooth = () => AudioService.IsBluetoothOutput(svc.Audio.Bus, svc.Audio.ContainerId, svc.Audio.DeviceName, svc.Bluetooth?.Devices);
         svc.Audio.VolumeChanged += (m, v) => { if (cfg.VolumeHud) island.Hud(m ? HudKind.Mute : HudKind.Volume, v); };
         svc.Audio.OutputChanged += name => island.Alert(Alerts.Output(name));
 
@@ -685,11 +686,7 @@ public sealed unsafe partial class App
     };
 
     /// <summary>Settings: hear a sound as it's picked (a looping one plays a few seconds).</summary>
-    public void PreviewSound(string kind, string variant)
-    {
-        Sounds.Play(kind, (float)cfg.SoundVolume, variant);
-        if (Sounds.Loops(kind)) Ui.After(3.2, () => Sounds.Stop());
-    }
+    public void PreviewSound(string kind, string variant) => Sounds.Preview(kind, (float)cfg.SoundVolume, variant);
 
     /// <summary>Whether an alert's sound plays, by the settings for its kind.</summary>
     internal static bool SoundAllowed(Config c, Alert a) => c.Sounds && a?.Sound != null && a.Sound switch

@@ -339,9 +339,12 @@ public sealed class DashboardPage : Page
         sp.Poll();
         if (sp.Volume == null)
         {
-            // the first read is out: a spinner; otherwise say why there's nothing to set
-            if (sp.Loading) Paint.Spinner(c, row.CX, row.CY, 14, Col.White.A(0.6f), isl.Clock.Now, t);
-            else c.Text(sp.Status, row, 11.5f, Col.White.A(0.45f * t), FontWeight.Medium, HAlign.Center);
+            // the first read is out: a spinner; otherwise say why there's nothing to set.
+            // A line of text needs more room under the play button than the thin
+            // slider does, so it sits in the row's lower part, clear of the transport.
+            var low = new Box(row.X, row.Y + 12, row.W, row.H - 12);
+            if (sp.Loading) Paint.Spinner(c, low.CX, low.CY, 14, Col.White.A(0.6f), isl.Clock.Now, t);
+            else c.Text(sp.Status, low, 11.5f, Col.White.A(0.45f * t), FontWeight.Medium, HAlign.Center);
             return;
         }
         int v = sp.Volume.Value;
