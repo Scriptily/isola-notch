@@ -15,6 +15,14 @@ GitHub release notes.
   startup task, and keeps its settings in the same folder as the GitHub
   version.
 
+### VirusTotal
+
+1 of 71 security vendors flagged `IsolaSetup.exe` on 2026-11-15. [Full report](https://www.virustotal.com/gui/file/e2ddf940e42f6390ee91c9e997f0fc2e8d29e9cd183b1fa83ec91320cd38b9f1)
+
+- Rising: Trojan.Kryptik@AI.82 (RDML:etbeo/0+1VFCCcFGZOYM2g)
+
+The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
+
 ## [1.1.0] - 2026-11-15
 
 ### Added
