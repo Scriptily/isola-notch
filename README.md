@@ -1,7 +1,11 @@
 <p align="center">
+  <img src="assets/readme/hello.gif" alt="Isola's notch saying hello as it starts" width="640">
+</p>
+
+<p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-tagline-dark.png">
-    <img src="assets/logo-tagline-light.png" alt="Isola, dynamic island for Windows" width="420">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/wordmark-dark.png">
+    <img src="assets/wordmark-light.png" alt="Isola, dynamic island for Windows" width="300">
   </picture>
 </p>
 

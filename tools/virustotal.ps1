@@ -32,7 +32,13 @@ function New-VtClient {
 }
 
 function Get-VtJson($client, [string]$url) {
-    $r = $client.GetAsync($url).GetAwaiter().GetResult()
+    # The free API allows 4 requests a minute: on 429, wait a minute and ask again.
+    for ($try = 0; ; $try++) {
+        $r = $client.GetAsync($url).GetAwaiter().GetResult()
+        if ([int]$r.StatusCode -ne 429 -or $try -ge 5) { break }
+        Write-Host "   rate limited; waiting a minute"
+        Start-Sleep 61
+    }
     if ([int]$r.StatusCode -eq 404) { return $null }
     $body = $r.Content.ReadAsStringAsync().GetAwaiter().GetResult()
     if (-not $r.IsSuccessStatusCode) { throw "VirusTotal $url answered $([int]$r.StatusCode): $body" }
@@ -64,9 +70,14 @@ function Invoke-VirusTotal([string]$File) {
             Write-Host "   analysis $($a.data.attributes.status)"
         } while ($a.data.attributes.status -ne 'completed' -and ((Get-Date) - $t0).TotalMinutes -lt 15)
         if ($a.data.attributes.status -ne 'completed') { throw "VirusTotal didn't finish the analysis in 15 minutes; run tools\virustotal.ps1 -Version <x.y.z> later" }
-        Start-Sleep 16
-        $known = Get-VtJson $client "https://www.virustotal.com/api/v3/files/$sha"
+        # The file's report can lag the finished analysis by a minute or two.
+        $t0 = Get-Date
+        do {
+            Start-Sleep 20
+            $known = Get-VtJson $client "https://www.virustotal.com/api/v3/files/$sha"
+        } while (-not $known.data.attributes.last_analysis_results -and ((Get-Date) - $t0).TotalMinutes -lt 5)
     }
+    if (-not $known.data.attributes.last_analysis_results) { throw "VirusTotal has no report for $sha yet; run tools\virustotal.ps1 -Version <x.y.z> later" }
     $attr = $known.data.attributes
     $s = $attr.last_analysis_stats
     $flagged = @($attr.last_analysis_results.PSObject.Properties | Where-Object { $_.Value.category -in 'malicious', 'suspicious' } |
