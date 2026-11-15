@@ -38,6 +38,15 @@ GitHub release notes.
 - The "Spotify isn't playing on any device" line sat right under the play
   button; it now has room of its own.
 
+### VirusTotal
+
+2 of 71 security vendors flagged `IsolaSetup.exe` on 2026-11-15. [Full report](https://www.virustotal.com/gui/file/8d0c9ead8c4765ef6de81e74c6b428f680a74efc4b4b7c7ff2ca3b4f635729de)
+
+- Bkav: W32.Malware.786E714D
+- Rising: Trojan.Kryptik@AI.82 (RDML:h7SfisYideFMnCoejses7Q)
+
+The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
+
 ## [1.0.1] - 2026-11-15
 
 ### Fixed
