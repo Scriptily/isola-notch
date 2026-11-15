@@ -38,8 +38,8 @@ rights.
 | Memory | 30 to 40 MB working set |
 | CPU, nothing moving | under 0.1% |
 | CPU, music playing (the waveform moves) | about 0.4% |
-| Download | 14 MB installer |
-| On disk | 31 MB |
+| Download | 8 MB installer |
+| On disk | 19 MB |
 
 It draws frames only while something moves, paced to your display, on the
 power-saving GPU. The drifting glow and the waveform are what keep it drawing;
