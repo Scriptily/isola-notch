@@ -22,8 +22,9 @@ and it turns into a launcher.
 
 ## Light on your PC
 
-Isola is one native program, compiled ahead of time. There's no .NET or other
-runtime to install, no background service, and no administrator rights needed.
+Isola is one native program, compiled ahead of time, so there's no .NET or
+other runtime to install. It runs as your user and doesn't need administrator
+rights.
 
 | At rest, measured on a Ryzen laptop | |
 |---|---|
@@ -33,7 +34,7 @@ runtime to install, no background service, and no administrator rights needed.
 | On disk | 19 MB |
 
 It draws frames only while something moves, paced to your display, on the
-power-saving GPU. When nothing is happening it isn't drawing at all. A second,
+power-saving GPU. A second,
 smaller process watches over it, so Windows' own notification banners come
 back if Isola ever stops (more on that [below](#what-it-changes-in-windows)).
 
@@ -46,8 +47,8 @@ back if Isola ever stops (more on that [below](#what-it-changes-in-windows)).
 Notifications with the sending app's icon, calls from your phone through Phone
 Link (answer or decline right on the island), track changes, Bluetooth devices
 with battery levels, AirPods per bud and case, screens and chargers, the timer,
-and volume and Caps Lock changes. A burst of notifications queues up and folds
-into a summary instead of flooding the screen, and a call always goes first.
+and volume and Caps Lock changes. A burst of notifications queues up, and
+anything past the newest four folds into one summary. A call always goes first.
 
 Isola has its own sounds, made in code: a chime for notifications, a ringtone
 for calls, a bell for the timer, and soft tones for devices. Each has a few to
@@ -96,13 +97,13 @@ Everything is in Settings (the gear on the dashboard, or the tray icon) and
 applies as you change it. Every option is listed with its default in
 [`isola.config.example.json`](isola.config.example.json).
 
-Isola gets out of the way: it steps aside for fullscreen videos and games on
-its screen, and can slide out of sight after a few quiet minutes (bring the
-pointer to the top edge to get it back). `Ctrl+Alt+I` hides or shows it.
+Isola steps aside for fullscreen videos and games on its screen, and can slide
+out of sight after a few quiet minutes. Bring the pointer to the top edge to
+get it back, or press `Ctrl+Alt+I` to hide or show it.
 
 ## Works even better with
 
-Both are optional. Isola works fully without them.
+Both are optional.
 
 * **[Everything](https://www.voidtools.com/)** searches your whole disk
   instantly. With it running, the launcher finds any file. Without it, Isola
@@ -127,14 +128,13 @@ It installs for your account only (no administrator rights), adds Isola to the
 Start menu, starts it when you sign in, and adds an uninstaller to Settings ›
 Apps. Run the setup again any time to repair, update or uninstall.
 
-**Needs:** Windows 11, or Windows 10 version 2004 or later. It's developed and
+Isola needs Windows 11, or Windows 10 version 2004 or later. It's developed and
 tested on Windows 11. On Windows 10 the setup installs the Segoe Fluent Icons
 font for your account if it's missing.
 
-**Updates** install themselves. Isola checks GitHub every six hours, and
-downloads a new setup only from this repository's releases. It runs it only if
-the file's SHA-256 matches both the release notes and GitHub's own record of
-the file.
+Updates install themselves. Isola checks GitHub every six hours and downloads
+a new setup only from this repository's releases, then runs it only if the
+file's SHA-256 matches both the release notes and GitHub's own record of it.
 
 ```powershell
 IsolaSetup.exe              # the setup wizard

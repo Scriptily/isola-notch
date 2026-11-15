@@ -36,8 +36,8 @@ The first public release.
 
 - The Home Assistant token and the Spotify sign-in are stored encrypted with
   Windows' data protection for your account.
-- The log no longer records who a notification or call is from or what it
-  says, and the detailed log is off by default.
+- The log records which app a notification or call came from, never who sent
+  it or what it says, and the detailed log is off by default.
 - Search replies are accepted only from Everything's own window and are read
   with every length checked against the message.
 - Settings warns when Home Assistant is reached over plain `http://` outside
