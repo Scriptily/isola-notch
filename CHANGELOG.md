@@ -15,6 +15,16 @@ GitHub release notes.
 - The install carried the project's logo images, which the app never uses.
   Only its icon is installed now.
 
+### VirusTotal
+
+3 of 71 security vendors flagged `IsolaSetup.exe` on 2026-11-15. [Full report](https://www.virustotal.com/gui/file/9825711f05b858027a6f1007590008b045422c6984940a24cac7977e255afd51)
+
+- Bkav: W32.Malware.12E245CC
+- Rising: Trojan.Kryptik@AI.82 (RDML:lXP/Y6jF/JiIsSUwtz721g)
+- Symantec: ML.Attribute.HighConfidence
+
+The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
+
 ## [1.0.0] - 2026-11-15
 
 The first public release.
