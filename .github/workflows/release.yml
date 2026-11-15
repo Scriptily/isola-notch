@@ -1,0 +1,108 @@
+name: Release
+
+# Publishes a version: push a tag "vX.Y.Z" (VERSION and CHANGELOG.md updated
+# first), or run this by hand with a tag that already exists to rebuild it.
+#
+# The setup is built here, from the tag's own source, so anyone can see what
+# went into it: the run log is public and the file gets a signed build
+# attestation. Then it's scanned on VirusTotal, published with its changelog
+# section, the scan and its SHA-256 as the notes, and the scan is committed
+# back to CHANGELOG.md on main.
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and publish, e.g. v1.0.1'
+        required: true
+
+permissions:
+  contents: write        # create the release, commit the scan to CHANGELOG.md
+  id-token: write        # sign the build attestation
+  attestations: write
+
+concurrency:
+  group: release         # one at a time: each commits to main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Source at the tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          path: src
+
+      # The release tooling and the changelog come from main, so a tag cut
+      # before a tooling fix is still published the current way.
+      - name: Tooling and changelog from main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          path: main
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Check the tag matches VERSION
+        shell: pwsh
+        run: |
+          $version = (Get-Content -Raw src/VERSION).Trim()
+          if ("v$version" -ne $env:TAG) { throw "tag $env:TAG doesn't match VERSION $version" }
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Tests
+        run: dotnet run -c Release --project src\tests\Isola.Tests.csproj
+
+      - name: Build IsolaSetup.exe (NativeAOT)
+        shell: pwsh
+        working-directory: src
+        run: .\build.ps1 -SkipTests
+
+      - name: Build attestation
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: src/dist/IsolaSetup.exe
+
+      - name: VirusTotal scan
+        shell: pwsh
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: |
+          . main/tools/virustotal.ps1
+          $scan = Invoke-VirusTotal (Resolve-Path src/dist/IsolaSetup.exe).Path
+          Add-ScanToChangelog (Resolve-Path main/CHANGELOG.md).Path $env:VERSION $scan
+          "{0} of {1} flagged  {2}" -f $scan.Flagged, $scan.Total, $scan.Link
+
+      - name: Publish the release
+        shell: pwsh
+        run: |
+          $log = Get-Content main/CHANGELOG.md -Raw
+          $m = [regex]::Match($log, "(?ms)^## \[$([regex]::Escape($env:VERSION))\][^\n]*\n(.*?)(?=^## \[|\z)")
+          if (-not $m.Success) { throw "CHANGELOG.md has no section for $env:VERSION" }
+          $sha = (Get-FileHash src/dist/IsolaSetup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $run = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          $notes = $m.Groups[1].Value.Trim() + "`n`n---`nDownload **IsolaSetup.exe** below and run it (per-user, no administrator rights). Isola updates itself after that.`n`nBuilt by GitHub Actions from this tag's source ([build log]($run)), with a signed build attestation: ``gh attestation verify IsolaSetup.exe --repo $env:GITHUB_REPOSITORY```n`nsha256: $sha"
+          Set-Content notes.md $notes -Encoding utf8
+          gh release create $env:TAG src/dist/IsolaSetup.exe --repo $env:GITHUB_REPOSITORY --title "Isola $env:VERSION" --notes-file notes.md --verify-tag
+          if ($LASTEXITCODE) { throw "gh release create failed" }
+
+      - name: Commit the scan to CHANGELOG.md
+        shell: pwsh
+        working-directory: main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) { "changelog unchanged"; exit 0 }
+          git commit -m "Changelog: VirusTotal result for $env:VERSION"
+          git push origin HEAD:main

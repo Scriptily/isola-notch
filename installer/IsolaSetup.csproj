@@ -7,6 +7,12 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <AssemblyName>IsolaSetup</AssemblyName>
+    <AssemblyTitle>Isola Setup</AssemblyTitle>
+    <!-- What Windows shows in the file's properties; code signing requires the
+         product name to be the project's. -->
+    <Product>Isola</Product>
+    <Company>Isola</Company>
+    <Copyright>Copyright (C) 2026 Isola contributors. GPL-3.0.</Copyright>
     <RootNamespace>IsolaSetup</RootNamespace>
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
