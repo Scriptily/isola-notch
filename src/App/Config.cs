@@ -141,8 +141,12 @@ public sealed class Config
             try { File.Copy(file, file + ".broken", true); } catch { }
         }
         c.LoadError = err;
+        bool plain = !string.IsNullOrWhiteSpace(c.HaToken) && !Secret.IsProtected(c.HaToken);
         c.HaToken = Secret.Unprotect(c.HaToken);   // stored encrypted (see Secret)
         c.Normalize();
+        // A token saved before encryption (or typed into the file) is encrypted
+        // now, not whenever a setting next changes, which could be never.
+        if (plain && err == null) { try { c.Save(file); } catch (Exception ex) { Log.W("config", "couldn't re-save the config encrypted: " + ex.Message); } }
         string envToken = Environment.GetEnvironmentVariable("ISOLA_HA_TOKEN");
         if (!string.IsNullOrWhiteSpace(envToken)) c.HaToken = envToken.Trim();
         string envUrl = Environment.GetEnvironmentVariable("ISOLA_HA_URL");

@@ -828,6 +828,8 @@ public static partial class Scenarios
             Eq("eyJhbGciOi-secret-token", Config.Load(f).HaToken, "and reads back");
             File.WriteAllText(f, "{ \"HaToken\": \"plain-old-token\" }");
             Eq("plain-old-token", Config.Load(f).HaToken, "an older plain token still works");
+            True(!File.ReadAllText(f).Contains("plain-old-token"), "and loading it once encrypts it on disk");
+            Eq("plain-old-token", Config.Load(f).HaToken, "still the same token afterwards");
             Eq("", Secret.Unprotect("dpapi:bm90LWZvci10aGlzLXVzZXI="), "a value encrypted elsewhere reads as empty, never as junk");
             Eq("", Secret.Protect(""), "empty stays empty (the shipped example config)");
         }

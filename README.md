@@ -26,16 +26,18 @@ Isola is one native program, compiled ahead of time, so there's no .NET or
 other runtime to install. It runs as your user and doesn't need administrator
 rights.
 
-| At rest, measured on a Ryzen laptop | |
+| At rest, measured on a 16-thread Ryzen laptop | |
 |---|---|
-| Memory | about 25 MB working set |
-| CPU | under 0.1% |
-| Download | 8 MB installer |
-| On disk | 19 MB |
+| Memory | 30 to 40 MB working set |
+| CPU, nothing moving | under 0.1% |
+| CPU, music playing (the waveform moves) | about 0.4% |
+| Download | 14 MB installer |
+| On disk | 31 MB |
 
 It draws frames only while something moves, paced to your display, on the
-power-saving GPU. A second,
-smaller process watches over it, so Windows' own notification banners come
+power-saving GPU. The drifting glow and the waveform are what keep it drawing;
+both can be turned off in Settings. A second, smaller process (about 23 MB)
+watches over it, so Windows' own notification banners come
 back if Isola ever stops (more on that [below](#what-it-changes-in-windows)).
 
 ## What it does
@@ -120,7 +122,9 @@ Assistant.
 1. Download `IsolaSetup.exe` from the
    [latest release](https://github.com/Scriptily/isola-notch/releases/latest).
 2. Run it. Windows may say it protected your PC, because the setup isn't
-   code-signed yet: choose **More info**, then **Run anyway**.
+   code-signed yet: choose **More info**, then **Run anyway**. Every release's
+   notes link a [VirusTotal](https://www.virustotal.com/) scan of the setup and
+   list anything it found.
 3. The setup shows what it found on your PC, lets you choose options, and
    opens the island.
 

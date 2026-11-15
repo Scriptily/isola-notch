@@ -6,11 +6,13 @@
 
 .EXAMPLE
   .\build.ps1                 # build and test only
-  .\build.ps1 -Release        # ...then tag v<VERSION> and upload
+  .\build.ps1 -Release        # ...then scan it on VirusTotal, tag v<VERSION> and upload
 
   Bump VERSION first for a release: the updater only installs a higher version.
 #>
 param([switch]$Release, [switch]$SkipTests)
+# Every release is scanned on VirusTotal (tools\virustotal.ps1, needs VT_API_KEY)
+# and the result goes into CHANGELOG.md and the release notes.
 
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
@@ -34,6 +36,8 @@ function Step($what, [scriptblock]$run) {
 }
 
 if ($Release) {
+    if (-not $env:VT_API_KEY) { $env:VT_API_KEY = [Environment]::GetEnvironmentVariable('VT_API_KEY', 'User') }   # saved by setx
+    if (-not $env:VT_API_KEY) { throw "VT_API_KEY isn't set: every release is scanned on VirusTotal first (see tools\virustotal.ps1)" }
     # refuse before spending minutes on a build that can't be released
     & { $ErrorActionPreference = 'Continue'; gh release view $tag --repo $repo *> $null }
     if ($LASTEXITCODE -eq 0) { throw "$tag already exists: bump VERSION" }
@@ -63,7 +67,12 @@ Set-Content -Path 'dist\SHA256.txt' -Value "$sha  IsolaSetup.exe" -Encoding asci
 Write-Host ("   dist\IsolaSetup.exe  {0:0.0} MB  sha256 {1}" -f ((Get-Item $setup).Length / 1MB), $sha) -ForegroundColor Green
 
 if ($Release) {
-    # The notes are this version's section of CHANGELOG.md, then the sha256
+    . (Join-Path $PSScriptRoot 'tools\virustotal.ps1')
+    Write-Host "== VirusTotal" -ForegroundColor Cyan
+    $scan = Invoke-VirusTotal $setup
+    Add-ScanToChangelog (Join-Path $PSScriptRoot 'CHANGELOG.md') $version $scan
+    Write-Host ("   {0} of {1} flagged  {2}" -f $scan.Flagged, $scan.Total, $scan.Link)
+    # The notes are this version's section of CHANGELOG.md (now with the scan), then the sha256
     # line the updater checks the download against.
     $log = Get-Content (Join-Path $PSScriptRoot 'CHANGELOG.md') -Raw
     $m = [regex]::Match($log, "(?ms)^## \[$([regex]::Escape($version))\][^\n]*\n(.*?)(?=^## \[|\z)")
@@ -71,4 +80,5 @@ if ($Release) {
     $notes = $m.Groups[1].Value.Trim() + "`n`n---`nDownload **IsolaSetup.exe** below and run it (per-user, no administrator rights). Isola updates itself after that.`n`nsha256: $sha"
     $notesFile = Join-Path $out 'notes.md'; Set-Content $notesFile $notes -Encoding utf8
     Step "GitHub release $tag" { gh release create $tag $setup --repo $repo --title "Isola $version" --notes-file $notesFile --target main }
+    Write-Host "CHANGELOG.md now has the VirusTotal result for ${version}: commit it." -ForegroundColor Yellow
 }

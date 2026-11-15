@@ -5,6 +5,14 @@ changes for breaking or very large changes, the minor number for new features,
 and the patch number for fixes only. Each release's section below is also its
 GitHub release notes.
 
+## [1.0.1] - 2026-11-15
+
+### Fixed
+
+- A Home Assistant token saved before 1.0.0, or typed into the config file by
+  hand, stayed in plain text on disk until a setting next changed. Isola now
+  encrypts it the first time it starts.
+
 ## [1.0.0] - 2026-11-15
 
 The first public release.
@@ -42,3 +50,12 @@ The first public release.
   with every length checked against the message.
 - Settings warns when Home Assistant is reached over plain `http://` outside
   your local network.
+
+### VirusTotal
+
+2 of 69 security vendors flagged `IsolaSetup.exe` on 2026-11-15. [Full report](https://www.virustotal.com/gui/file/a56960f656205ef37889f469112df6b23208bb8d1b85f14bff737f21a8d04b78)
+
+- Bkav: W32.Malware.33DC69CE
+- Rising: Trojan.Kryptik@AI.82 (RDML:WPM+Tubt2AgGazkc3euQmQ)
+
+The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
