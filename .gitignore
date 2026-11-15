@@ -39,3 +39,6 @@ CLAUDE.md
 # README media scratch (tools/readme-media)
 tools/readme-media/.work/
 __pycache__/
+
+# Claude Code local settings (personal)
+.claude/settings.local.json
