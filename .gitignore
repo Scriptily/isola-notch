@@ -35,3 +35,7 @@ dist/
 
 # Local working notes for Claude Code (personal; never published)
 CLAUDE.md
+
+# README media scratch (tools/readme-media)
+tools/readme-media/.work/
+__pycache__/

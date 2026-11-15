@@ -86,9 +86,9 @@ writes the screen rectangle of every click target there (`island.txt`,
 Assistant serves sample entities and logs the calls it gets.
 
 For screenshots without any input, `ISOLA_SHOWCASE` opens a state at start
-(`expand:home`, `search:12*4.5`, `popups`) and `ISOLA_BACKDROP=15151a` draws a
-solid color behind the island. The images in the main README were made this
-way, from the sample data folder.
+(`expand:home`, `search:12*4.5`, `popups`) and `ISOLA_BACKDROP=0d1117` draws a
+solid color behind the island. The images in the main README are made this way
+by the scripts in [`tools/readme-media`](../tools/readme-media/README.md).
 
 ## Not covered here
 
