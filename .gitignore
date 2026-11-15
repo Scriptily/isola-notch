@@ -1,0 +1,37 @@
+# Build output
+bin/
+obj/
+publish/
+*.user
+.vs/
+
+# A development run keeps its settings, logs and stores right here, beside the
+# project. None of it belongs in the repository (the config can hold a
+# Home Assistant token); only the
+# *.config.example.json alongside is tracked.
+isola.config.json
+isola.config.json.tmp
+isola.config.json.broken
+*.log
+*.log.*
+notes.json
+notes.json.*
+shelf.json
+shelf.json.*
+spotify.json
+spotify.json.*
+timer.json
+timer.json.*
+shelf/
+state.json
+
+# Test scratch output
+tests/out/
+tests/**/bin/
+tests/**/obj/
+
+# build.ps1 output
+dist/
+
+# Local working notes for Claude Code (personal; never published)
+CLAUDE.md

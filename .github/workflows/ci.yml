@@ -1,0 +1,36 @@
+name: CI
+
+# Every push and pull request: run the test suite, then build the native
+# installer the same way a release is built, and keep it as an artifact.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Tests
+        run: dotnet run -c Release --project tests\Isola.Tests.csproj
+
+      - name: Build IsolaSetup.exe (NativeAOT)
+        shell: pwsh
+        run: .\build.ps1 -SkipTests
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IsolaSetup
+          path: dist/IsolaSetup.exe
+          if-no-files-found: error
