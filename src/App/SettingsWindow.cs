@@ -534,7 +534,7 @@ public sealed unsafe partial class SettingsWindow
         L.Header("Windows notifications");
         Toggle(L, "notif", "Show notifications in the island", "Including iPhone messages through Phone Link", work.Notifications, v => work.Notifications = v);
         Toggle(L, "prev", "Show message previews", null, work.NotificationPreviews, v => work.NotificationPreviews = v);
-        Toggle(L, "winbanners", "Hide Windows' own popups and chime", "Only while the island can show them; back whenever it can't or isn't running", work.HideWindowsBanners, v => work.HideWindowsBanners = v);
+        Toggle(L, "winbanners", "Hide Windows' own popups and chime", "Changes each app's Windows notification setting while the island shows them, and puts it back when it stops", work.HideWindowsBanners, v => work.HideWindowsBanners = v);
         Slider(L, "alertsec", "Keep alerts on screen for", null, work.AlertSeconds, 2, 15, v => $"{v:0} s", v => work.AlertSeconds = (int)v, 1);
         Text(L, "muted", "Don't show these apps", "Comma separated, e.g. Discord, Teams", string.Join(", ", work.NotificationMutedApps), v => work.NotificationMutedApps = v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList(), "App names");
         L.End();

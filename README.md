@@ -15,7 +15,8 @@
 <p align="center">
   <a href="https://github.com/Scriptily/isola-notch/releases/latest"><b>Download</b></a> ·
   <a href="#install">Install</a> ·
-  <a href="#privacy">Privacy</a> ·
+  <a href="PRIVACY.md">Privacy</a> ·
+  <a href="CODE_SIGNING_POLICY.md">Code signing policy</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
   <a href="#build-it-yourself">Build</a>
 </p>
@@ -129,9 +130,11 @@ Assistant.
 1. Download `IsolaSetup.exe` from the
    [latest release](https://github.com/Scriptily/isola-notch/releases/latest).
 2. Run it. Windows may say it protected your PC, because the setup isn't
-   code-signed yet: choose **More info**, then **Run anyway**. Every release's
-   notes link a [VirusTotal](https://www.virustotal.com/) scan of the setup and
-   list anything it found.
+   code-signed yet (see the [code signing policy](CODE_SIGNING_POLICY.md)):
+   choose **More info**, then **Run anyway**. Every release is built by GitHub
+   Actions from the public source, and its notes link a
+   [VirusTotal](https://www.virustotal.com/) scan of the setup and list
+   anything it found.
 3. The setup shows what it found on your PC, lets you choose options, and
    opens the island.
 
@@ -186,7 +189,8 @@ Windows' data protection for your account, so a copied config file is useless
 anywhere else. The log records which app a notification came from, never who
 sent it or what it said, and the detailed log is off unless you turn it on.
 
-Your settings, notes and shelf live in `%LOCALAPPDATA%\Isola`.
+Your settings, notes and shelf live in `%LOCALAPPDATA%\Isola`. The full
+[privacy policy](PRIVACY.md) lists everything and how to turn each part off.
 
 ## What it changes in Windows
 

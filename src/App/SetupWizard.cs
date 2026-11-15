@@ -412,7 +412,18 @@ public sealed unsafe partial class SetupWizard
             optEverything && !everythingHere, everythingHere, v => optEverything = v);
         Option(c, a, ref y, "mp", "Install MagicPods", magicPodsHere ? "Already installed" : "Exact AirPods battery, ear detection and more (paid, Microsoft Store): opens its Store page",
             optMagicPods && !magicPodsHere, magicPodsHere, v => optMagicPods = v);
+        // The privacy policy, shown before anything is installed: no account or
+        // tracking, and it talks only to services the user sets up.
+        y += 6;
+        var row = new Box(a.X, y, a.W, 62);
+        c.Icon(Glyph.Shield, row.X + 14, row.CY, 15, Col.White.A(0.55f));
+        c.Text("Your privacy", new Box(row.X + 38, row.Y + 11, row.W - 190, 20), 13.5f, Col.White.A(0.9f), FontWeight.Medium);
+        c.Text("No account or tracking. It only connects to services you set up.",
+            new Box(row.X + 38, row.Y + 32, row.W - 190, 18), 11.5f, Col.White.A(0.5f), FontWeight.Normal);
+        ux.Pill("privacy", new Box(row.Right - 150, row.CY - 14, 136, 28), "Privacy policy", () => Win32.ShellExecute(PrivacyUrl), Col.White);
     }
+
+    public const string PrivacyUrl = "https://github.com/Scriptily/isola-notch/blob/main/PRIVACY.md";
 
     // a switch row; an installed helper's row is grayed out with a check instead of a switch
     void Option(Canvas c, Box a, ref float y, string id, string title, string sub, bool value, bool present, Action<bool> set)

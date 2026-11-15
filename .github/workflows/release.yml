@@ -90,7 +90,7 @@ jobs:
           if (-not $m.Success) { throw "CHANGELOG.md has no section for $env:VERSION" }
           $sha = (Get-FileHash src/dist/IsolaSetup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
           $run = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
-          $notes = $m.Groups[1].Value.Trim() + "`n`n---`nDownload **IsolaSetup.exe** below and run it (per-user, no administrator rights). Isola updates itself after that.`n`nBuilt by GitHub Actions from this tag's source ([build log]($run)), with a signed build attestation: ``gh attestation verify IsolaSetup.exe --repo $env:GITHUB_REPOSITORY```n`nsha256: $sha"
+          $notes = $m.Groups[1].Value.Trim() + "`n`n---`nDownload **IsolaSetup.exe** below and run it (per-user, no administrator rights). Isola updates itself after that.`n`nBuilt by GitHub Actions from this tag's source ([build log]($run)), with a signed build attestation: ``gh attestation verify IsolaSetup.exe --repo $env:GITHUB_REPOSITORY```n`n[Code signing policy]($env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/blob/main/CODE_SIGNING_POLICY.md) · [Privacy policy]($env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/blob/main/PRIVACY.md)`n`nsha256: $sha"
           Set-Content notes.md $notes -Encoding utf8
           gh release create $env:TAG src/dist/IsolaSetup.exe --repo $env:GITHUB_REPOSITORY --title "Isola $env:VERSION" --notes-file notes.md --verify-tag
           if ($LASTEXITCODE) { throw "gh release create failed" }

@@ -5,6 +5,19 @@ changes for breaking or very large changes, the minor number for new features,
 and the patch number for fixes only. Each release's section below is also its
 GitHub release notes.
 
+## [Unreleased]
+
+### Added
+
+- The setup's Options page links to the new privacy policy (PRIVACY.md).
+
+### Changed
+
+- The "Hide Windows' own popups and chime" switch says plainly that it changes
+  each app's Windows notification setting and puts it back.
+- Isola.exe and IsolaSetup.exe show Isola as product and company in their file
+  properties.
+
 ## [1.0.1] - 2026-11-15
 
 ### Fixed

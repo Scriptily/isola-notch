@@ -1,0 +1,67 @@
+# Privacy policy
+
+Isola has no account, no telemetry, no analytics and no ads. Nobody, including
+the people who make it, receives anything about you or how you use it.
+
+## What stays on your PC
+
+Isola reads these on your PC to show them in the island, and never sends them
+anywhere:
+
+- Notifications and Phone Link calls (the app, the sender and the message)
+- What's playing in your media apps, and the cover art
+- Your clipboard history (Win+V), if the Clipboard tab is on
+- Bluetooth devices and battery levels, including AirPods
+- The files you drop on the shelf, your notes and your timer
+- Search results from your apps and folders, or from Everything if it's running
+- MagicPods' log file, if MagicPods is installed, to read AirPods battery levels
+
+Your settings, notes, shelf and log are stored in `%LOCALAPPDATA%\Isola` for
+your Windows account only. The Home Assistant token and the Spotify sign-in are
+encrypted with Windows' data protection for your account, so a copy of the file
+can't be used anywhere else. The log records which app a notification came
+from, never who sent it or what it said, and the detailed log is off unless you
+turn it on in Settings › About & Logs.
+
+## What it sends, and where
+
+Isola connects only to these, and only for the reason given:
+
+| Service | When | What it sends | Turn it off |
+|---|---|---|---|
+| Your own Home Assistant | if you enter its address and token | your token, to the address you entered, to read and control the devices you picked | clear the address in Settings › Home Assistant |
+| [Open-Meteo](https://open-meteo.com/en/terms#privacy) | for weather, when Home Assistant isn't the source | the city or coordinates you entered | Settings › Widgets › Weather |
+| [Spotify](https://www.spotify.com/legal/privacy-policy/) | if you connect it | your sign-in, to read and change Spotify's playback and volume, and to show your Spotify display name in Settings | disconnect in Settings › Spotify |
+| [GitHub](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement) | every six hours, and when you press Check now | a request for this project's latest release; nothing about you | Settings › About & Logs › Update automatically |
+
+Each of these services sees your IP address when Isola connects, as with any
+connection, and handles it under its own privacy policy linked above. Home
+Assistant is your own server.
+
+The setup program can also, only if you ask it to:
+
+- install [Everything](https://www.voidtools.com/) through the Windows Package
+  Manager, which downloads it from voidtools
+- open [MagicPods](https://apps.microsoft.com/detail/9P6SKKFKSHKM) in the
+  Microsoft Store
+- download the Segoe Fluent Icons font from Microsoft, on Windows 10 if it's
+  missing
+
+## Changes Isola makes to Windows
+
+While Isola shows notifications itself, it turns off Windows' own banner and
+chime for each app, so each notification appears once. It saves the original
+settings first and puts them back when it stops showing notifications, when it
+quits, when you sign out, if it crashes, and when you uninstall it. You can turn
+this off in Settings › Notifications › Hide Windows' own popups and chime.
+
+With "Start with Windows" on, it adds a sign-in task and a startup entry for
+your account. The uninstaller removes them, and can remove your data too.
+
+## Questions
+
+Open an issue at
+[github.com/Scriptily/isola-notch/issues](https://github.com/Scriptily/isola-notch/issues),
+or report a security problem privately as described in [SECURITY.md](SECURITY.md).
+
+Changes to this policy are listed in the [changelog](CHANGELOG.md).
