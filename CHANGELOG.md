@@ -30,11 +30,10 @@ GitHub release notes.
 
 ### VirusTotal
 
-3 of 71 security vendors flagged `IsolaSetup.exe` on 2026-11-15. [Full report](https://www.virustotal.com/gui/file/9825711f05b858027a6f1007590008b045422c6984940a24cac7977e255afd51)
+2 of 71 security vendors flagged `IsolaSetup.exe` on 2026-11-15. [Full report](https://www.virustotal.com/gui/file/48f1b08c526a3c90f8bbad5ea21dbea1c030303315d994e1cffa0cbdf1a1fa46)
 
-- Bkav: W32.Malware.12E245CC
-- Rising: Trojan.Kryptik@AI.82 (RDML:lXP/Y6jF/JiIsSUwtz721g)
-- Symantec: ML.Attribute.HighConfidence
+- Bkav: W32.Malware.FBFF05A7
+- Rising: Trojan.Kryptik@AI.82 (RDML:1Jdy4OrnpWnt0ZrElcCnyA)
 
 The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
 
