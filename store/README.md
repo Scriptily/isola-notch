@@ -35,11 +35,11 @@ business days, and the Store updates installed copies itself.
 1. **Partner Center account.** Register as an individual developer at
    [storedeveloper.microsoft.com](https://storedeveloper.microsoft.com/) (free for
    individuals; it asks for ID verification).
-2. **Reserve the name.** Apps and games › New product › MSIX or PWA app ›
-   reserve "Isola".
-3. **Copy the identity.** On the product's Product management › Product
-   identity page, copy *Package/Identity/Name*, *Package/Identity/Publisher* and
-   *Package/Properties/PublisherDisplayName* into `identity.json`, then rebuild.
+2. **Reserve the name.** Apps and games › New product › MSIX or PWA app. Done:
+   "Isola" was taken, so the Store name is **Isola Notch** (the app still calls
+   itself Isola).
+3. **Copy the identity.** Done: `identity.json` holds the values from the
+   product's Product identity page.
 4. **First submission, by hand.** Upload `dist\Isola-<version>.msix` and fill in
    the listing (text below). Microsoft's update automation only works for an
    app that's already live.

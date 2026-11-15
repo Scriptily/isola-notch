@@ -1,6 +1,6 @@
 {
-  "_comment": "Placeholders until the name is reserved in Partner Center (Product identity page). Replace all three with its exact values; they are public, not secrets.",
-  "Name": "Isola.Development",
-  "Publisher": "CN=Isola Development",
-  "PublisherDisplayName": "Isola"
+  "_comment": "The package identity Partner Center assigned to the reserved name \"Isola Notch\" (Product identity page). Public values, not secrets.",
+  "Name": "Scriptily.IsolaNotch",
+  "Publisher": "CN=089139E0-4107-4416-A467-445B25807D29",
+  "PublisherDisplayName": "Scriptily"
 }

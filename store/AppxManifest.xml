@@ -13,6 +13,8 @@
     between them keeps settings, notes and the shelf.
   - userNotificationListener: reading notifications from a package needs it.
   - bluetooth, radios: AirPods' battery broadcast and the Bluetooth switch.
+  - DisplayName is the name reserved in Partner Center ("Isola" was taken);
+    the app still calls itself Isola everywhere else.
   - The startup task replaces the sign-in task and Run entry of the GitHub
     install; Isola turns it on when "Start with Windows" is on.
 -->
@@ -28,7 +30,7 @@
   <Identity Name="{{Name}}" Publisher="{{Publisher}}" Version="{{Version}}" ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>Isola</DisplayName>
+    <DisplayName>Isola Notch</DisplayName>
     <PublisherDisplayName>{{PublisherDisplayName}}</PublisherDisplayName>
     <Logo>store\StoreLogo.png</Logo>
     <Description>A dynamic island for Windows: notifications, media and a launcher at the top of your screen.</Description>
@@ -47,7 +49,7 @@
   <Applications>
     <Application Id="Isola" Executable="Isola.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="Isola"
+        DisplayName="Isola Notch"
         Description="A dynamic island for Windows"
         BackgroundColor="transparent"
         Square150x150Logo="store\Square150x150Logo.png"
