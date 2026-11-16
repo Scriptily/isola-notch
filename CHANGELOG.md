@@ -15,6 +15,15 @@ GitHub release notes.
   carry over unless you choose to start fresh. Only one copy can run at a
   time, so having both meant the second one never started.
 
+### VirusTotal
+
+2 of 71 security vendors flagged `IsolaSetup.exe` on 2026-11-16. [Full report](https://www.virustotal.com/gui/file/ae71382c5e95896c7b050076a5bc5178c91234a329c14457ba897b07ad97a6f6)
+
+- Bkav: W32.Malware.1693FFCB
+- Rising: Trojan.Kryptik@AI.82 (RDML:5gcqf2nd3uhiqR2yRNE2UQ)
+
+The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
+
 ## [1.2.1] - 2026-11-16
 
 ### Changed
