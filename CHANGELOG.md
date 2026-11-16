@@ -5,7 +5,7 @@ changes for breaking or very large changes, the minor number for new features,
 and the patch number for fixes only. Each release's section below is also its
 GitHub release notes.
 
-## [Unreleased]
+## [1.3.0] - 2026-11-16
 
 ### Added
 
