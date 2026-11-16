@@ -58,6 +58,13 @@ this off in Settings › Notifications › Hide Windows' own popups and chime.
 With "Start with Windows" on, it adds a sign-in task and a startup entry for
 your account. The uninstaller removes them, and can remove your data too.
 
+The Microsoft Store version (Isola Notch) changes none of these: it can't
+change Windows' notification settings, so Settings › Notifications links to
+Windows' own page where you can turn banners off yourself. It starts with
+Windows through its package's startup task, which you can also turn off in
+Windows' Startup apps, and keeps its data in its own package folder, which
+Windows removes when you uninstall it.
+
 ## Questions
 
 Open an issue at

@@ -16,8 +16,8 @@ public static partial class Packaging
 
     static readonly bool packaged = Detect();
 
-    /// <summary>Stands in for the real answer in tests.</summary>
-    internal static bool? Override;
+    /// <summary>Stands in for the real answer in tests, and for screenshots (ISOLA_PRETEND_STORE=1).</summary>
+    internal static bool? Override = Environment.GetEnvironmentVariable("ISOLA_PRETEND_STORE") == "1" ? true : null;
 
     public static bool IsStore => Override ?? packaged;
 

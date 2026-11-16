@@ -539,7 +539,11 @@ public sealed unsafe partial class SettingsWindow
         L.Header("Windows notifications");
         Toggle(L, "notif", "Show notifications in the island", "Including iPhone messages through Phone Link", work.Notifications, v => work.Notifications = v);
         Toggle(L, "prev", "Show message previews", null, work.NotificationPreviews, v => work.NotificationPreviews = v);
-        Toggle(L, "winbanners", "Hide Windows' own popups and chime", "Changes each app's Windows notification setting while the island shows them, and puts it back when it stops", work.HideWindowsBanners, v => work.HideWindowsBanners = v);
+        if (Packaging.IsStore)
+            Button(L, "winbanners", "Windows' own popups", "Turn off their banners so each notification shows once", "Open settings",
+                () => Win32.ShellExecute("ms-settings:notifications"));
+        else
+            Toggle(L, "winbanners", "Hide Windows' own popups and chime", "Changes each app's Windows notification setting while the island shows them, and puts it back when it stops", work.HideWindowsBanners, v => work.HideWindowsBanners = v);
         Slider(L, "alertsec", "Keep alerts on screen for", null, work.AlertSeconds, 2, 15, v => $"{v:0} s", v => work.AlertSeconds = (int)v, 1);
         Text(L, "muted", "Don't show these apps", "Comma separated, e.g. Discord, Teams", string.Join(", ", work.NotificationMutedApps), v => work.NotificationMutedApps = v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList(), "App names");
         L.End();
@@ -548,7 +552,7 @@ public sealed unsafe partial class SettingsWindow
         Toggle(L, "calls", "Phone calls", "Incoming calls from Phone Link, with answer and decline", work.Calls, v => work.Calls = v);
         L.End();
         L.Header("Sounds");
-        Toggle(L, "snd", "Island sounds", "Its own chimes and ringtone; Windows' chime is off while the island shows notifications", work.Sounds, v => work.Sounds = v);
+        Toggle(L, "snd", "Island sounds", Packaging.IsStore ? "Its own chimes and ringtone" : "Its own chimes and ringtone; Windows' chime is off while the island shows notifications", work.Sounds, v => work.Sounds = v);
         Slider(L, "sndvol", "Sound volume", null, work.SoundVolume, 0, 1, v => $"{v * 100:0}%", v => work.SoundVolume = v, 0.05);
         Toggle(L, "sndnotif", "Chime for notifications", null, work.NotificationSound, v => work.NotificationSound = v);
         Tone(L, "tone:n", "Notification sound", Sounds.Notification, work.NotificationTone, v => work.NotificationTone = v);

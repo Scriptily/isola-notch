@@ -293,6 +293,8 @@ public static partial class Scenarios
         Eq(true, Isola.App.App.BannersWanted(c, true), "on and able: off in Windows");
         Eq(false, Isola.App.App.BannersWanted(c, false), "island can't show: Windows shows them");
         Eq(false, Isola.App.App.BannersWanted(new Config { Notifications = false, HideWindowsBanners = true }, true), "island notifications off");
+        try { Packaging.Override = true; Eq(false, Isola.App.App.BannersWanted(c, true), "the Store version never changes Windows' settings (its registry writes are private)"); }
+        finally { Packaging.Override = null; }
         Eq(false, Isola.App.App.BannersWanted(new Config { Notifications = true, HideWindowsBanners = false }, true), "setting off");
         var (isl, host, clock) = NewIsland(new Config { Notifications = true });
         Eq(true, isl.CanShowAlerts, "island up: can show");

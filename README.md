@@ -205,6 +205,10 @@ Notifications › Hide Windows' own popups.
 It also adds a sign-in task and a Run entry while "Start with Windows" is on.
 The uninstaller removes all of it and restores anything still in the journal.
 
+The Microsoft Store version doesn't change Windows' notification settings (the
+Store doesn't allow it). Its Settings link to Windows' own page instead, where
+you can turn off banners for the apps the island shows.
+
 ## Build it yourself
 
 You need the [.NET 10 SDK](https://dotnet.microsoft.com/download) and, for the

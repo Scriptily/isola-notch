@@ -224,7 +224,10 @@ public sealed unsafe partial class App
         if (n.Bundle != null) yield return PhoneLink.Package + "!YourPhoneNotifications_" + n.Bundle;
     }
 
-    internal static bool BannersWanted(Config c, bool islandCanShow) => c.Notifications && c.HideWindowsBanners && islandCanShow;
+    // The Store version can't change Windows' real notification settings: its
+    // registry writes go to a private copy (Microsoft didn't grant the capability
+    // that turns that off), so Settings sends people to Windows' own page instead.
+    internal static bool BannersWanted(Config c, bool islandCanShow) => c.Notifications && c.HideWindowsBanners && islandCanShow && !Packaging.IsStore;
 
     /// <summary>
     /// Every second: banners off only while the island can show notifications.

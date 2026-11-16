@@ -5,6 +5,16 @@ changes for breaking or very large changes, the minor number for new features,
 and the patch number for fixes only. Each release's section below is also its
 GitHub release notes.
 
+## [1.2.1] - 2026-11-16
+
+### Changed
+
+- The Microsoft Store version doesn't change Windows' notification settings and
+  keeps its data in its own package folder: Microsoft didn't allow the
+  capability both need. Its Settings link to Windows' notification settings
+  instead, so you can turn off banners for the apps the island shows. The
+  GitHub version is unchanged.
+
 ## [1.2.0] - 2026-11-15
 
 ### Added

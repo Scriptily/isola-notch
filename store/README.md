@@ -8,7 +8,8 @@ Isola ships in two forms built from the same tag with the same version:
 | Signing | not yet (see [CODE_SIGNING_POLICY.md](../CODE_SIGNING_POLICY.md)) | signed by Microsoft when it passes certification |
 | Updates | Isola updates itself from GitHub releases | the Store updates it; Isola never checks GitHub |
 | Start with Windows | sign-in task and Run entry | the package's startup task |
-| Settings, notes, shelf | `%LOCALAPPDATA%\Isola` | the same folder, so moving between them keeps everything |
+| Hiding Windows' own banners | Isola turns them off per app and restores them | not available: Settings opens Windows' notification settings instead |
+| Settings, notes, shelf | `%LOCALAPPDATA%\Isola` | the package's own copy of that folder (Windows redirects it), removed on uninstall |
 
 The package is unsigned when it's uploaded: Partner Center signs it with
 Microsoft's certificate after certification, so it doesn't wait on code
@@ -88,8 +89,12 @@ made from sample data by `make_screenshots.py`.
 
 **Website / support:** `https://github.com/Scriptily/isola-notch`
 
-**Restricted capabilities: why Isola needs them**
+**Restricted capability: why Isola needs it**
 
 > runFullTrust: Isola is a desktop app. It draws its window at the top of the screen with Direct2D, reads media sessions, Bluetooth devices and the clipboard history, and controls Phone Link calls through UI Automation, none of which run in an app container.
->
-> unvirtualizedResources (the form allows 500 characters): So each notification shows once, Isola can turn off Windows' own banner and chime per app while it shows notifications itself. This is a user setting, explained in the app and the privacy policy. These are the user's real settings under HKCU\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings, so virtualized writes would do nothing. Originals are saved first and restored on quit, sign-out, crash and uninstall.
+
+The first submission also asked for `unvirtualizedResources` (so the Store
+version could hide Windows' own banners and share the GitHub version's data
+folder). Microsoft denied it on 2026-11-15, so the package no longer declares
+it: the Store version links to Windows' notification settings instead, and its
+data stays in the package's own folder.
