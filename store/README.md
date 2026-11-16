@@ -27,9 +27,9 @@ signing for the GitHub download.
 ## Releasing
 
 Every `vX.Y.Z` tag runs `.github/workflows/release.yml`, which builds the GitHub
-setup and this package from the same source. The package is then uploaded to
-Partner Center by hand (step 5 below); certification takes up to three business
-days, and the Store updates installed copies itself.
+setup and this package from the same source, and submits the package to
+Partner Center. Certification takes up to three business days, and the Store
+updates installed copies itself.
 
 ## One-time setup
 
@@ -45,15 +45,40 @@ days, and the Store updates installed copies itself.
 4. **First submission, by hand.** Done: 1.2.1 passed certification and went
    live on 2026-11-16 (https://apps.microsoft.com/detail/9NW22R7PVDQT). The
    first attempt was refused only for `unvirtualizedResources` (see below).
-5. **Updates are uploaded by hand.** Automatic submission needs a Microsoft
-   Entra tenant, and creating one from Partner Center leads into a Microsoft
-   business account with billing and a tax number (TIN), which an individual
-   publishing a free app doesn't have. So each release's package is uploaded in
-   Partner Center: Isola Notch › Update › Packages › remove the old package,
-   upload `Isola-<version>.msix` from that release's Actions run (artifact
-   `Isola-<version>-msix`) › Submit. The release workflow still builds the
-   package every time, and would submit it itself if `STORE_PRODUCT_ID` and the
-   four Partner Center secrets were ever set.
+5. **Automatic submission.** Done on 2026-11-16. Partner Center's "Create"
+   button under Tenants leads into a Microsoft business account that needs a
+   tax number, so the directory came from a free Azure account instead:
+   - azure.microsoft.com/free (individual) creates a "Default Directory". The
+     trial subscription can lapse; the directory and the app below stay free.
+   - In that directory: a user `admin@<domain>.onmicrosoft.com` with the
+     Global Administrator role (Partner Center's **Associate** only accepts a
+     work account), and an app registration "Isola releases" with a client
+     secret.
+   - Partner Center › Account settings › Tenants › Associate, signed in as that
+     admin; then User management › Microsoft Entra applications › add "Isola
+     releases" as **Manager**. Seller ID is under Legal info › Developer.
+   - Repository secrets `AZURE_AD_TENANT_ID`, `AZURE_AD_APPLICATION_CLIENT_ID`,
+     `AZURE_AD_APPLICATION_SECRET`, `SELLER_ID`; variables
+     `STORE_PRODUCT_ID=9NW22R7PVDQT` and `STORE_SECRET_EXPIRES` (the secret's
+     expiry date).
+
+## Keeping access working
+
+The client secret expires (24 months at most) and can't renew itself.
+`.github/workflows/store-check.yml` signs in and reads the listing on the 1st of
+every month without submitting anything, and `release.yml` does the same before
+each submission. Within 60 days of `STORE_SECRET_EXPIRES`, or if sign-in fails,
+it opens an issue titled "Renew the Microsoft Store client secret" with the
+steps, and closes it once the check passes. Test it with
+`gh workflow run store-check.yml -f pretend_days_left=30`.
+
+GitHub pauses scheduled workflows in a public repository after 60 days without
+a commit, so in a quiet stretch the monthly check stops; the check in
+`release.yml` still catches an expired secret at the next release.
+
+If certification fails or Partner Center is down, the package is still an
+artifact of the release run (`Isola-<version>-msix`) and can be uploaded by
+hand: Isola Notch › Update › Packages.
 
 ## Trying the package on this PC
 
