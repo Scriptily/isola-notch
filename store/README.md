@@ -27,9 +27,9 @@ signing for the GitHub download.
 ## Releasing
 
 Every `vX.Y.Z` tag runs `.github/workflows/release.yml`, which builds the GitHub
-setup and this package from the same source. Once the Store listing is live,
-the same run submits the package to the Store; certification takes up to three
-business days, and the Store updates installed copies itself.
+setup and this package from the same source. The package is then uploaded to
+Partner Center by hand (step 5 below); certification takes up to three business
+days, and the Store updates installed copies itself.
 
 ## One-time setup
 
@@ -45,13 +45,15 @@ business days, and the Store updates installed copies itself.
 4. **First submission, by hand.** Done: 1.2.1 passed certification and went
    live on 2026-11-16 (https://apps.microsoft.com/detail/9NW22R7PVDQT). The
    first attempt was refused only for `unvirtualizedResources` (see below).
-5. **Automation.** In Partner Center, associate a Microsoft Entra tenant and
-   add an Entra app with the Manager role (Account settings › User management ›
-   Microsoft Entra applications). Then in the GitHub repository add the secrets
-   `AZURE_AD_TENANT_ID`, `AZURE_AD_APPLICATION_CLIENT_ID`,
-   `AZURE_AD_APPLICATION_SECRET` and `SELLER_ID`, and the variable
-   `STORE_PRODUCT_ID` (the Store ID, like 9NXXXXXXXXXX). From then on, every
-   release goes to both.
+5. **Updates are uploaded by hand.** Automatic submission needs a Microsoft
+   Entra tenant, and creating one from Partner Center leads into a Microsoft
+   business account with billing and a tax number (TIN), which an individual
+   publishing a free app doesn't have. So each release's package is uploaded in
+   Partner Center: Isola Notch › Update › Packages › remove the old package,
+   upload `Isola-<version>.msix` from that release's Actions run (artifact
+   `Isola-<version>-msix`) › Submit. The release workflow still builds the
+   package every time, and would submit it itself if `STORE_PRODUCT_ID` and the
+   four Partner Center secrets were ever set.
 
 ## Trying the package on this PC
 
