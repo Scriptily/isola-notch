@@ -15,6 +15,14 @@ GitHub release notes.
   instead, so you can turn off banners for the apps the island shows. The
   GitHub version is unchanged.
 
+### VirusTotal
+
+1 of 71 security vendors flagged `IsolaSetup.exe` on 2026-11-16. [Full report](https://www.virustotal.com/gui/file/9007fbb642dcccec4d2f852087f1b434b51a09c71e15c9b6e1f9299c373c9d3e)
+
+- Rising: Trojan.Kryptik@AI.82 (RDML:9wZR37Vi+fkAkkVRblteLQ)
+
+The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
+
 ## [1.2.0] - 2026-11-15
 
 ### Added
