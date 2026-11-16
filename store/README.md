@@ -42,9 +42,9 @@ business days, and the Store updates installed copies itself.
 3. **Copy the identity.** Done: `identity.json` holds the values from the
    product's Product identity page. The Store ID is **9NW22R7PVDQT**
    (listing: https://apps.microsoft.com/detail/9NW22R7PVDQT).
-4. **First submission, by hand.** Upload `dist\Isola-<version>.msix` and fill in
-   the listing (text below). Microsoft's update automation only works for an
-   app that's already live.
+4. **First submission, by hand.** Done: 1.2.1 passed certification and went
+   live on 2026-11-16 (https://apps.microsoft.com/detail/9NW22R7PVDQT). The
+   first attempt was refused only for `unvirtualizedResources` (see below).
 5. **Automation.** In Partner Center, associate a Microsoft Entra tenant and
    add an Entra app with the Manager role (Account settings › User management ›
    Microsoft Entra applications). Then in the GitHub repository add the secrets

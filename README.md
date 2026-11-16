@@ -21,6 +21,10 @@
   <a href="#build-it-yourself">Build</a>
 </p>
 
+<p align="center">
+  <a href="https://apps.microsoft.com/detail/9NW22R7PVDQT?mode=direct"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Get it from Microsoft" width="200"></a>
+</p>
+
 Isola puts a small black pill at the top of your screen. It shows what's
 happening as it happens (a notification, a call, a song, your AirPods
 connecting) and opens into a dashboard when you click it. Press `Alt+Space`
@@ -126,6 +130,16 @@ Isola isn't affiliated with Everything, MagicPods, Apple, Spotify or Home
 Assistant.
 
 ## Install
+
+There are two ways to get Isola, both free and updated with every release.
+
+**From the Microsoft Store.** [Get Isola Notch](https://apps.microsoft.com/detail/9NW22R7PVDQT?mode=direct)
+(the Store name; "Isola" was taken), or run `winget install 9NW22R7PVDQT`. The
+Store signs and updates it. It doesn't hide Windows' own notification popups,
+because the Store doesn't allow apps to change those settings; Settings ›
+Notifications opens Windows' page where you can turn them off yourself.
+
+**From GitHub.** The full version, which can also hide Windows' popups for you:
 
 1. Download `IsolaSetup.exe` from the
    [latest release](https://github.com/Scriptily/isola-notch/releases/latest).
