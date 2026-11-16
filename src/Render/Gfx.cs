@@ -69,7 +69,8 @@ public static class Gfx
         D2DFactory ??= D2D1.D2D1CreateFactory<D2DFactory>(Vortice.Direct2D1.FactoryType.SingleThreaded);
         DWrite ??= Vortice.DirectWrite.DWrite.DWriteCreateFactory<IDWriteFactory>(Vortice.DirectWrite.FactoryType.Shared);
         Wic ??= new IWICImagingFactory();
-        CreateDevice();
+        // once: the Store version's replace question draws with it before the island starts
+        if (Device == null) CreateDevice();
     }
 
     static void CreateDevice()

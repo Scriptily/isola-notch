@@ -21,6 +21,9 @@ public static partial class Packaging
 
     public static bool IsStore => Override ?? packaged;
 
+    /// <summary>Really running from the package, whatever ISOLA_PRETEND_STORE says (screenshots must never uninstall anything).</summary>
+    public static bool IsPackaged => packaged;
+
     static bool Detect()
     {
         try { int len = 0; return GetCurrentPackageFullName(ref len, 0) != APPMODEL_ERROR_NO_PACKAGE; }

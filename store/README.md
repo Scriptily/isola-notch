@@ -9,7 +9,16 @@ Isola ships in two forms built from the same tag with the same version:
 | Updates | Isola updates itself from GitHub releases | the Store updates it; Isola never checks GitHub |
 | Start with Windows | sign-in task and Run entry | the package's startup task |
 | Hiding Windows' own banners | Isola turns them off per app and restores them | not available: Settings opens Windows' notification settings instead |
-| Settings, notes, shelf | `%LOCALAPPDATA%\Isola` | the package's own copy of that folder (Windows redirects it), removed on uninstall |
+| Settings, notes, shelf | `%LOCALAPPDATA%\Isola` | that same folder if it already exists (a GitHub install made it); otherwise the package's private copy, removed on uninstall |
+| The other one installed | the setup asks first whether to replace the Store version | asks at first start whether to replace the GitHub install |
+
+Replacing either way keeps settings, notes and shelf unless the user switches
+that off (`src/App/Switchover.cs`). The Store version removes the GitHub
+install with that install's own uninstaller, which runs outside the package,
+so the sign-in task, uninstall entry and shortcut really go and Windows'
+banners are restored. The GitHub setup copies the Store version's private data
+(if any) into `%LOCALAPPDATA%\Isola` before removing the package with
+`Remove-AppxPackage`, and leaves the package alone if that copy fails.
 
 The package is unsigned when it's uploaded: Partner Center signs it with
 Microsoft's certificate after certification, so it doesn't wait on code

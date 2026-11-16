@@ -28,8 +28,12 @@ public sealed class SetupStep
 /// (/silent /nolaunch), so there is one install path for the wizard, updates
 /// and silent installs alike.
 ///
-/// Exit codes: 0 installed, 2 closed before installing, 1 failed, 3 the window
-/// couldn't be made (setup then falls back to its plain dialogs).
+/// When the other kind of install is there (the Microsoft Store version for
+/// this setup, or the GitHub install for the Store version's first start), the
+/// first page asks whether to replace it, keeping settings or not (Switchover).
+///
+/// Exit codes: 0 installed (or replaced), 2 closed before installing, 1 failed,
+/// 3 the window couldn't be made (setup then falls back to its plain dialogs).
 /// </summary>
 public sealed unsafe partial class SetupWizard
 {
@@ -53,7 +57,14 @@ public sealed unsafe partial class SetupWizard
     bool optAutostart = true, optEverything, optMagicPods;
 
     // already installed: update, repair or uninstall
-    const int PWelcome = 0, POptions = 1, PInstalling = 2, PDone = 3, PMaintain = 4;
+    const int PWelcome = 0, POptions = 1, PInstalling = 2, PDone = 3, PMaintain = 4, PReplace = 5;
+
+    // the other kind of install: Store for this setup, GitHub for the Store version
+    enum Other { None, Store, GitHub }
+    Other other;
+    bool replaceAgreed, keepData = true;
+    // running as the Store version, asked whether to replace the GitHub install
+    bool StoreSide => other == Other.GitHub;
     enum Action { Update, Repair, Uninstall }
     Action action = Action.Repair;
     bool wipeData;
@@ -86,6 +97,7 @@ public sealed unsafe partial class SetupWizard
     void Preview()
     {
         page = previewPage;
+        if (page >= PReplace) { other = page == PReplace ? Other.Store : Other.GitHub; page = PReplace; checksDone = true; return; }
         if (page >= 2 && page <= 3)
         {
             var a = Add("Icon font"); a.State = StepState.Done; a.Detail = "Installed for your account";
@@ -116,10 +128,33 @@ public sealed unsafe partial class SetupWizard
             Win32.OleInitialize(0);
             Gfx.Init(false);
             var w = current = new SetupWizard(setup) { previewPage = preview };
+            // asked first: the Store version would otherwise keep this one from starting
+            if (preview < 0 && Shared.Switchover.StoreInstalled()) { w.other = Other.Store; w.page = PReplace; Log.I("wizard", "the Microsoft Store version is installed"); }
             if (!w.Create()) return 3;
             return w.Loop();
         }
         catch (Exception ex) { Log.Crash("wizard", ex); return 3; }
+    }
+
+    /// <summary>
+    /// The Store version's first question when the GitHub install is also
+    /// there, before the island starts. 0 replaced, 2 not now, 1 failed, 3 the
+    /// window couldn't be made.
+    /// </summary>
+    public static int RunReplace()
+    {
+        try
+        {
+            Win32.OleInitialize(0);
+            Gfx.Init(false);
+            var w = current = new SetupWizard(null) { other = Other.GitHub, page = PReplace, checksDone = true };
+            if (!w.Create()) return 3;
+            int r = w.Loop();
+            w.surface?.Dispose();
+            current = null;
+            return r;
+        }
+        catch (Exception ex) { Log.E("wizard", "replace question failed", ex); return 3; }
     }
 
     bool Create()
@@ -141,7 +176,7 @@ public sealed unsafe partial class SetupWizard
         var mi = new MONITORINFOEXW(); mi.cbSize = (uint)sizeof(MONITORINFOEXW); Win32.GetMonitorInfo(mon, &mi);
         var wa = mi.rcWork;
         int w = (int)(720 * scale), h = (int)(560 * scale);
-        hwnd = Win32.CreateWindowExW(Win32.WS_EX_NOREDIRECTIONBITMAP | Win32.WS_EX_APPWINDOW, "Isola.Setup", "Isola Setup",
+        hwnd = Win32.CreateWindowExW(Win32.WS_EX_NOREDIRECTIONBITMAP | Win32.WS_EX_APPWINDOW, "Isola.Setup", StoreSide ? "Isola" : "Isola Setup",
             0x00CA0000 /*caption, sysmenu, minimize*/ | 0x00020000, wa.Left + (wa.Width - w) / 2, wa.Top + (wa.Height - h) / 2, w, h, 0, 0, inst, 0);
         if (hwnd == 0) return false;
         int dark = 1, acrylic = 3, round = 2;
@@ -157,8 +192,8 @@ public sealed unsafe partial class SetupWizard
         Ui.Init(hwnd);
         if (previewPage >= 0) { Win32.ShowWindow(hwnd, 4 /*SW_SHOWNOACTIVATE*/); Preview(); }
         else { Win32.ShowWindow(hwnd, Win32.SW_SHOWNORMAL); Win32.SetForegroundWindow(hwnd); }
-        Task.Run(Check);
-        Log.I("wizard", "setup wizard opened");
+        if (!StoreSide) Task.Run(Check);
+        Log.I("wizard", StoreSide ? "asking whether to replace the GitHub install" : "setup wizard opened");
         return true;
     }
 
@@ -275,7 +310,13 @@ public sealed unsafe partial class SetupWizard
             case Win32.WM_CLOSE:
                 if (installing) return 0;            // never half-way: the install finishes first
                 Win32.DestroyWindow(hwnd); return 0;
-            case 0x0002 /*WM_DESTROY*/: quit = true; Win32.PostQuitMessage(0); return 0;
+            case 0x0002 /*WM_DESTROY*/:
+                quit = true;
+                // The Store version's question runs on the island's own thread,
+                // just before the island starts: a WM_QUIT left in the queue
+                // ended the island the moment it was ready.
+                if (!StoreSide) Win32.PostQuitMessage(0);
+                return 0;
         }
         return null;
     }
@@ -285,7 +326,9 @@ public sealed unsafe partial class SetupWizard
     // ======================================================================
 
     static readonly Color4 Blue = Col.Hex(0x0a84ff), Green = Col.Hex(0x34c759), Amber = Col.Hex(0xff9f0a), Red = Col.Hex(0xff453a);
-    int[] Order => installed != null && action == Action.Uninstall ? new[] { PWelcome, PMaintain, PInstalling, PDone }
+    int[] Order => StoreSide ? new[] { PReplace, PInstalling }
+                 : other == Other.Store ? BaseOrder.Prepend(PReplace).ToArray() : BaseOrder;
+    int[] BaseOrder => installed != null && action == Action.Uninstall ? new[] { PWelcome, PMaintain, PInstalling, PDone }
                  : installed != null ? new[] { PWelcome, PMaintain, POptions, PInstalling, PDone }
                  : new[] { PWelcome, POptions, PInstalling, PDone };
 
@@ -316,6 +359,7 @@ public sealed unsafe partial class SetupWizard
             case 2: Installing(c, area); break;
             case 3: Done(c, area); break;
             case 4: Maintain(c, area); break;
+            case PReplace: Replace(c, area); break;
         }
         Buttons(c, W, H);
         ux.EndFrame();
@@ -364,6 +408,37 @@ public sealed unsafe partial class SetupWizard
         y += 52;
         Line(c, a.X, y, w, btOk ? StepState.Done : StepState.Failed, "Bluetooth", btOk ? "AirPods and device popups will work" : "No Bluetooth radio: device popups stay off", btOk ? null : Amber); y += 52;
         Line(c, a.X, y, w, wingetOk ? StepState.Done : StepState.Failed, "Windows Package Manager", wingetOk ? "Can install Everything for you" : "Not found: Everything would open its download page instead", wingetOk ? null : Amber);
+    }
+
+    // the other copy: what changes, and whether settings come along
+    void Replace(Canvas c, Box a)
+    {
+        bool store = other == Other.Store;
+        Title(c, a, store ? "Isola Notch is installed from the Microsoft Store" : "Isola is also installed from GitHub",
+            store ? "Only one copy can run at a time. Replace it with this version from GitHub?"
+                  : "Only one copy can run at a time. Replace it with this Microsoft Store version?");
+        float y = a.Y + 80;
+        var info = new Box(a.X, y, a.W, 62);
+        c.Fill(info, Col.White.A(0.055f), 8);
+        c.Icon(store ? Glyph.Bell : Glyph.Refresh, info.X + 24, info.CY, 15, Col.White.A(0.6f));
+        c.Text(store ? "This version can hide Windows' own popups" : "The Store keeps this version up to date",
+            new Box(info.X + 50, info.Y + 11, info.W - 70, 20), 13.5f, Col.White.A(0.95f), FontWeight.Medium);
+        c.Text(store ? "It updates itself from GitHub. The Store version is removed." : "It can't hide Windows' own popups. The GitHub version is removed.",
+            new Box(info.X + 50, info.Y + 32, info.W - 70, 18), 11.5f, Col.White.A(0.5f), FontWeight.Normal);
+        y += 68;
+        var row = new Box(a.X, y, a.W, 62);
+        c.Fill(row, Col.White.A(0.055f), 8);
+        c.Icon(Glyph.Settings, row.X + 24, row.CY, 15, Col.White.A(0.6f));
+        c.Text("Keep my settings, notes and shelf", new Box(row.X + 50, row.Y + 11, row.W - 130, 20), 13.5f, Col.White.A(0.95f), FontWeight.Medium);
+        c.Text(keepData ? "They carry over to this version" : "Start fresh: they're removed with the other copy",
+            new Box(row.X + 50, row.Y + 32, row.W - 130, 18), 11.5f, Col.White.A(0.5f), FontWeight.Normal);
+        ux.Switch("o:keep", row.Right - 60, row.CY, keepData, () => { keepData = !keepData; dirty = true; }, Blue);
+    }
+
+    void AgreeReplace()
+    {
+        if (other == Other.Store) { replaceAgreed = true; page = PWelcome; dirty = true; return; }
+        StartReplaceGitHub();
     }
 
     void Maintain(Canvas c, Box a)
@@ -444,8 +519,9 @@ public sealed unsafe partial class SetupWizard
 
     void Installing(Canvas c, Box a)
     {
-        string doing = uninstalled ? "Uninstalling" : installed == null ? "Installing" : action == Action.Update ? "Updating" : "Repairing";
-        Title(c, a, finished ? (anyFailed ? "Done, with a note" : "All set") : doing, finished ? null : "This takes a moment. Leave this window open.");
+        string doing = StoreSide ? "Replacing" : uninstalled ? "Uninstalling" : installed == null ? "Installing" : action == Action.Update ? "Updating" : "Repairing";
+        Title(c, a, finished ? (anyFailed ? (StoreSide ? "Couldn't replace it" : "Done, with a note") : "All set") : doing,
+            finished ? (StoreSide && anyFailed ? "Isola from GitHub stays installed and keeps running." : null) : "This takes a moment. Leave this window open.");
         float y = a.Y + 74;
         lock (steps)
             foreach (var s in steps)
@@ -483,10 +559,15 @@ public sealed unsafe partial class SetupWizard
         var secondary = new Box(primary.X - 12 - bw, y, bw, 34);
         switch (page)
         {
+            case PReplace:
+                Primary(primary, "Replace", AgreeReplace);
+                ux.Pill("cancel", secondary, StoreSide ? "Not now" : "Cancel", () => Win32.DestroyWindow(hwnd), Col.White);
+                break;
             case PWelcome:
                 if (!checksDone) { c.Fill(primary, Col.White.A(0.08f), 17); Paint.Spinner(c, primary.CX, primary.CY, 14, Col.White.A(0.8f), Ui.Clock.Now); }
                 else if (winOk || installed != null) Primary(primary, "Next", () => { page = installed != null ? PMaintain : POptions; dirty = true; });
-                ux.Pill("cancel", secondary, "Cancel", () => Win32.DestroyWindow(hwnd), Col.White);
+                if (other == Other.Store) ux.Pill("back", secondary, "Back", () => { page = PReplace; dirty = true; }, Col.White);
+                else ux.Pill("cancel", secondary, "Cancel", () => Win32.DestroyWindow(hwnd), Col.White);
                 break;
             case PMaintain:
                 if (action == Action.Uninstall) Primary(primary, "Uninstall", StartUninstall, Red);
@@ -498,7 +579,8 @@ public sealed unsafe partial class SetupWizard
                 ux.Pill("back", secondary, "Back", () => { page = installed != null ? PMaintain : PWelcome; dirty = true; }, Col.White);
                 break;
             case 2:
-                if (finished) Primary(primary, "Next", () => { page = 3; dirty = true; });
+                if (finished && StoreSide) { if (anyFailed) Primary(primary, "Close", () => Win32.DestroyWindow(hwnd)); }
+                else if (finished) Primary(primary, "Next", () => { page = 3; dirty = true; });
                 else { c.Fill(primary, Col.White.A(0.08f), 17); Paint.Spinner(c, primary.CX, primary.CY, 14, Col.White.A(0.8f), Ui.Clock.Now); }
                 break;
             case 3:
@@ -552,9 +634,31 @@ public sealed unsafe partial class SetupWizard
         });
     }
 
+    // the Store version replacing the GitHub install; the island starts once it's gone
+    void StartReplaceGitHub()
+    {
+        page = PInstalling; installing = true; dirty = true;
+        var st = Add("Isola from GitHub", "Waiting");
+        Task.Run(() =>
+        {
+            try
+            {
+                Set(st, StepState.Running, "Closing it and removing it");
+                var (ok, d) = Shared.Switchover.ReplaceGitHub(keepData, Shared.Switchover.GitHubDir, Paths.Home,
+                    (f, a) => SetupChecks.Run(f, a, 2 * 60 * 1000).code, m => Log.I("switch", m), Paths.LogFile);
+                Set(st, ok ? StepState.Done : StepState.Failed, d);
+                exitCode = ok ? 0 : 1; anyFailed = !ok;
+            }
+            catch (Exception ex) { Log.E("wizard", "replace failed", ex); Set(st, StepState.Failed, ex.Message); exitCode = 1; anyFailed = true; }
+            installing = false; finished = true;
+            Ui.Post(() => { dirty = true; if (!anyFailed) Ui.After(0.8, () => Win32.DestroyWindow(hwnd)); });
+        });
+    }
+
     void StartInstall()
     {
         page = 2; installing = true; dirty = true;
+        var store = replaceAgreed ? Add("Microsoft Store version") : null;
         var font = fontOk ? null : Add("Icon font");
         var island = Add("Isola");
         var ev = optEverything && !everythingHere ? Add("Everything") : null;
@@ -563,6 +667,15 @@ public sealed unsafe partial class SetupWizard
         {
             try
             {
+                if (store != null)
+                {
+                    Set(store, StepState.Running, "Closing it and removing it");
+                    void log(string m) => Log.I("switch", m);
+                    var (ok, d) = Shared.Switchover.ReplaceStore(keepData, Shared.Switchover.Data, Shared.Switchover.StoreData, () => Shared.Switchover.RemoveStorePackage(log), log);
+                    Set(store, ok ? StepState.Done : StepState.Failed, d);
+                    if (!ok) anyFailed = true;
+                }
+
                 if (font != null)
                 {
                     Set(font, StepState.Running, "Downloading from Microsoft");

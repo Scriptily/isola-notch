@@ -35,6 +35,13 @@ public static class Program
         AppDomain.CurrentDomain.UnhandledException += (_, e) => { Log.Crash("unhandled", e.ExceptionObject as Exception); Log.Flush(); };
         TaskScheduler.UnobservedTaskException += (_, e) => { Log.E("task", "unobserved task fault", e.Exception); e.SetObserved(); };
 
+        // The Store version next to a GitHub install: only one island can run,
+        // so ask first whether to replace the GitHub one. Not on the quiet
+        // sign-in start, and "Not now" carries on as before (the running island
+        // wins below).
+        if (Packaging.IsPackaged && !args.Contains(Shared.Autostart.Arg) && Shared.Switchover.GitHubInstalled())
+            Log.I("app", "the GitHub install is here too; replace it: " + SetupWizard.RunReplace() switch { 0 => "replaced", 2 => "not now", 3 => "couldn't ask", _ => "failed" });
+
         // One island per user session. A second launch just wakes the first.
         nint mutex = Win32.CreateMutexW(0, true, "Local\\Isola-" + Environment.UserName);
         bool exists = Marshal.GetLastPInvokeError() == 183 /*ERROR_ALREADY_EXISTS*/;

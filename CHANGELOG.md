@@ -5,6 +5,16 @@ changes for breaking or very large changes, the minor number for new features,
 and the patch number for fixes only. Each release's section below is also its
 GitHub release notes.
 
+## [Unreleased]
+
+### Added
+
+- The GitHub setup and the Microsoft Store version each offer to replace the
+  other. The setup asks first when Isola Notch is installed; Isola Notch asks
+  the first time it opens next to a GitHub install. Settings, notes and shelf
+  carry over unless you choose to start fresh. Only one copy can run at a
+  time, so having both meant the second one never started.
+
 ## [1.2.1] - 2026-11-16
 
 ### Changed

@@ -156,6 +156,12 @@ It installs for your account only (no administrator rights), adds Isola to the
 Start menu, starts it when you sign in, and adds an uninstaller to Settings ›
 Apps. Run the setup again any time to repair, update or uninstall.
 
+**Switching between them.** Only one copy runs at a time, so each asks first
+when it finds the other: the GitHub setup when Isola Notch is installed, and
+Isola Notch the first time it opens next to a GitHub install. Choose
+**Replace** and the other copy is removed, its sign-in start and shortcut
+included. Your settings, notes and shelf come along unless you switch that off.
+
 Isola needs Windows 11, or Windows 10 version 2004 or later. It's developed and
 tested on Windows 11. On Windows 10 the setup installs the Segoe Fluent Icons
 font for your account if it's missing.

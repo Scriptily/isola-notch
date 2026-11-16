@@ -33,6 +33,8 @@
     <EmbeddedResource Include="$(PayloadZip)" LogicalName="payload.zip" />
     <!-- the same sign-in task the island keeps in sync -->
     <Compile Include="..\src\App\Autostart.cs" Link="Autostart.cs" />
+    <!-- replacing the Microsoft Store version, as the wizard does -->
+    <Compile Include="..\src\App\Switchover.cs" Link="Switchover.cs" />
   </ItemGroup>
 
 </Project>

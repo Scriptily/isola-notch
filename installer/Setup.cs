@@ -101,6 +101,17 @@ public static unsafe partial class Setup
     static int Install(bool silent, bool update, bool launch = true, bool autostart = true)
     {
         string have = InstalledVersion();
+        // the plain dialogs ask what the wizard's first page does; a silent
+        // install never touches the Store version
+        if (!silent && Isola.Shared.Switchover.StoreInstalled())
+        {
+            if (!Dialog("Isola setup", "Replace Isola Notch from the Microsoft Store?",
+                    "Only one copy can run at a time. The Store version is removed, and its settings, notes and shelf carry over.",
+                    Icon.Question, true, "Replace", "Cancel")) return 2;
+            var (ok, detail) = Isola.Shared.Switchover.ReplaceStore(true, Data, Isola.Shared.Switchover.StoreData, () => Isola.Shared.Switchover.RemoveStorePackage(Log), Log);
+            if (!ok) Dialog("Isola setup", "The Store version is still installed", detail, Icon.Warning, false);
+        }
+        else if (Isola.Shared.Switchover.StoreInstalled()) Log("the Microsoft Store version is installed too (left alone: silent install)");
         if (!silent)
         {
             string body = have == null

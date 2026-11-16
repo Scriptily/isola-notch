@@ -53,6 +53,7 @@ path is printed when something fails), never to a real log.
 | `Scenarios5.cs` | Spotify: PKCE and the loopback reply, signing in end to end, the volume slider's throttling, token refresh and revocation, and the six-month sign-in |
 | `Scenarios6.cs` | The timer, Preview popups, app icons as PNG, a late second leave notice, Home Assistant scene times, Find My names, and Phone Link's phone notifications |
 | `Scenarios7.cs` | Bursts of notifications and calls, battery states, desktops, Windows' banners (journal first, restore exactly, after a crash, nested app ids, chimes), hover and reveal intent, the sign-in task, the built-in search index, AirPods without MagicPods, the glow taking a notification's colors, the setup wizard, crash restarts, track popups staying calm, the Home tab only while usable, tokens encrypted at rest, logs without message text, crafted search replies, media sessions settling before they take over, sound previews and their lead-in, and recognizing Bluetooth outputs |
+| `Scenarios8.cs` | Replacing the GitHub install with the Store version and back: the package family name against the Partner Center identity, whose settings win, nothing cleared before the other copy is really gone, the uninstaller never run with `/wipe`, and the Store version's question leaving no quit message for the island that starts after it |
 
 ## A regression test must fail without its fix
 
