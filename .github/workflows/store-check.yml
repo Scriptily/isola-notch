@@ -1,0 +1,37 @@
+name: Store check
+
+# Makes sure releases can still reach the Microsoft Store, without submitting
+# anything: see store/check-store-access.ps1. Monthly, because the Partner
+# Center client secret expires (STORE_SECRET_EXPIRES) and can't renew itself;
+# near that date, or if sign-in breaks, it opens an issue with the steps.
+on:
+  schedule:
+    - cron: '23 7 1 * *'
+  workflow_dispatch:
+    inputs:
+      pretend_days_left:
+        description: 'Test the reminder: act as if the secret expires in this many days (-1 = real date)'
+        default: '-1'
+
+permissions:
+  contents: read
+  issues: write          # the renewal reminder
+
+jobs:
+  check:
+    if: vars.STORE_PRODUCT_ID != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Sign in to Partner Center and read the listing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TENANT: ${{ secrets.AZURE_AD_TENANT_ID }}
+          CLIENT: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          PRODUCT: ${{ vars.STORE_PRODUCT_ID }}
+          EXPIRES: ${{ vars.STORE_SECRET_EXPIRES }}
+          PRETEND: ${{ inputs.pretend_days_left || '-1' }}
+        run: ./store/check-store-access.ps1 -PretendDaysLeft ([int]$env:PRETEND)

@@ -21,6 +21,7 @@ permissions:
   contents: write        # create the release, commit the scan to CHANGELOG.md
   id-token: write        # sign the build attestation
   attestations: write
+  issues: write          # the Store secret's renewal reminder
 
 concurrency:
   group: release         # one at a time: each commits to main
@@ -109,11 +110,10 @@ jobs:
 
       # ---- Microsoft Store: the same version, from the same tag ----------------
       # Built for every tag that has the store/ folder and kept as an artifact.
-      # Submitted only once the repository variable STORE_PRODUCT_ID is set (after
-      # the first, manual submission is live; Microsoft's update API needs that)
-      # with the Partner Center secrets AZURE_AD_TENANT_ID, AZURE_AD_APPLICATION_CLIENT_ID,
-      # AZURE_AD_APPLICATION_SECRET and SELLER_ID. The Store certifies it in up to
-      # three business days and updates installed copies itself.
+      # Submitted when the repository variable STORE_PRODUCT_ID is set, with the
+      # Partner Center secrets AZURE_AD_TENANT_ID, AZURE_AD_APPLICATION_CLIENT_ID,
+      # AZURE_AD_APPLICATION_SECRET and SELLER_ID (store/README.md). The Store
+      # certifies it in up to three business days and updates installed copies.
       - name: Build the Microsoft Store package
         id: msix
         if: hashFiles('src/store/build-msix.ps1') != ''
@@ -129,6 +129,20 @@ jobs:
           name: Isola-${{ env.VERSION }}-msix
           path: ${{ steps.msix.outputs.path }}
           if-no-files-found: error
+
+      # Signs in first, so an expired secret fails here with the renewal steps
+      # (and an issue) instead of somewhere inside msstore.
+      - name: Check Partner Center access
+        if: steps.msix.outcome == 'success' && vars.STORE_PRODUCT_ID != ''
+        shell: pwsh
+        working-directory: src
+        env:
+          TENANT: ${{ secrets.AZURE_AD_TENANT_ID }}
+          CLIENT: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          PRODUCT: ${{ vars.STORE_PRODUCT_ID }}
+          EXPIRES: ${{ vars.STORE_SECRET_EXPIRES }}
+        run: .\store\check-store-access.ps1
 
       - name: Set up the Microsoft Store CLI
         if: steps.msix.outcome == 'success' && vars.STORE_PRODUCT_ID != ''
