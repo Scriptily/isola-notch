@@ -183,6 +183,7 @@ public sealed unsafe partial class App
         if (cfg.AirPods) svc.AirPods.Start();
 
         svc.Updates = new Updater(clock) { Cfg = () => cfg };
+        svc.Feedback = new Feedback(Paths.FeedbackState);
         svc.Updates.Installing += v => { Log.I("update", "handing over to the installer"); Log.Flush(); quit = true; };
         svc.Updates.Start();
 
@@ -670,7 +671,7 @@ public sealed unsafe partial class App
             ended: null));
     }
 
-    /// <summary>Settings › Notifications › Preview popups: one of each kind, in turn.</summary>
+    /// <summary>Settings -> Notifications -> Preview popups: one of each kind, in turn.</summary>
     public void PreviewPopups()
     {
         var m = svc.Media?.Current;
@@ -751,7 +752,7 @@ public sealed unsafe partial class App
         });
     }
 
-    /// <summary>Choices for Settings › Screen: built-in, primary, then every external display by name.</summary>
+    /// <summary>Choices for Settings -> Screen: built-in, primary, then every external display by name.</summary>
     public List<(string label, string value)> DisplayChoices()
     {
         var l = new List<(string, string)> { ("Built-in", "laptop"), ("Primary", "primary") };

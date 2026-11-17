@@ -5,7 +5,7 @@
 Please report security problems privately, through GitHub's
 [private vulnerability reporting](https://github.com/Scriptily/isola-notch/security/advisories/new)
 for this repository, not in a public issue. Include what you found, how to
-reproduce it, and which version you tested (Settings › About & Logs).
+reproduce it, and which version you tested (Settings -> About & Logs).
 
 Only the latest release gets fixes.
 

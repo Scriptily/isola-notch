@@ -49,7 +49,7 @@ public sealed unsafe partial class SettingsWindow
     static readonly (string name, char glyph)[] Sections =
     {
         ("Appearance", ''), ("Behavior", ''), ("Live Activities", ''), ("Notifications", Glyph.Bell),
-        ("Widgets", ''), ("Search & Keys", Glyph.Keyboard), ("Home Assistant", Glyph.Home), ("Spotify", Glyph.Music), ("About & Logs", ''),
+        ("Widgets", ''), ("Search & Keys", Glyph.Keyboard), ("Home Assistant", Glyph.Home), ("Spotify", Glyph.Music), ("About & Logs", ''), ("Feedback", Glyph.Message),
     };
 
     public SettingsWindow(App a, Hub s, Func<Config> cfg, Action<Config> onApply)
@@ -289,7 +289,8 @@ public sealed unsafe partial class SettingsWindow
         // content: the scroll position follows its target on a spring
         scrollY = ux.Anim("set:scroll", scrollTarget, new SpringSpec(0.24, 1.0), 0.05);
         var area = new Box(220 + 32, 0, W - 220 - 64, H);
-        c.ClipRect(new Box(220, 0, W - 220, H));
+        // the page fades where there's more to scroll, rather than slicing a card in half
+        c.FadeClip(new Box(220, 0, W - 220, H), scrollY > 0.5f, scrollY < contentH - H - 0.5f, 28);
         float y = 24 - scrollY;
         c.Text(Sections[section].name, new Box(area.X, y, area.W, 36), 26, Col.White, FontWeight.SemiBold);
         y += 52;
@@ -305,9 +306,15 @@ public sealed unsafe partial class SettingsWindow
             case 6: HomeAssistantSection(L); break;
             case 7: SpotifySection(L); break;
             case 8: About(L); break;
+            case 9: FeedbackSection(L); break;
         }
-        contentH = L.Y + scrollY + 32;   // the same 32 below the last card as at the sides
-        c.Unclip();
+        // the same 32 below the last card as at the sides. The fade above used
+        // the height measured last frame: if this frame measured another (a page
+        // just opened), draw once more so the edges match this page
+        float measured = L.Y + scrollY + 32;
+        if (Math.Abs(measured - contentH) > 0.5f) dirty = true;
+        contentH = measured;
+        c.Unfade();
         HelpPopover(W, H);
         ux.EndFrame();
     }
@@ -614,12 +621,12 @@ public sealed unsafe partial class SettingsWindow
             var b = L.Row(40);
             ha.Entities.TryGetValue(id, out var e);
             var e2 = e ?? ha.All.FirstOrDefault(x => x.Id == id);
-            canvas.Text(e2?.Name ?? id, new Box(b.X + 20, b.Y, b.W - 280, b.H), 13, Col.White, FontWeight.Medium);
-            canvas.Text(id, new Box(b.X + b.W * 0.45f, b.Y, b.W * 0.4f, b.H), 11.5f, Col.White.A(0.45f));
+            canvas.Text(e2?.Name ?? id, new Box(b.X + 20, b.Y, b.W * 0.45f - 30, b.H), 13, Col.White, FontWeight.Medium);
+            canvas.Text(id, new Box(b.X + b.W * 0.45f, b.Y, b.W * 0.55f - 130, b.H), 11.5f, Col.White.A(0.45f));
             int idx = work.HaEntities.IndexOf(id);
-            ux.IconButton("haup:" + id, b.Right - 88, b.CY, 26, Glyph.Up, () => { if (idx > 0) { work.HaEntities.RemoveAt(idx); work.HaEntities.Insert(idx - 1, id); Changed(); } }, null, 11, idx > 0);
-            ux.IconButton("hadn:" + id, b.Right - 60, b.CY, 26, Glyph.Down, () => { if (idx < work.HaEntities.Count - 1) { work.HaEntities.RemoveAt(idx); work.HaEntities.Insert(idx + 1, id); Changed(); } }, null, 11, idx < work.HaEntities.Count - 1);
-            ux.IconButton("harm:" + id, b.Right - 33, b.CY, 26, Glyph.Close, () => { work.HaEntities.Remove(id); Changed(); }, Col.Hex(0xff453a), 10);
+            ux.IconButton("haup:" + id, b.Right - 102, b.CY, 28, Glyph.Up, () => { if (idx > 0) { work.HaEntities.RemoveAt(idx); work.HaEntities.Insert(idx - 1, id); Changed(); } }, null, 11, idx > 0);
+            ux.IconButton("hadn:" + id, b.Right - 66, b.CY, 28, Glyph.Down, () => { if (idx < work.HaEntities.Count - 1) { work.HaEntities.RemoveAt(idx); work.HaEntities.Insert(idx + 1, id); Changed(); } }, null, 11, idx < work.HaEntities.Count - 1);
+            ux.IconButton("harm:" + id, b.Right - 30, b.CY, 28, Glyph.Close, () => { work.HaEntities.Remove(id); Changed(); }, Col.Hex(0xff453a), 10);
         }
         L.End();
         L.Header("Add entities");
@@ -652,7 +659,7 @@ public sealed unsafe partial class SettingsWindow
             canvas.Text(e.Id, new Box(idX, b.Y, stX - idX - 10, b.H), 11, Col.White.A(0.4f));
             canvas.Text(EntityState(e.State), new Box(stX, b.Y, 110, b.H), 11, Col.White.A(0.5f), FontWeight.Medium, HAlign.Right);
             string id = e.Id;
-            ux.IconButton("haadd:" + id, b.Right - 33, b.CY, 26, Glyph.Add, () => { work.HaEntities.Add(id); Changed(); _ = svc.Ha.RefreshAsync(); }, Col.Hex(0x34c759), 11);
+            ux.IconButton("haadd:" + id, b.Right - 30, b.CY, 28, Glyph.Add, () => { work.HaEntities.Add(id); Changed(); _ = svc.Ha.RefreshAsync(); }, Col.Hex(0x34c759), 11);
         }
         L.End();
     }
@@ -718,6 +725,129 @@ public sealed unsafe partial class SettingsWindow
     {
         apply(work.Clone());
         svc.Ha.RefreshAsync(true).ContinueWith(_ => Ui.Post(() => { testResult = svc.Ha.StatusText; dirty = true; }));
+    }
+
+    // ---- feedback ---------------------------------------------------------------
+    FeedbackKind fbKind = FeedbackKind.Feature;
+    bool fbLogs, fbBusy;
+    string fbError;
+    double fbSentAt = -10, fbCopiedAt = -10, fbSpinAt = -10;
+
+    /// <summary>
+    /// A subject, a description and, if the person wants, the log; sent to the
+    /// relay that files it privately (Services/Feedback). The limits are shown
+    /// before sending, not discovered after it.
+    /// </summary>
+    void FeedbackSection(Layout L)
+    {
+        var fb = svc.Feedback;
+        if (fb == null) return;
+        var subject = Field("fbsub", fields.TryGetValue("fbsub", out var s0) ? s0.Text : "");
+        var text = Field("fbtext", fields.TryGetValue("fbtext", out var t0) ? t0.Text : "");
+        subject.MaxLength = Feedback.SubjectMax;
+        text.Multiline = true; text.MaxLength = Feedback.TextMax;
+        bool justSent = Ui.Clock.Now - fbSentAt < 4;
+
+        L.Header("Send feedback");
+        Seg(L, "fbkind", "Type", null, new[] { "Feature request", "Bug or glitch" }, new[] { "feature", "bug" },
+            fbKind == FeedbackKind.Bug ? "bug" : "feature", v => fbKind = v == "bug" ? FeedbackKind.Bug : FeedbackKind.Feature);
+        // label above a full-width field: these hold sentences, not settings
+        StackedField(L, "fbsub", "Subject", subject, fbKind == FeedbackKind.Bug ? "What went wrong, in a few words" : "What would you like Isola to do?", 32);
+        StackedField(L, "fbtext", "Description", text,
+            fbKind == FeedbackKind.Bug ? "What happened, and what did you expect? Steps to make it happen again help the most." : "Tell us how you'd use it and why it would help.", 132,
+            $"{text.Text.Length:N0} / {Feedback.TextMax:N0}");
+        Toggle(L, "fblogs", "Attach logs for diagnostics", "Isola's log, with your name, folders, addresses and tokens removed", fbLogs, v => fbLogs = v);
+        var idRow = LabeledRow(L, "fbid", "Your feedback ID", "A one-way number made from this PC, so we can tell your reports apart", 230, 52);
+        canvas.Text(Feedback.UserId, new Box(idRow.Right - 230, idRow.Y, 150, idRow.H), 13, Col.White.A(0.9f), FontWeight.SemiBold, HAlign.Right);
+        bool copied = Ui.Clock.Now - fbCopiedAt < 1.6;
+        float ct = ux.Anim("fb:copied", copied ? 1 : 0, SpringSpec.Snappy);
+        var copyBox = Box.Centered(idRow.Right - 44, idRow.CY, 40, 40);
+        ux.Add("fb:copy", copyBox, () => { Win32.SetClipboardText(Feedback.UserId); fbCopiedAt = Ui.Clock.Now; dirty = true; }, 10).Tooltip = copied ? "Copied" : "Copy";
+        float ch = ux.HoverT("fb:copy");
+        canvas.Fill(Box.Centered(copyBox.CX, copyBox.CY, 30, 30), Col.White.A(0.06f + 0.08f * ch), 9);
+        // the copy icon blurs into a check and back, as one shape
+        canvas.Blurred(4 * ct, () => canvas.Icon(Glyph.Copy, copyBox.CX, copyBox.CY, 13, Col.White.A(0.8f)), 1 - ct);
+        canvas.Blurred(4 * (1 - ct), () => canvas.Icon(Glyph.Check, copyBox.CX, copyBox.CY, 13, Col.Hex(0x34c759)), ct);
+        L.End();
+
+        // the send row: what's in the way (or how it went) on the left, the button on the right
+        string problem = fbBusy || justSent ? null : fb.Problem(subject.Text, text.Text);
+        bool waiting = fb.Wait > TimeSpan.Zero;
+        bool untouched = subject.Text.Length == 0 && text.Text.Length == 0;
+        var row = new Box(L.X, L.Y, L.W, 44);
+        var btn = new Box(row.Right - 168, row.CY - 17, 168, 34);
+        string note = justSent ? "Sent. Thanks, it helps a lot."
+            : fbError ?? (Feedback.Endpoint.Length == 0 ? "Feedback isn't available in this build yet." : waiting || !untouched ? problem : null);
+        if (note != null)
+            canvas.Text(note, new Box(row.X + 4, row.Y, btn.X - row.X - 20, row.H), 12, justSent ? Col.Hex(0x34c759) : fbError != null ? Col.Hex(0xff6961) : Col.White.A(0.55f),
+                FontWeight.Medium, HAlign.Left, VAlign.Middle, true);
+        bool can = problem == null && !fbBusy && !justSent && Feedback.Endpoint.Length > 0;
+        float sent = ux.Anim("fb:sent", justSent ? 1 : 0, SpringSpec.Snappy);
+        canvas.Fill(btn, Col.Mix(Col.Hex(0x0a84ff), Col.Hex(0x34c759), sent).A(can || justSent ? 1 : 0.35f), 17);
+        if (can) { ux.Add("fb:send", btn, SendFeedback, 17); canvas.Fill(btn, Col.White.A(0.12f * ux.HoverT("fb:send")), 17); }
+        if (fbBusy || Spinning(fbSpinAt)) Paint.Spinner(canvas, btn.CX, btn.CY, 15, Col.White, Ui.Clock.Now);
+        else
+        {
+            canvas.Blurred(4 * sent, () => canvas.Text("Send feedback", btn, 13, Col.White.A(can ? 1 : 0.7f), FontWeight.SemiBold, HAlign.Center), 1 - sent);
+            canvas.Blurred(4 * (1 - sent), () =>
+            {
+                canvas.Icon(Glyph.Check, btn.CX - 22, btn.CY, 13, Col.White);
+                canvas.Text("Sent", new Box(btn.CX - 10, btn.Y, 60, btn.H), 13, Col.White, FontWeight.SemiBold);
+            }, sent);
+        }
+        L.Y += row.H + 8;
+        L.Note("Feedback goes to the developer privately, never to the public issue tracker. One a day, so each one gets read.", 34);
+    }
+
+    // a sentence field: its label above, the field across the card
+    void StackedField(Layout L, string id, string title, TextBox tb, string placeholder, float fieldH, string counter = null)
+    {
+        var b = L.Row(fieldH + 54);
+        canvas.Text(title, new Box(b.X + 20, b.Y + 12, b.W - 40, TitleH), 13.5f, Col.White.A(0.95f), FontWeight.Medium);
+        if (counter != null) canvas.Text(counter, new Box(b.X + 20, b.Y + 12, b.W - 40, TitleH), 11.5f, Col.White.A(0.4f), FontWeight.Medium, HAlign.Right);
+        // inner radius = card radius (8) minus the inset, never below a hairline of rounding
+        var fbx = new Box(b.X + 14, b.Y + 38, b.W - 28, fieldH);
+        bool focused = focusField == id;
+        tb.Placeholder = placeholder;
+        tb.Escape = () => { focusField = null; dirty = true; };
+        tb.Submit = () => { focusField = null; dirty = true; };
+        tb.Changed = () => { fbError = null; dirty = true; };
+        canvas.Fill(fbx, Col.Black.A(focused ? 0.45f : 0.3f), 6);
+        canvas.Stroke(fbx, focused ? Col.Hex(0x0a84ff) : Col.White.A(0.12f), 6, focused ? 1.5f : 1);
+        var inner = tb.Multiline ? fbx.Inset(10, 8) : fbx.Inset(10, 0);
+        tb.Draw(canvas, inner, 13, focused, Ui.Clock.Now, Col.Hex(0x0a84ff));
+        ux.Add("f:" + id, fbx, () => { focusField = id; tb.Touch(Ui.Clock.Now); tb.ClickAt(tb.IndexAt(ux.MouseX, ux.MouseY), false); }, 6, CursorKind.IBeam);
+    }
+
+    void SendFeedback()
+    {
+        var fb = svc.Feedback;
+        string subject = fields["fbsub"].Text, text = fields["fbtext"].Text;
+        fbBusy = true; fbError = null; fbSpinAt = Ui.Clock.Now; focusField = null; dirty = true;
+        string logs = null;
+        if (fbLogs)
+        {
+            Log.Flush();
+            try
+            {
+                using var f = new FileStream(Paths.LogFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                using var r = new StreamReader(f);
+                logs = Feedback.Redact(r.ReadToEnd(), Environment.UserName, Environment.MachineName,
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), new[] { work.HaBaseUrl, work.HaToken, work.SpotifyClientId, work.City });
+            }
+            catch (Exception ex) { Log.W("feedback", "couldn't read the log: " + ex.Message); }
+        }
+        var kind = fbKind;
+        string version = Updater.Short(typeof(App).Assembly.GetName().Version ?? new Version(1, 0, 0));
+        string windows = Environment.OSVersion.Version.ToString();
+        fb.SendAsync(Feedback.Endpoint, kind, subject, text, version, windows, Packaging.IsStore, logs).ContinueWith(t => Ui.Post(() =>
+        {
+            fbBusy = false;
+            string err = t.IsFaulted ? "Couldn't send it. Try again later." : t.Result;
+            if (err == null) { fbSentAt = Ui.Clock.Now; fields["fbsub"].Set(""); fields["fbtext"].Set(""); fbLogs = false; }
+            else fbError = err;
+            dirty = true;
+        }));
     }
 
     void About(Layout L)

@@ -115,6 +115,11 @@ Isola steps aside for fullscreen videos and games on its screen, and can slide
 out of sight after a few quiet minutes. Bring the pointer to the top edge to
 get it back, or press `Ctrl+Alt+I` to hide or show it.
 
+Found a bug or want something added? Settings -> Feedback sends it to the
+developer privately, with a subject, a description and, if you tick it, a log
+with your name, folders and addresses taken out. One a day, so each one gets
+read.
+
 ## Works even better with
 
 Both are optional.
@@ -136,7 +141,7 @@ There are two ways to get Isola, both free and updated with every release.
 **From the Microsoft Store.** [Get Isola Notch](https://apps.microsoft.com/detail/9NW22R7PVDQT?mode=direct)
 (the Store name; "Isola" was taken), or run `winget install 9NW22R7PVDQT`. The
 Store signs and updates it. It doesn't hide Windows' own notification popups,
-because the Store doesn't allow apps to change those settings; Settings ›
+because the Store doesn't allow apps to change those settings; Settings ->
 Notifications opens Windows' page where you can turn them off yourself.
 
 **From GitHub.** The full version, which can also hide Windows' popups for you:
@@ -153,7 +158,7 @@ Notifications opens Windows' page where you can turn them off yourself.
    opens the island.
 
 It installs for your account only (no administrator rights), adds Isola to the
-Start menu, starts it when you sign in, and adds an uninstaller to Settings ›
+Start menu, starts it when you sign in, and adds an uninstaller to Settings ->
 Apps. Run the setup again any time to repair, update or uninstall.
 
 **Switching between them.** Only one copy runs at a time, so each asks first
@@ -180,13 +185,13 @@ IsolaSetup.exe /uninstall   # asks whether to keep your settings
 
 Windows can't reach the volume slider inside the Spotify app, so Isola uses
 Spotify's Web API for it. That needs Spotify Premium and a free developer app
-of your own, which takes about a minute. Settings › Spotify walks you through
+of your own, which takes about a minute. Settings -> Spotify walks you through
 it:
 
 1. In the [Spotify developer dashboard](https://developer.spotify.com/dashboard),
    create an app.
 2. Add the redirect URI `http://127.0.0.1:4381/callback`, tick Web API, and save.
-3. Paste the app's Client ID into Settings › Spotify. No client secret is needed.
+3. Paste the app's Client ID into Settings -> Spotify. No client secret is needed.
 4. Press Connect and agree in the browser.
 
 Spotify ends these sign-ins after six months. Isola shows the date and puts a
@@ -202,6 +207,7 @@ Isola has no account, no telemetry and no analytics. It talks only to:
 | Open-Meteo | weather, if Home Assistant isn't the source | the city or coordinates you entered |
 | Spotify | if you connect it | your sign-in, to read and set playback |
 | GitHub | update checks, every six hours | nothing about you |
+| Isola's feedback relay | only when you press Send feedback | what you wrote, a one-way ID made from your PC, the app and Windows versions, and the log if you attach it |
 
 Notifications, media, the clipboard and Bluetooth are read on your PC and stay
 there. The Home Assistant token and the Spotify sign-in are encrypted with
@@ -219,8 +225,8 @@ and chime for each app while it's showing notifications itself. It writes the
 original values to a journal first and puts them back whenever it stops showing
 notifications: when you turn the setting off, when a fullscreen app is in front,
 on quit, on sign-out, and if Isola crashes or is ended from Task Manager. Apps
-you had already silenced stay silenced. You can turn this off in Settings ›
-Notifications › Hide Windows' own popups.
+you had already silenced stay silenced. You can turn this off in Settings ->
+Notifications -> Hide Windows' own popups.
 
 It also adds a sign-in task and a Run entry while "Start with Windows" is on.
 The uninstaller removes all of it and restores anything still in the journal.

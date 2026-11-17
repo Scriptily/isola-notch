@@ -51,7 +51,7 @@ public sealed partial class NotificationFeed
             var access = await listener.RequestAccessAsync().AsTask().ConfigureAwait(false);
             if (access != UserNotificationListenerAccessStatus.Allowed)
             {
-                Status = "Windows denied notification access (Settings > Privacy > Notifications)";
+                Status = "Windows denied notification access (Settings -> Privacy -> Notifications)";
                 Log.W("notify", Status); running = false; return;
             }
             Status = "On";

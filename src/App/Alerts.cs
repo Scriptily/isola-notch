@@ -6,7 +6,7 @@ namespace Isola.App;
 
 /// <summary>
 /// Every kind of popup the island shows, built in one place: the real events
-/// and Settings › Notifications › Preview popups both come here, so what the
+/// and Settings -> Notifications -> Preview popups both come here, so what the
 /// preview shows is what the events will show.
 /// </summary>
 public static class Alerts
@@ -134,7 +134,7 @@ public static class Alerts
     };
 
     /// <summary>
-    /// One of each, with sample data, for Settings › Notifications › Preview
+    /// One of each, with sample data, for Settings -> Notifications -> Preview
     /// popups: each shows for 3.5 s in turn, and its buttons only close it.
     /// </summary>
     public static List<Alert> Samples(Action<string> dismiss, byte[] art, Color4 artAccent)

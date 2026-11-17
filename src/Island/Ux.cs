@@ -223,8 +223,10 @@ public sealed class Ux
     public void IconButton(string id, float cx, float cy, float size, char glyph, Action click, Color4? accent = null, float glyphSize = 0,
                            bool enabled = true, Color4? fg = null)
     {
-        var b = Box.Centered(cx, cy, size, size);
-        if (enabled) Add(id, b, click, size / 2);
+        // the target is at least MinHit across, however small the drawn circle:
+        // a 26 px button was easy to miss by a pixel or two
+        float hit = Math.Max(size, MinHit);
+        if (enabled) Add(id, Box.Centered(cx, cy, hit, hit), click, hit / 2);
         float h = HoverT(id), p = PressT(id);
         // the highlight stays inside the button's own footprint (plus a hair of
         // glow), so a button near an edge never bleeds past the island
@@ -232,7 +234,29 @@ public sealed class Ux
         var bg = accent ?? Col.White;
         if (accent.HasValue) C.Circle(cx, cy, size / 2 * s * (1.08f + 0.04f * h), accent.Value.A(0.14f + 0.12f * h));
         C.Circle(cx, cy, size / 2 * s, bg.A(accent.HasValue ? 0.22f + 0.12f * h : 0.0f + 0.13f * h + 0.08f * p));
-        C.Icon(glyph, cx, cy, (glyphSize > 0 ? glyphSize : size * 0.42f) * s, (fg ?? Col.White).A(enabled ? 0.92f + 0.08f * h : 0.35f));
+        SwapIcon(id, glyph, cx, cy, (glyphSize > 0 ? glyphSize : size * 0.42f) * s, (fg ?? Col.White).A(enabled ? 0.92f + 0.08f * h : 0.35f));
+    }
+
+    /// <summary>Smallest click target for a round icon button, in DIPs.</summary>
+    public const float MinHit = 36;
+
+    readonly Dictionary<string, (char now, char was)> glyphs = new();
+
+    /// <summary>
+    /// An icon that changes (play to pause, muted to not) crossfades with a
+    /// little blur, so it reads as one shape changing rather than two icons
+    /// overlapping for a frame.
+    /// </summary>
+    public void SwapIcon(string id, char glyph, float cx, float cy, float size, Color4 color)
+    {
+        if (!glyphs.TryGetValue(id, out var g)) g = (glyph, glyph);
+        if (g.now != glyph) { g = (glyph, ReduceMotion ? glyph : g.now); springs.Remove("swap:" + id); if (!ReduceMotion) AnimFrom("swap:" + id, 0, 1, SpringSpec.Snappy); }
+        glyphs[id] = g;
+        float t = g.was == glyph || ReduceMotion ? 1 : Anim("swap:" + id, 1, SpringSpec.Snappy);
+        if (t >= 0.995f) { C.Icon(glyph, cx, cy, size, color); return; }
+        t = Math.Clamp(t, 0, 1);
+        C.Blurred(4 * t, () => C.Icon(g.was, cx, cy, size, color), 1 - t);
+        C.Blurred(4 * (1 - t), () => C.Icon(glyph, cx, cy, size, color), t);
     }
 
     /// <summary>Text button / chip.</summary>
@@ -269,7 +293,7 @@ public sealed class Ux
     public void Switch(string id, float x, float cy, bool on, Action toggle, Color4 accent)
     {
         var b = new Box(x, cy - 11, 40, 22);
-        Add(id, b, toggle, 11);
+        Add(id, b.Inset(-4, -7), toggle, 18);   // a target taller than the 22 px track
         float t = Anim("sw:" + id, on ? 1 : 0, SpringSpec.Snappy);
         float p = PressT(id);
         C.Fill(b, Col.Mix(Col.Gray(0.32f), accent, t), 11);

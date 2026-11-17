@@ -146,7 +146,7 @@ public sealed class DisplayWatcher
         settleTimer = Ui.After(SettleSeconds, Settle);
     }
 
-    /// <summary>"laptop", "primary", or a display's device path (Settings › Behavior › Screen).</summary>
+    /// <summary>"laptop", "primary", or a display's device path (Settings -> Behavior -> Screen).</summary>
     public Func<string> ShowOn = () => "laptop";
 
     /// <summary>

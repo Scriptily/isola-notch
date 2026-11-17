@@ -21,7 +21,7 @@ your Windows account only. The Home Assistant token and the Spotify sign-in are
 encrypted with Windows' data protection for your account, so a copy of the file
 can't be used anywhere else. The log records which app a notification came
 from, never who sent it or what it said, and the detailed log is off unless you
-turn it on in Settings › About & Logs.
+turn it on in Settings -> About & Logs.
 
 ## What it sends, and where
 
@@ -29,10 +29,11 @@ Isola connects only to these, and only for the reason given:
 
 | Service | When | What it sends | Turn it off |
 |---|---|---|---|
-| Your own Home Assistant | if you enter its address and token | your token, to the address you entered, to read and control the devices you picked | clear the address in Settings › Home Assistant |
-| [Open-Meteo](https://open-meteo.com/en/terms#privacy) | for weather, when Home Assistant isn't the source | the city or coordinates you entered | Settings › Widgets › Weather |
-| [Spotify](https://www.spotify.com/legal/privacy-policy/) | if you connect it | your sign-in, to read and change Spotify's playback and volume, and to show your Spotify display name in Settings | disconnect in Settings › Spotify |
-| [GitHub](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement) | every six hours, and when you press Check now | a request for this project's latest release; nothing about you | Settings › About & Logs › Update automatically |
+| Your own Home Assistant | if you enter its address and token | your token, to the address you entered, to read and control the devices you picked | clear the address in Settings -> Home Assistant |
+| [Open-Meteo](https://open-meteo.com/en/terms#privacy) | for weather, when Home Assistant isn't the source | the city or coordinates you entered | Settings -> Widgets -> Weather |
+| [Spotify](https://www.spotify.com/legal/privacy-policy/) | if you connect it | your sign-in, to read and change Spotify's playback and volume, and to show your Spotify display name in Settings | disconnect in Settings -> Spotify |
+| [GitHub](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement) | every six hours, and when you press Check now | a request for this project's latest release; nothing about you | Settings -> About & Logs -> Update automatically |
+| Isola's feedback relay, on [Cloudflare Workers](https://www.cloudflare.com/privacypolicy/) | only when you press Send feedback | your subject and description, Feature request or Bug, your feedback ID (a one-way number made from this PC; Windows' machine ID itself never leaves it), the Isola and Windows versions, whether it's the Store or GitHub version, and the log only if you tick Attach logs (with your account and PC names, folders, addresses, emails and tokens removed first). It's stored as an issue in a private GitHub repository that only the developer can see | don't send feedback |
 
 Each of these services sees your IP address when Isola connects, as with any
 connection, and handles it under its own privacy policy linked above. Home
@@ -53,13 +54,13 @@ While Isola shows notifications itself, it turns off Windows' own banner and
 chime for each app, so each notification appears once. It saves the original
 settings first and puts them back when it stops showing notifications, when it
 quits, when you sign out, if it crashes, and when you uninstall it. You can turn
-this off in Settings › Notifications › Hide Windows' own popups and chime.
+this off in Settings -> Notifications -> Hide Windows' own popups and chime.
 
 With "Start with Windows" on, it adds a sign-in task and a startup entry for
 your account. The uninstaller removes them, and can remove your data too.
 
 The Microsoft Store version (Isola Notch) changes none of these: it can't
-change Windows' notification settings, so Settings › Notifications links to
+change Windows' notification settings, so Settings -> Notifications links to
 Windows' own page where you can turn banners off yourself. It starts with
 Windows through its package's startup task, which you can also turn off in
 Windows' Startup apps, and keeps its data in its own package folder, which

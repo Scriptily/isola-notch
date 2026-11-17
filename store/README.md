@@ -45,7 +45,7 @@ updates installed copies itself.
 1. **Partner Center account.** Register as an individual developer at
    [storedeveloper.microsoft.com](https://storedeveloper.microsoft.com/) (free for
    individuals; it asks for ID verification).
-2. **Reserve the name.** Apps and games › New product › MSIX or PWA app. Done:
+2. **Reserve the name.** Apps and games -> New product -> MSIX or PWA app. Done:
    "Isola" was taken, so the Store name is **Isola Notch** (the app still calls
    itself Isola).
 3. **Copy the identity.** Done: `identity.json` holds the values from the
@@ -63,9 +63,9 @@ updates installed copies itself.
      Global Administrator role (Partner Center's **Associate** only accepts a
      work account), and an app registration "Isola releases" with a client
      secret.
-   - Partner Center › Account settings › Tenants › Associate, signed in as that
-     admin; then User management › Microsoft Entra applications › add "Isola
-     releases" as **Manager**. Seller ID is under Legal info › Developer.
+   - Partner Center -> Account settings -> Tenants -> Associate, signed in as that
+     admin; then User management -> Microsoft Entra applications -> add "Isola
+     releases" as **Manager**. Seller ID is under Legal info -> Developer.
    - Repository secrets `AZURE_AD_TENANT_ID`, `AZURE_AD_APPLICATION_CLIENT_ID`,
      `AZURE_AD_APPLICATION_SECRET`, `SELLER_ID`; variables
      `STORE_PRODUCT_ID=9NW22R7PVDQT` and `STORE_SECRET_EXPIRES` (the secret's
@@ -87,11 +87,11 @@ a commit, so in a quiet stretch the monthly check stops; the check in
 
 If certification fails or Partner Center is down, the package is still an
 artifact of the release run (`Isola-<version>-msix`) and can be uploaded by
-hand: Isola Notch › Update › Packages.
+hand: Isola Notch -> Update -> Packages.
 
 ## Trying the package on this PC
 
-Turn on Developer Mode (Settings › System › For developers), close the GitHub
+Turn on Developer Mode (Settings -> System -> For developers), close the GitHub
 install's island, then:
 
 ```powershell

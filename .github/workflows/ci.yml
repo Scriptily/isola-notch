@@ -25,6 +25,10 @@ jobs:
       - name: Tests
         run: dotnet run -c Release --project tests\Isola.Tests.csproj
 
+      # the feedback relay enforces the limits the app can only ask for
+      - name: Feedback relay tests
+        run: node --test tools/feedback-relay/worker.test.mjs
+
       - name: Build IsolaSetup.exe (NativeAOT)
         shell: pwsh
         run: .\build.ps1 -SkipTests

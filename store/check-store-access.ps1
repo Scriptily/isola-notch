@@ -64,7 +64,7 @@ $why
 
 About five minutes:
 
-1. Sign in at https://portal.azure.com with the directory's admin account (``admin@...onmicrosoft.com``). Open **App registrations** > **Isola releases** > **Certificates & secrets** > **New client secret**, choose **24 months**, and copy the **Value**.
+1. Sign in at https://portal.azure.com with the directory's admin account (``admin@...onmicrosoft.com``). Open **App registrations** -> **Isola releases** -> **Certificates & secrets** -> **New client secret**, choose **24 months**, and copy the **Value**.
 2. In a terminal, store it (it asks for the value without showing it), and the new expiry date:
    ``````
    gh secret set AZURE_AD_APPLICATION_SECRET --repo $repo

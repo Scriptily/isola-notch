@@ -376,7 +376,7 @@ public sealed class DashboardPage : Page
         float sc = ux.Anim("scroll:sound", scroll.GetValueOrDefault("sound"), ScrollSpring, 0.05);
         var view = p.Inset(0, -4);
         ux.Add("sound:scroll", view, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["sound"] = Math.Clamp(scroll.GetValueOrDefault("sound") - d / 120f * 40, 0, Math.Max(0, contentH - view.H)); isl.Host.RequestFrame(); };
-        c.ClipRect(view);
+        c.FadeClip(view, sc > 0.5f, sc < contentH - view.H - 0.5f);
         float y = p.Y - sc;
         c.Text("OUTPUT", new Box(p.X, y, 200, 16), 10.5f, Col.White.A(0.45f * t), FontWeight.Bold);
         y += 20;
@@ -415,8 +415,10 @@ public sealed class DashboardPage : Page
             ux.IconButton("appmute:" + app.Key, row.Right - 20, row.CY, 30, app.Muted ? Glyph.Mute : Glyph.Volume2, () => au.ToggleAppMute(aa), app.Muted ? Col.Hex(0xff453a) : null, 13);
             y += 40;
         }
-        contentH = y + sc - p.Y;
-        c.Unclip();
+        float measured = y + sc - p.Y;
+        if (Math.Abs(measured - contentH) > 0.5f) isl.Host.RequestFrame();   // the fade used last frame's height
+        contentH = measured;
+        c.Unfade();
     }
     float contentH;
 
@@ -454,8 +456,8 @@ public sealed class DashboardPage : Page
         var ha = isl.Svc?.Ha;
         if (ha == null) return;
         if (isl.Clock.Now - lastHa > isl.Cfg.HaRefreshSeconds) RefreshHa(false);
-        if (!ha.Configured) { Empty(c, p, Glyph.Home, "Connect Home Assistant", "Add your Home Assistant URL and a long-lived access token in Settings › Home Assistant.", t); SettingsButton(c, ux, p, t, "Open Settings"); return; }
-        if (isl.Cfg.HaEntities.Count == 0) { Empty(c, p, Glyph.Home, "Pick your devices", "Choose which lights, scenes, scripts and climate controls appear here in Settings › Home Assistant.", t); SettingsButton(c, ux, p, t, "Choose entities"); return; }
+        if (!ha.Configured) { Empty(c, p, Glyph.Home, "Connect Home Assistant", "Add your Home Assistant URL and a long-lived access token in Settings -> Home Assistant.", t); SettingsButton(c, ux, p, t, "Open Settings"); return; }
+        if (isl.Cfg.HaEntities.Count == 0) { Empty(c, p, Glyph.Home, "Pick your devices", "Choose which lights, scenes, scripts and climate controls appear here in Settings -> Home Assistant.", t); SettingsButton(c, ux, p, t, "Choose entities"); return; }
         bool offline = ha.Status is HaStatus.Unreachable or HaStatus.Unauthorized or HaStatus.Error;
         // status line
         // connecting is a wait with nothing to preview: a spinner where the status dot goes
@@ -468,7 +470,7 @@ public sealed class DashboardPage : Page
         int k = 0;
         float sc = ux.Anim("scroll:home", scroll.GetValueOrDefault("home"), ScrollSpring, 0.05);
         ux.Add("ha:scroll", grid, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["home"] = Math.Clamp(scroll.GetValueOrDefault("home") - d / 120f * 50, 0, Math.Max(0, homeH - grid.H)); isl.Host.RequestFrame(); };
-        c.ClipRect(grid.Inset(-4, -2));
+        c.FadeClip(grid.Inset(-4, -2), sc > 0.5f, sc < homeH - grid.H - 0.5f);
         foreach (var id in isl.Cfg.HaEntities)
         {
             ha.Entities.TryGetValue(id, out var e);
@@ -488,8 +490,10 @@ public sealed class DashboardPage : Page
             if (e != null) TileSpinner(c, ha, e, b, t, offline);
             k += span;
         }
-        homeH = (float)Math.Ceiling(k / (double)cols) * (th + gap);
-        c.Unclip();
+        float measured = (float)Math.Ceiling(k / (double)cols) * (th + gap);
+        if (Math.Abs(measured - homeH) > 0.5f) isl.Host.RequestFrame();   // the fade used last frame's height
+        homeH = measured;
+        c.Unfade();
     }
     float homeH;
 
@@ -720,7 +724,7 @@ public sealed class DashboardPage : Page
         float sc = ux.Anim("scroll:notes", scroll.GetValueOrDefault("notes"), ScrollSpring, 0.05);
         ux.Add("notes:scroll", list, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["notes"] = Math.Clamp(scroll.GetValueOrDefault("notes") - d / 120f * 40, 0, Math.Max(0, notes.Items.Count * 38 - list.H)); isl.Host.RequestFrame(); };
         if (notes.Items.Count == 0) { c.Text("Nothing here yet. Type above and press Enter.", list.Inset(0, 30), 12, Col.White.A(0.4f * t), FontWeight.Normal, HAlign.Center, VAlign.Top); return; }
-        c.ClipRect(list);
+        c.FadeClip(list, sc > 0.5f, sc < notes.Items.Count * 38 - list.H - 0.5f);
         float y = list.Y - sc;
         float added = ux.Anim("notes:added", 0, SpringSpec.Wobbly);
         for (int i = 0; i < notes.Items.Count; i++)
@@ -746,7 +750,7 @@ public sealed class DashboardPage : Page
             }
             y += 38;
         }
-        c.Unclip();
+        c.Unfade();
     }
 
     // ==== Shelf: your own storage =========================================
@@ -778,7 +782,7 @@ public sealed class DashboardPage : Page
         int cols = 5; float cw = grid.W / cols, ch = 96;
         float sc = ux.Anim("scroll:shelf", scroll.GetValueOrDefault("shelf"), ScrollSpring, 0.05);
         ux.Add("shelf:scroll", grid, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["shelf"] = Math.Clamp(scroll.GetValueOrDefault("shelf") - d / 120f * 50, 0, Math.Max(0, (float)Math.Ceiling(shelf.Items.Count / (double)cols) * ch - grid.H)); isl.Host.RequestFrame(); };
-        c.ClipRect(grid);
+        c.FadeClip(grid, sc > 0.5f, sc < (float)Math.Ceiling(shelf.Items.Count / (double)cols) * ch - grid.H - 0.5f);
         for (int i = 0; i < shelf.Items.Count; i++)
         {
             var it = shelf.Items[i];
@@ -834,7 +838,7 @@ public sealed class DashboardPage : Page
             };
             if (h > 0.4f) ux.IconButton(id + ":x", cb.Right - 12, cb.Y + 12, 20, Glyph.Close, () => shelf.Remove(ii), null, 9);
         }
-        c.Unclip();
+        c.Unfade();
     }
 
     static string Host(string url) => Uri.TryCreate(url, UriKind.Absolute, out var u) ? u.Host : url;
@@ -871,7 +875,7 @@ public sealed class DashboardPage : Page
         float rowH = 44;
         float total = cb.Items.Sum(i => i.Kind == "image" ? 84f : rowH);
         ux.Add("clip:scroll", list, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["clip"] = Math.Clamp(scroll.GetValueOrDefault("clip") - d / 120f * 44, 0, Math.Max(0, total - list.H)); isl.Host.RequestFrame(); };
-        c.ClipRect(list);
+        c.FadeClip(list, sc > 0.5f, sc < total - list.H - 0.5f);
         float y = list.Y - sc;
         foreach (var item in cb.Items.ToList())
         {
@@ -903,7 +907,7 @@ public sealed class DashboardPage : Page
             }
             y += hgt + 4;
         }
-        c.Unclip();
+        c.Unfade();
     }
 
     // ==== Timer ============================================================

@@ -229,6 +229,31 @@ public sealed class Canvas
     public void ClipRect(Box b) => C.PushAxisAlignedClip(b.Raw, AntialiasMode.PerPrimitive);
     public void Unclip() => C.PopAxisAlignedClip();
 
+    readonly Stack<ID2D1LinearGradientBrush> fades = new();
+
+    /// <summary>
+    /// Clips to a scrolling view, fading the edges that have more to scroll
+    /// toward, until <see cref="Unfade"/>. A hard clip sliced rows and tiles
+    /// off mid-line, which read as broken rather than as "there's more".
+    /// </summary>
+    public void FadeClip(Box view, bool top, bool bottom, float edge = 18)
+    {
+        C.PushAxisAlignedClip(view.Raw, AntialiasMode.PerPrimitive);
+        if ((!top && !bottom) || view.H < 4 * edge) { fades.Push(null); return; }
+        float t = edge / view.H;
+        var brush = Linear(new Vector2(view.X, view.Y), new Vector2(view.X, view.Bottom),
+            (0, Col.Black.A(top ? 0 : 1)), (t, Col.Black), (1 - t, Col.Black), (1, Col.Black.A(bottom ? 0 : 1)));
+        Push(null, 1, brush);
+        fades.Push(brush);   // the layer reads the brush until it's popped
+    }
+
+    public void Unfade()
+    {
+        var brush = fades.Pop();
+        if (brush != null) { Pop(); brush.Dispose(); }
+        C.PopAxisAlignedClip();
+    }
+
     public Matrix3x2 Transform { get => C.Transform; set => C.Transform = value; }
 
     /// <summary>Scale about a point, composed with the current transform.</summary>

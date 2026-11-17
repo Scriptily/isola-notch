@@ -6,7 +6,7 @@
 .DESCRIPTION
   The package is left unsigned: Partner Center signs it with Microsoft's
   certificate when it passes certification. To try it on this PC first, turn
-  on Developer Mode (Settings > System > For developers) and register the
+  on Developer Mode (Settings -> System -> For developers) and register the
   unpacked layout instead:
 
     .\store\build-msix.ps1 -Register

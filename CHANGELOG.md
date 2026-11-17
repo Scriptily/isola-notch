@@ -5,6 +5,31 @@ changes for breaking or very large changes, the minor number for new features,
 and the patch number for fixes only. Each release's section below is also its
 GitHub release notes.
 
+## [Unreleased]
+
+### Added
+
+- Settings -> Feedback: send a feature request or a bug report with a subject
+  and a description, and optionally the log, with your account and PC names,
+  folders, addresses, emails and tokens removed first. Each report carries a
+  feedback ID, a one-way number made from your PC, so reports from the same
+  person can be told apart. It goes to the developer privately (an issue in a
+  private repository, through a small relay that holds the only key), one a
+  day, and never the same report twice.
+
+### Changed
+
+- Scrolling lists (Sound, Home, Notes, Shelf, Clipboard and every Settings
+  page) fade out at an edge with more to scroll toward, instead of cutting a
+  row or tile in half.
+- Icons that change (play and pause, mute) blur from one to the other instead
+  of swapping in a single frame.
+- Small round buttons can be clicked a few pixels outside the circle, and
+  switches a little above and below the track. The Home Assistant entity rows
+  in Settings space their move and remove buttons further apart.
+- Navigation steps in text read "Settings -> Notifications" instead of using
+  an arrow character.
+
 ## [1.3.0] - 2026-11-16
 
 ### Added

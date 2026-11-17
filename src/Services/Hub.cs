@@ -30,6 +30,7 @@ public sealed class Hub
     public AudioService Audio;
     public Updater Updates;
     public SpotifyService Spotify;
+    public Feedback Feedback;
 }
 
 public interface IMediaSourceEx : IMediaSource

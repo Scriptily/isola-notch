@@ -44,4 +44,6 @@ public static class Paths
     /// <summary>Windows banner settings the island switched off, to put back (see WindowsBanners).</summary>
     public static string BannerJournal => Path.Combine(Home, "banners.journal");
     public static string State => Path.Combine(Home, "state.json");
+    /// <summary>When feedback was last sent and what (as fingerprints), for the once-a-day and no-repeat limits.</summary>
+    public static string FeedbackState => Path.Combine(Home, "feedback.json");
 }

@@ -249,7 +249,7 @@ public sealed class SpotifyService
             // Settings isn't the app's (it once went missing from the config)
             string err = js?["error"]?.ToString() ?? "";
             Log.W("spotify", $"token refresh -> {(int)resp.StatusCode} {err}");
-            Set(err == "invalid_client" ? "Spotify doesn't recognize the Client ID in Settings › Spotify" : $"Spotify wouldn't renew access ({(err.Length > 0 ? err : ((int)resp.StatusCode).ToString())})");
+            Set(err == "invalid_client" ? "Spotify doesn't recognize the Client ID in Settings -> Spotify" : $"Spotify wouldn't renew access ({(err.Length > 0 ? err : ((int)resp.StatusCode).ToString())})");
             return false;
         }
         TakeTokens(js);
