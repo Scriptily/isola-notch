@@ -64,6 +64,14 @@ GitHub release notes.
   hiding it). It now stops whenever its call does, and any looping sound
   stops by itself after two minutes, whatever happens.
 
+### VirusTotal
+
+1 of 70 security vendors flagged `IsolaSetup.exe` on 2026-11-17. [Full report](https://www.virustotal.com/gui/file/b3142922d6854f73764fb174a82a0be4b6cb39b3f8e12ffe252b49e07e87c425)
+
+- Bkav: W32.Malware.2E399881
+
+The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
+
 ## [1.3.0] - 2026-11-16
 
 ### Added
