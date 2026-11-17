@@ -47,7 +47,8 @@ const sounds = {
       fm(t, a + 0.09, hz(N.Cs6), { dur: 1.4, amp: 0.45, ratio: 2.76, index: 2.4, indexDecay: 4, decay: 2.6, pan: 0.2 });
     }, { wet: 0.2 })],
     ['Bloom', 'new', 'A short, soft chord that swells in', () => shot(1.2, (t, a) => {
-      [N.E5, N.Gs5, N.B5, N.Ds6].forEach((n, i) => fm(t, a + i * 0.025, hz(n), { dur: 1.0, amp: 0.3, ratio: 1, index: 0.6, indexDecay: 2, decay: 3, attack: 0.05, pan: -0.3 + i * 0.2 }));
+      // held longer than the first try, which ended too soon (as Isola plays it)
+      [N.E5, N.Gs5, N.B5, N.Ds6].forEach((n, i) => fm(t, a + i * 0.025, hz(n), { dur: 2.0, amp: 0.3, ratio: 1, index: 0.6, indexDecay: 2, decay: 1.8, attack: 0.05, pan: -0.3 + i * 0.2 }));
       air(t, a, { dur: 0.5, amp: 0.05, cutoff: 5000 });
     }, { wet: 0.25 })],
   ],

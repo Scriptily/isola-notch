@@ -201,6 +201,8 @@ public sealed unsafe partial class App
         svc.Notifications.Removed += n => island.DismissAlert((n.IsCall ? "call:" : "notif:") + n.Id);
         island.OpenNotificationCenter = () => Win32.ShellExecute("ms-actioncenter:");
         island.PreviewPopups = PreviewPopups;
+        // the chosen sounds, built in the background now so the first one plays without a wait
+        { var c0 = cfg; Task.Run(() => { foreach (var k in Sounds.All) Sounds.Warm(k, (float)c0.SoundVolume, ToneFor(c0, k)); }); }
         island.SoundOn = a => { if (SoundAllowed(cfg, a)) Sounds.Play(a.Sound, (float)cfg.SoundVolume, ToneFor(cfg, a.Sound)); };
         island.SoundOff = a => { if (a.Sound != null && Sounds.Loops(a.Sound)) Sounds.Stop(); };
         if (FeedWanted(cfg)) _ = svc.Notifications.StartAsync();
@@ -705,7 +707,9 @@ public sealed unsafe partial class App
         Sounds.Notification => c.NotificationTone,
         Sounds.Call => c.Ringtone,
         Sounds.Timer => c.TimerTone,
-        _ => c.DeviceTone,
+        Sounds.Charge => c.ChargeTone,
+        Sounds.Low => c.LowTone,
+        _ => c.DeviceTone,   // connecting and disconnecting
     };
 
     /// <summary>Settings: hear a sound as it's picked (a looping one plays a few seconds).</summary>

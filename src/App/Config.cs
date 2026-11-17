@@ -71,10 +71,13 @@ public sealed class Config
     public bool CallRingtone { get; set; } = true;
     public bool DeviceSounds { get; set; } = true;
     /// <summary>Which of each kind's sounds (Sounds.Choices).</summary>
-    public string NotificationTone { get; set; } = "glass";
-    public string Ringtone { get; set; } = "marimba";
-    public string TimerTone { get; set; } = "bells";
-    public string DeviceTone { get; set; } = "soft";
+    public string NotificationTone { get; set; } = "bubble";
+    public string Ringtone { get; set; } = "classic";
+    public string TimerTone { get; set; } = "sweep";
+    /// <summary>Connecting and disconnecting (one choice: each sound has a rising and a falling form).</summary>
+    public string DeviceTone { get; set; } = "click";
+    public string ChargeTone { get; set; } = "click";
+    public string LowTone { get; set; } = "click";
     public List<string> NotificationMutedApps { get; set; } = new();
     public bool Calls { get; set; } = true;
     public int AlertSeconds { get; set; } = 5;
@@ -167,6 +170,8 @@ public sealed class Config
         Ringtone = Services.Sounds.Valid(Services.Sounds.Call, Ringtone);
         TimerTone = Services.Sounds.Valid(Services.Sounds.Timer, TimerTone);
         DeviceTone = Services.Sounds.Valid(Services.Sounds.Connect, DeviceTone);
+        ChargeTone = Services.Sounds.Valid(Services.Sounds.Charge, ChargeTone);
+        LowTone = Services.Sounds.Valid(Services.Sounds.Low, LowTone);
         CollapseDelayMs = Math.Clamp(CollapseDelayMs, 0, 5000);
         RevealZoneWidth = Math.Clamp(RevealZoneWidth, 80, 2000);
         RevealZoneHeight = Math.Clamp(RevealZoneHeight, 2, 40);

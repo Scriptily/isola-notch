@@ -68,9 +68,10 @@ anything past the newest four folds into one summary. A call always goes first.
 A notification with a sign-in or verification code gets a Copy button and stays
 a little longer, as Windows' own banners do.
 
-Isola has its own sounds, made in code: a chime for notifications, a ringtone
-for calls, a bell for the timer, and soft tones for devices. Each has a few to
-pick from, or you can turn them off.
+Isola has its own sounds, made in code: chimes for notifications, ringtones
+for calls, alarms for the timer, and soft clicks and tones for devices, the
+charger and low battery. Each has four to six to pick from, all matched in
+loudness so none is jarringly louder than another, or you can turn them off.
 
 ### Dashboard
 

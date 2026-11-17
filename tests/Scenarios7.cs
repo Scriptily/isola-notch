@@ -555,22 +555,67 @@ public static partial class Scenarios
         Eq(null, s.Values["Old"], "its banner back");
     }
 
-    [Scenario("every island sound renders as real audio at the chosen level; looping ones end in silence so they don't click")]
+    [Scenario("every island sound renders as real stereo audio; one-shots fade out to silence (none stops dead); half volume is half the level")]
     public static void IslandSoundsRender()
     {
         foreach (var kind in Sounds.All)
         foreach (var (variant, _) in Sounds.Choices(kind))
         {
-            var wav = Sounds.Render(kind, 0.5f, variant);
+            var wav = Sounds.Render(kind, 1f, variant);
             Eq("RIFF", System.Text.Encoding.ASCII.GetString(wav, 0, 4), kind + ": a WAV");
-            int samples = (wav.Length - 44) / 2;
-            True(samples > 44100 / 5, kind + ": long enough to hear");
+            Eq(2, (int)BitConverter.ToInt16(wav, 22), kind + ": stereo");
+            int frames = (wav.Length - 44) / 4;
+            True(frames > Sounds.Rate / 5, kind + ": long enough to hear");
             short peak = 0; for (int i = 44; i + 1 < wav.Length; i += 2) peak = Math.Max(peak, Math.Abs(BitConverter.ToInt16(wav, i)));
-            True(Math.Abs(peak / 32767f - 0.45f) < 0.02f, $"{kind}/{variant}: peaks at the level asked ({peak / 32767f:0.000})");
-            Eq(0, (int)BitConverter.ToInt16(wav, wav.Length - 2), kind + ": ends at zero");
+            True(peak / 32767f <= Sounds.Ceiling + 0.001f, $"{kind}/{variant}: never past the ceiling ({peak / 32767f:0.000})");
+            if (!Sounds.Loops(kind))
+            {
+                // the last 50 ms, against the peak: a sound cut off (Bloom's first version) stops loud
+                double tail = 0; int n50 = Sounds.Rate / 20;
+                for (int f = frames - n50; f < frames; f++) tail = Math.Max(tail, Math.Abs(BitConverter.ToInt16(wav, 44 + f * 4)));
+                True(tail / peak < 0.003, $"{kind}/{variant}: fades out ({tail / peak:0.0000} of the peak in its last 50 ms)");
+                Eq(0, (int)BitConverter.ToInt16(wav, wav.Length - 2), kind + ": ends at zero");
+            }
+            var half = Sounds.Render(kind, 0.5f, variant);
+            short hp = 0; for (int i = 44; i + 1 < half.Length; i += 2) hp = Math.Max(hp, Math.Abs(BitConverter.ToInt16(half, i)));
+            True(Math.Abs(hp / (double)peak - 0.5) < 0.01, $"{kind}/{variant}: volume scales it ({hp / (double)peak:0.000})");
         }
         var quiet = Sounds.Render(Sounds.Notification, 0f);
         True(quiet.Skip(44).All(b => b == 0), "volume 0 is silence");
+    }
+
+    [Scenario("every sound is as loud as the others to the ear (BS.1770 loudness), not just the same peak; a held beep and a click land together")]
+    public static void SoundsMatchInLoudness()
+    {
+        var all = new List<(string what, double loud, bool ceiling)>();
+        foreach (var kind in Sounds.All)
+        foreach (var (variant, _) in Sounds.Choices(kind))
+        {
+            var (loud, ceiling) = Sounds.Measure(kind, variant);
+            all.Add(($"{kind}/{variant}", loud, ceiling));
+        }
+        foreach (var (what, loud, ceiling) in all.Where(x => !x.ceiling))
+            True(Math.Abs(loud - Sounds.TargetLoudness) < 0.1, $"{what}: at the target loudness ({loud:0.0} dB)");
+        // a sound held back by its peak can only be quieter, never louder
+        foreach (var (what, loud, _) in all) True(loud <= Sounds.TargetLoudness + 0.1, $"{what}: never louder than the rest ({loud:0.0} dB)");
+        int held = all.Count(x => x.ceiling);
+        True(held <= all.Count / 4, $"few are held back by their peaks ({held} of {all.Count}: {string.Join(", ", all.Where(x => x.ceiling).Select(x => $"{x.what} {x.loud:0.0}"))})");
+        // what the old peak-only levels got wrong: the held beeps of Classic were far louder than a click
+        var classic = all.Single(x => x.what == "call/classic").loud; var click = all.Single(x => x.what == "connect/click").loud;
+        True(Math.Abs(classic - click) < 3, $"the ringtone and a click within 3 dB ({classic:0.0} vs {click:0.0})");
+
+        // Bloom swells, then rings on: its first version fell away right after it swelled
+        var (bl, br) = Sounds.Decode(Sounds.Render(Sounds.Notification, 1f, "bloom"));
+        int top = 0; for (int i = 0; i < bl.Length; i++) if (Math.Abs(bl[i]) > Math.Abs(bl[top])) top = i;
+        int win = Sounds.Rate / 20, quietAt = top;
+        for (int s = top; s + win < bl.Length; s += win)
+        {
+            double rms = Math.Sqrt(bl.Skip(s).Take(win).Sum(x => x * x) / win);
+            if (rms < Math.Abs(bl[top]) * 0.01) { quietAt = s; break; }   // 40 dB under its peak
+            quietAt = s + win;
+        }
+        double rings = (quietAt - top) / (double)Sounds.Rate;
+        True(rings > 1.2, $"Bloom rings on for {rings:0.00} s after its peak, not a sudden end");
     }
 
     [Scenario("sounds start with their popup and a looping one stops when it leaves or a call pushes it aside")]
@@ -618,7 +663,7 @@ public static partial class Scenarios
     [Scenario("each sound kind offers several choices, each really different; an unknown choice falls back to the default")]
     public static void SoundChoices()
     {
-        foreach (var kind in new[] { Sounds.Notification, Sounds.Call, Sounds.Timer, Sounds.Connect })
+        foreach (var kind in new[] { Sounds.Notification, Sounds.Call, Sounds.Timer, Sounds.Connect, Sounds.Disconnect, Sounds.Charge, Sounds.Low })
         {
             var ch = Sounds.Choices(kind);
             True(ch.Length >= 3, kind + ": at least three to choose from");
@@ -627,8 +672,16 @@ public static partial class Scenarios
             Eq(ch[0].id, Sounds.Valid(kind, "no-such-sound"), kind + ": unknown falls back to the default");
         }
         var c2 = new Config { Ringtone = "nonsense" }; c2.Normalize();
-        Eq("marimba", c2.Ringtone, "a bad ringtone in the config is replaced by the default");
-        Eq("classic", Isola.App.App.ToneFor(new Config { Ringtone = "classic" }, Sounds.Call), "the chosen ringtone is used");
+        Eq("classic", c2.Ringtone, "a bad ringtone in the config is replaced by the default");
+        Eq("harp", Isola.App.App.ToneFor(new Config { Ringtone = "harp" }, Sounds.Call), "the chosen ringtone is used");
+        var picks = new Config { DeviceTone = "rise", ChargeTone = "spark", LowTone = "sink" };
+        Eq("rise", Isola.App.App.ToneFor(picks, Sounds.Connect), "connecting");
+        Eq("rise", Isola.App.App.ToneFor(picks, Sounds.Disconnect), "disconnecting shares it (falling)");
+        Eq("spark", Isola.App.App.ToneFor(picks, Sounds.Charge), "the charger has its own");
+        Eq("sink", Isola.App.App.ToneFor(picks, Sounds.Low), "so does low battery");
+        True(!Sounds.Render(Sounds.Connect, 0.5f, "rise").SequenceEqual(Sounds.Render(Sounds.Disconnect, 0.5f, "rise")), "rise connects, falls disconnecting");
+        var old = new Config { NotificationTone = "glass", TimerTone = "bells", DeviceTone = "soft" }; old.Normalize();
+        Eq("bubble|sweep|click", $"{old.NotificationTone}|{old.TimerTone}|{old.DeviceTone}", "sounds from before move to the new defaults");
     }
 
     [Scenario("images decode safely under a storm of album art and icons on several threads, with garbage collections in between")]
@@ -949,17 +1002,17 @@ public static partial class Scenarios
             // a chime starts with silence the output can wake up on; longer on Bluetooth
             calls.Clear();
             Sounds.OutputIsBluetooth = () => false;
-            Sounds.Play(Sounds.Notification, 0.6f, "glass");
-            True(calls[^1].silentSamples >= (int)(Sounds.LeadIn * 44100) * 0.95, $"wired: {calls[^1].silentSamples} silent samples first");
+            Sounds.Play(Sounds.Notification, 0.6f, "bubble");
+            True(calls[^1].silentSamples >= (int)(Sounds.LeadIn * Sounds.Rate * 2) * 0.95, $"wired: {calls[^1].silentSamples} silent samples first");
             Sounds.OutputIsBluetooth = () => true;
-            Sounds.Play(Sounds.Notification, 0.6f, "glass");
-            True(calls[^1].silentSamples >= (int)(Sounds.LeadInBluetooth * 44100) * 0.95, $"Bluetooth: {calls[^1].silentSamples} silent samples first");
+            Sounds.Play(Sounds.Notification, 0.6f, "bubble");
+            True(calls[^1].silentSamples >= (int)(Sounds.LeadInBluetooth * Sounds.Rate * 2) * 0.95, $"Bluetooth: {calls[^1].silentSamples} silent samples first");
 
             // a refused PlaySound is tried once more
             calls.Clear(); refuseNext = true;
-            Sounds.Play(Sounds.Connect, 0.6f, "soft");
+            Sounds.Play(Sounds.Connect, 0.6f, "click");
             Eq(2, calls.Count, "asked twice");
-            Eq("connect:soft", Sounds.Playing, "and it plays");
+            Eq("connect:click", Sounds.Playing, "and it plays");
         }
         finally { Sounds.Stop(); Sounds.Output = oldOut; Sounds.Silence = oldSilence; Sounds.OutputIsBluetooth = oldBt; }
     }

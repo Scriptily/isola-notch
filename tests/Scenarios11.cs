@@ -108,9 +108,25 @@ public static partial class Scenarios
             // a newer sound's limit isn't cut short by an older one's
             Sounds.Play(Sounds.Call, 0.6f, "classic");
             clock.Advance(60, isl);
-            Sounds.Play(Sounds.Timer, 0.6f, "bells");
+            Sounds.Play(Sounds.Timer, 0.6f, "sweep");
             clock.Advance(Sounds.MaxLoopSeconds - 5, isl);
-            Eq("timer:bells", Sounds.Playing, "the timer has its own full limit");
+            Eq("timer:sweep", Sounds.Playing, "the timer has its own full limit");
+        }
+        finally { Sounds.Output = oldOut; Sounds.Silence = oldSilence; Sounds.Stop(); }
+    }
+
+    [Scenario("a sound warmed at startup plays without being built again")]
+    public static void WarmedSoundsPlayStraightAway()
+    {
+        var oldOut = Sounds.Output; var oldSilence = Sounds.Silence;
+        try
+        {
+            Sounds.Output = (wav, flags) => true; Sounds.Silence = () => { };
+            Sounds.Warm(Sounds.Low, 0.35f, "sink");
+            int built = Sounds.Built;
+            Sounds.Play(Sounds.Low, 0.35f, "sink");
+            Eq(built, Sounds.Built, "the first play used the warmed one");
+            Eq("low:sink", Sounds.Playing, "and it plays");
         }
         finally { Sounds.Output = oldOut; Sounds.Silence = oldSilence; Sounds.Stop(); }
     }

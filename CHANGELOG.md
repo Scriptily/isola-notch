@@ -43,6 +43,12 @@ GitHub release notes.
   an arrow character.
 - The repository's New issue page now points to Settings -> Feedback (and to
   private vulnerability reporting for security problems).
+- New sounds, in higher quality: five notification chimes, six ringtones, six
+  timer alarms, and their own sets for devices connecting, the charger and low
+  battery. Each fades out instead of stopping short, they're matched in
+  loudness (a held ringtone no longer sounds far louder than a click), and
+  they play in stereo with a little room around them. Earlier choices move to
+  the new defaults.
 - The release pipeline runs each GitHub action at a fixed commit rather than a
   version tag that could be moved, and Dependabot proposes updates and
   security fixes for the actions and the NuGet packages. Secret scanning and

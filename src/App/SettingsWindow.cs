@@ -576,7 +576,9 @@ public sealed unsafe partial class SettingsWindow
         Tone(L, "tone:c", "Ringtone", Sounds.Call, work.Ringtone, v => work.Ringtone = v);
         Tone(L, "tone:t", "Timer sound", Sounds.Timer, work.TimerTone, v => work.TimerTone = v);
         Toggle(L, "snddev", "Sounds for devices and the charger", "Connecting, disconnecting, plugging in, low battery", work.DeviceSounds, v => work.DeviceSounds = v);
-        Tone(L, "tone:d", "Device sound", Sounds.Connect, work.DeviceTone, v => work.DeviceTone = v);
+        Tone(L, "tone:d", "Devices connecting", Sounds.Connect, work.DeviceTone, v => work.DeviceTone = v);
+        Tone(L, "tone:g", "Charger plugged in", Sounds.Charge, work.ChargeTone, v => work.ChargeTone = v);
+        Tone(L, "tone:l", "Low battery", Sounds.Low, work.LowTone, v => work.LowTone = v);
         L.End();
         L.Note("Picking a sound plays it; pick it again to hear it again.");
         Button(L, "preview", "Preview popups", "Shows one of each kind the island can show, in turn, with its sound", "Preview", () => app.PreviewPopups());
