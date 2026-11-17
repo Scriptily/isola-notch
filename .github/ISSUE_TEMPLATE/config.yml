@@ -1,0 +1,11 @@
+# The "New issue" page offers only these. Feedback goes through Isola itself
+# (Settings -> Feedback), which reaches the developer privately and can bring a
+# scrubbed log; issues here stay for the project's own housekeeping.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a bug or request a feature
+    url: https://github.com/Scriptily/isola-notch#feedback
+    about: Use Settings -> Feedback in Isola. It reaches the developer directly and can include a log with your personal details removed.
+  - name: Report a security problem
+    url: https://github.com/Scriptily/isola-notch/security/advisories/new
+    about: Privately, as described in SECURITY.md.

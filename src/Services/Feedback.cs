@@ -10,10 +10,9 @@ namespace Isola.Services;
 public enum FeedbackKind { Feature, Bug }
 
 /// <summary>
-/// Feedback from Settings -> Feedback. It goes to a small relay
-/// (tools/feedback-relay) that files it as an issue in a private repository:
-/// the relay holds the only credential, so nothing in this open source build
-/// can read the feedback or post around the relay's limits.
+/// Feedback from Settings -> Feedback. It goes to Isola's feedback service
+/// (feedback/ in the repository), which stores it privately: nothing in this
+/// open source build can read feedback or get around the service's limits.
 ///
 /// The limits (one a day per person, never the same text twice) are checked
 /// here first so the page can say so before anything is sent, and again by the
@@ -32,6 +31,7 @@ public sealed partial class Feedback
     readonly Func<DateTime> now;
     DateTime? lastSent;
     readonly HashSet<string> sent = new();
+    string assignedId;
 
     public Feedback(string stateFile, HttpMessageHandler handler = null, Func<DateTime> clock = null)
     {
@@ -46,23 +46,38 @@ public sealed partial class Feedback
     // ---- who: a number made from this PC, never the PC's ID itself ----------
 
     /// <summary>
-    /// "User" and nine digits, the same every time on this PC. It's a one-way
-    /// hash of Windows' machine GUID: the GUID never leaves the PC and the
-    /// number can't be turned back into it, which is why there is no decrypt.
-    /// A stable number is all that sorting feedback by person needs.
+    /// "User" and a 19- or 20-digit number, the same every time on this PC: a
+    /// one-way hash of Windows' machine GUID, all 64 bits of it, so two PCs
+    /// practically never land on the same number. The GUID never leaves the PC
+    /// and the number can't be turned back into it (there is no decrypt). The
+    /// service makes the "practically" certain: see <see cref="VerifierFrom"/>.
     /// </summary>
     public static string UserIdFrom(string hardwareId)
     {
-        byte[] mac = HMACSHA256.HashData("Isola feedback id v1"u8, Encoding.UTF8.GetBytes((hardwareId ?? "").Trim().ToLowerInvariant()));
-        ulong v = BitConverter.ToUInt64(mac, 0);
-        return "User" + (100_000_000 + v % 900_000_000).ToString(CultureInfo.InvariantCulture);
+        ulong v = BitConverter.ToUInt64(HMACSHA256.HashData("Isola feedback id v2"u8, Norm(hardwareId)), 0);
+        return "User" + (v | 1UL << 63).ToString(CultureInfo.InvariantCulture);   // the top bit set: always 19 or 20 digits
     }
 
-    public static bool ValidUserId(string id) => id != null && UserIdRx().IsMatch(id);
-    [GeneratedRegex(@"^User[1-9]\d{8}$")] private static partial Regex UserIdRx();
+    /// <summary>
+    /// A second, independent hash of the same GUID. The service keys each PC by
+    /// it, so if another PC ever derived the same ID, it's given its own ("-2")
+    /// instead of sharing one, and an ID once given is never given to anyone else.
+    /// </summary>
+    public static string VerifierFrom(string hardwareId) =>
+        Convert.ToHexString(HMACSHA256.HashData("Isola feedback verifier v1"u8, Norm(hardwareId)), 0, 16).ToLowerInvariant();
 
-    static string userId;
-    public static string UserId => userId ??= UserIdFrom(HardwareId());
+    static byte[] Norm(string hardwareId) => Encoding.UTF8.GetBytes((hardwareId ?? "").Trim().ToLowerInvariant());
+
+    public static bool ValidUserId(string id) => id != null && UserIdRx().IsMatch(id);
+    [GeneratedRegex(@"^User[1-9]\d{5,19}(-\d{1,3})?$")] private static partial Regex UserIdRx();
+
+    static string hardware;
+    static string Hardware => hardware ??= HardwareId();
+    /// <summary>Set by tests in place of this PC's GUID.</summary>
+    internal static string HardwareOverride { set => hardware = value; }
+
+    /// <summary>The ID the service gave this PC, once it has answered; until then the one this PC derives.</summary>
+    public string UserId => assignedId ?? UserIdFrom(Hardware);
 
     /// <summary>Windows' machine GUID (set when Windows is installed); if it can't be read, a random one kept beside the settings.</summary>
     static string HardwareId()
@@ -112,6 +127,8 @@ public sealed partial class Feedback
             var o = JsonNode.Parse(File.ReadAllText(stateFile));
             if (DateTime.TryParse((string)o?["LastSent"], CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var t)) lastSent = t.ToUniversalTime();
             if (o?["Sent"] is JsonArray a) foreach (var h in a) if ((string)h is { Length: 64 } s) sent.Add(s);
+            if ((string)o?["User"] is { } u && ValidUserId(u)) assignedId = u;
+            if (o?["Reports"] is JsonArray r) foreach (var n in r) if (n?.GetValueKind() == System.Text.Json.JsonValueKind.Number) reports.Add((long)n);
         }
         catch { }
     }
@@ -120,7 +137,13 @@ public sealed partial class Feedback
     {
         try
         {
-            var o = new JsonObject { ["LastSent"] = lastSent?.ToString("o"), ["Sent"] = new JsonArray(sent.Select(s => (JsonNode)s).ToArray()) };
+            var o = new JsonObject
+            {
+                ["LastSent"] = lastSent?.ToString("o"),
+                ["Sent"] = new JsonArray(sent.Select(s => (JsonNode)s).ToArray()),
+                ["User"] = assignedId,
+                ["Reports"] = new JsonArray(reports.Select(n => (JsonNode)n).ToArray()),
+            };
             File.WriteAllText(stateFile, o.ToJsonString());
         }
         catch { }
@@ -156,10 +179,12 @@ public sealed partial class Feedback
 
     // ---- sending ---------------------------------------------------------------
 
-    public static string Payload(string user, FeedbackKind kind, string subject, string text, string version, string windows, bool store, string logs) =>
+    public static string Payload(string user, string verifier, FeedbackKind kind, string subject, string text, string version, string windows, bool store, string logs) =>
         new JsonObject
         {
+            ["app"] = "isola",   // the feedback hub serves several apps
             ["user"] = user,
+            ["verifier"] = verifier,
             ["kind"] = kind == FeedbackKind.Bug ? "bug" : "feature",
             ["subject"] = subject.Trim(),
             ["text"] = text.Trim(),
@@ -169,51 +194,65 @@ public sealed partial class Feedback
             ["logs"] = string.IsNullOrEmpty(logs) ? null : logs,
         }.ToJsonString();
 
-    /// <summary>Sends it; null on success, otherwise what to tell the person.</summary>
-    public async Task<string> SendAsync(string endpoint, FeedbackKind kind, string subject, string text, string version, string windows, bool store, string logs)
+    readonly List<long> reports = new();
+    /// <summary>The numbers of the reports this PC has sent, newest last.</summary>
+    public IReadOnlyList<long> Reports => reports;
+
+    public readonly record struct Result(string Error, long Report)
     {
-        if (string.IsNullOrEmpty(endpoint)) return "Feedback isn't available in this build.";
+        public bool Ok => Error == null;
+    }
+
+    /// <summary>Sends it: the report's number on success, otherwise what to tell the person.</summary>
+    public async Task<Result> SendAsync(string endpoint, FeedbackKind kind, string subject, string text, string version, string windows, bool store, string logs)
+    {
+        if (string.IsNullOrEmpty(endpoint)) return new("Feedback isn't available in this build.", 0);
         subject = (subject ?? "").Trim();
         text = (text ?? "").Trim();
         if (subject.Length > SubjectMax) subject = subject[..SubjectMax];
         if (text.Length > TextMax) text = text[..TextMax];
-        if (Problem(subject, text) is { } p) return p;
+        if (Problem(subject, text) is { } p) return new(p, 0);
         string fp = Fingerprint(subject, text);
         try
         {
-            using var body = new StringContent(Payload(UserId, kind, subject, text, version, windows, store, logs), Encoding.UTF8, "application/json");
+            using var body = new StringContent(Payload(UserIdFrom(Hardware), VerifierFrom(Hardware), kind, subject, text, version, windows, store, logs), Encoding.UTF8, "application/json");
             using var resp = await http.PostAsync(endpoint, body).ConfigureAwait(false);
-            string answer = "";
-            try { answer = (string)JsonNode.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false))?["message"] ?? ""; } catch { }
+            JsonNode answer = null;
+            try { answer = JsonNode.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false)); } catch { }
+            string said = (string)answer?["message"] ?? "";
+            // whatever it answered, the ID it names is this PC's from now on
+            if ((string)answer?["user"] is { } u && ValidUserId(u) && u != assignedId) { assignedId = u; Save(); }
             switch (resp.StatusCode)
             {
                 case HttpStatusCode.OK or HttpStatusCode.Created or HttpStatusCode.Accepted:
-                    Record(fp);
-                    return null;
+                    long number = answer?["report"]?.GetValueKind() == System.Text.Json.JsonValueKind.Number ? (long)answer["report"] : 0;
+                    Record(fp, number);
+                    return new(null, number);
                 case HttpStatusCode.TooManyRequests:
-                    // the relay counts a day from its own clock: take its word and wait it out here too
+                    // the service counts a day from its own clock: take its word and wait it out here too
                     lastSent ??= now(); if (now() - lastSent > Cooldown) lastSent = now(); Save();
-                    return answer.Length > 0 ? answer : "You've sent feedback recently. Try again tomorrow.";
+                    return new(said.Length > 0 ? said : "You've sent feedback recently. Try again tomorrow.", 0);
                 case HttpStatusCode.Conflict:
                     sent.Add(fp); Save();
-                    return "You've already sent this.";
+                    return new("You've already sent this.", 0);
                 default:
-                    App.Log.W("feedback", $"relay answered {(int)resp.StatusCode}");
-                    return answer.Length > 0 ? answer : $"Couldn't send it ({(int)resp.StatusCode}). Try again later.";
+                    App.Log.W("feedback", $"the feedback service answered {(int)resp.StatusCode}");
+                    return new(said.Length > 0 ? said : $"Couldn't send it ({(int)resp.StatusCode}). Try again later.", 0);
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            App.Log.W("feedback", "couldn't reach the relay: " + ex.Message);
-            return "Couldn't reach the feedback service. Check your connection and try again.";
+            App.Log.W("feedback", "couldn't reach the feedback service: " + ex.Message);
+            return new("Couldn't reach the feedback service. Check your connection and try again.", 0);
         }
     }
 
-    void Record(string fp)
+    void Record(string fp, long number)
     {
         lastSent = now();
         sent.Add(fp);
+        if (number > 0) reports.Add(number);
         Save();
-        App.Log.I("feedback", "feedback sent");
+        App.Log.I("feedback", number > 0 ? $"feedback sent as report {number}" : "feedback sent");
     }
 }

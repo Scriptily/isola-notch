@@ -4,25 +4,33 @@ using Isola.Services;
 
 namespace Isola.Tests;
 
-/// <summary>Feedback: the user number, the once-a-day and no-repeat limits, scrubbed logs, and what the relay's answers mean.</summary>
+/// <summary>Feedback: the user ID and verifier, the once-a-day and no-repeat limits, scrubbed logs, and what the service's answers mean.</summary>
 public static partial class Scenarios
 {
     sealed class FakeRelay : HttpMessageHandler
     {
         public HttpStatusCode Code = HttpStatusCode.Created;
         public string Message = "";
+        public long Report = 41;
+        public string User;          // the ID the service answers with; null to echo the one sent
         public readonly List<JsonNode> Bodies = new();
         public bool Fail;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage r, CancellationToken ct)
         {
             if (Fail) throw new HttpRequestException("offline");
-            Bodies.Add(JsonNode.Parse(await r.Content!.ReadAsStringAsync(ct)));
-            return new HttpResponseMessage(Code) { Content = new StringContent(new JsonObject { ["message"] = Message }.ToJsonString()) };
+            var b = JsonNode.Parse(await r.Content!.ReadAsStringAsync(ct))!;
+            Bodies.Add(b);
+            var answer = new JsonObject { ["message"] = Message, ["user"] = User ?? (string)b["user"] };
+            if (Code == HttpStatusCode.Created) answer["report"] = Report++;
+            return new HttpResponseMessage(Code) { Content = new StringContent(answer.ToJsonString()) };
         }
     }
 
+    const string TestMachine = "4c4c4544-0042-3510-8051-b4c04f4e4d32";
+
     static (Feedback fb, FakeRelay relay, Func<DateTime> clock, Action<double> advanceHours, string file) NewFeedback(string file = null)
     {
+        Feedback.HardwareOverride = TestMachine;
         file ??= Path.Combine(Path.GetTempPath(), "isola-fb-" + Guid.NewGuid().ToString("N")[..6] + ".json");
         var t = new DateTime(2026, 11, 17, 12, 0, 0, DateTimeKind.Utc);
         var relay = new FakeRelay();
@@ -32,17 +40,22 @@ public static partial class Scenarios
 
     const string Url = "https://relay.example/feedback";
 
-    [Scenario("the feedback ID is 'User' and nine digits, the same for the same PC, different for another, and never the PC's ID")]
+    [Scenario("the feedback ID is 'User' and a 19-20 digit number, the same for the same PC, different for another, and never the PC's ID")]
     public static void FeedbackUserId()
     {
-        string a = Feedback.UserIdFrom("4c4c4544-0042-3510-8051-b4c04f4e4d32");
+        string a = Feedback.UserIdFrom(TestMachine);
         True(Feedback.ValidUserId(a), "format: " + a);
+        True(a.Length is 23 or 24, "all 64 bits, as 19 or 20 digits: " + a);
         Eq(a, Feedback.UserIdFrom(" 4C4C4544-0042-3510-8051-B4C04F4E4D32 "), "same PC, however the GUID is written");
         True(a != Feedback.UserIdFrom("4c4c4544-0042-3510-8051-b4c04f4e4d33"), "another PC gets another number");
         True(!a.Contains("4c4c"), "the hardware ID itself isn't in it");
-        var many = Enumerable.Range(0, 2000).Select(i => Feedback.UserIdFrom(Guid.NewGuid().ToString())).ToList();
-        True(many.All(Feedback.ValidUserId), "always nine digits, never a leading zero");
-        Eq(2000, many.Distinct().Count(), "no collisions among 2000 PCs");
+        string v = Feedback.VerifierFrom(TestMachine);
+        True(v.Length == 32 && v.All(Uri.IsHexDigit), "the verifier is 32 hex digits: " + v);
+        True(!a.Contains(v[..8]) && v != Feedback.VerifierFrom("other"), "an independent hash");
+        var many = Enumerable.Range(0, 5000).Select(i => Feedback.UserIdFrom(Guid.NewGuid().ToString())).ToList();
+        True(many.All(Feedback.ValidUserId), "always valid");
+        Eq(5000, many.Distinct().Count(), "no collisions among 5000 PCs");
+        True(Feedback.ValidUserId("User9223372036854775808-2"), "an ID the service assigned after a collision is valid too");
     }
 
     [Scenario("feedback: one a day, the same text never twice (whatever the case or spacing), both remembered across restarts")]
@@ -51,21 +64,21 @@ public static partial class Scenarios
         var (fb, relay, _, advance, file) = NewFeedback();
         try
         {
-            Eq(null, fb.SendAsync(Url, FeedbackKind.Bug, "Glow flickers", "The glow flickers on my second screen.", "1.3.0", "10.0.26300", false, null).Result, "first one goes");
+            True(fb.SendAsync(Url, FeedbackKind.Bug, "Glow flickers", "The glow flickers on my second screen.", "1.4.0", "10.0.26300", false, null).Result.Ok, "first one goes");
             Eq(1, relay.Bodies.Count, "sent once");
-            var again = fb.SendAsync(Url, FeedbackKind.Feature, "Another idea", "Something else entirely, later.", "1.3.0", "10.0.26300", false, null).Result;
+            var again = fb.SendAsync(Url, FeedbackKind.Feature, "Another idea", "Something else entirely, later.", "1.4.0", "10.0.26300", false, null).Result.Error;
             True(again != null && again.Contains("You can send more in 24 h"), "a second within a day is held back here: " + again);
-            Eq(1, relay.Bodies.Count, "and never reaches the relay");
+            Eq(1, relay.Bodies.Count, "and never reaches the service");
 
             advance(24.1);
-            var dup = fb.SendAsync(Url, FeedbackKind.Bug, "glow  FLICKERS!", "the glow flickers on my second screen", "1.3.0", "10.0.26300", false, null).Result;
+            var dup = fb.SendAsync(Url, FeedbackKind.Bug, "glow  FLICKERS!", "the glow flickers on my second screen", "1.4.0", "10.0.26300", false, null).Result.Error;
             Eq("You've already sent this.", dup, "the same words differently written are the same feedback");
             Eq(1, relay.Bodies.Count, "the repeat isn't sent");
 
-            // the relay computes the same fingerprint (tools/feedback-relay/worker.test.mjs checks this value too)
-            Eq("8ca0f056b8b880f2a301253119330f994ef493c90ae3f58622ef626d46bd5426", Feedback.Fingerprint("Glow flickers", "The glow flickers, on my 2nd screen!"), "the relay's fingerprint");
+            // the service computes the same fingerprint (feedback/test/service.test.mjs checks this value too)
+            Eq("8ca0f056b8b880f2a301253119330f994ef493c90ae3f58622ef626d46bd5426", Feedback.Fingerprint("Glow flickers", "The glow flickers, on my 2nd screen!"), "the service's fingerprint");
 
-            var (fb2, relay2, _, advance2, _) = NewFeedback(file);
+            var (fb2, _, _, advance2, _) = NewFeedback(file);
             True(fb2.Wait > TimeSpan.FromHours(23), "a restart remembers when it was sent");
             advance2(24.1);
             True(fb2.Wait == TimeSpan.Zero, "and lets the next one through a day later");
@@ -74,7 +87,7 @@ public static partial class Scenarios
         finally { File.Delete(file); }
     }
 
-    [Scenario("feedback: a subject and a real description are needed; what's sent carries kind, ID, version and source, and logs only when attached")]
+    [Scenario("feedback: a subject and a real description are needed; what's sent carries kind, ID, verifier, version and source, and logs only when attached")]
     public static void FeedbackPayload()
     {
         var (fb, relay, _, _, file) = NewFeedback();
@@ -82,40 +95,64 @@ public static partial class Scenarios
         {
             Eq("Add a subject.", fb.Problem("  ", "A long enough description."), "no subject");
             Eq("Describe it in a few more words.", fb.Problem("Idea", "short"), "too short");
-            Eq(null, fb.SendAsync(Url, FeedbackKind.Feature, "  Dark tint option  ", "  A darker tint for the settings window, please.  ", "1.3.0", "10.0.26300", true, null).Result, "sent");
+            True(fb.SendAsync(Url, FeedbackKind.Feature, "  Dark tint option  ", "  A darker tint for the settings window, please.  ", "1.4.0", "10.0.26300", true, null).Result.Ok, "sent");
             var b = relay.Bodies.Single();
             Eq("feature", (string)b["kind"], "kind");
             Eq("Dark tint option", (string)b["subject"], "subject trimmed");
             Eq("A darker tint for the settings window, please.", (string)b["text"], "text trimmed");
-            True(Feedback.ValidUserId((string)b["user"]), "the user number goes along");
+            Eq(Feedback.UserIdFrom(TestMachine), (string)b["user"], "the derived ID goes along");
+            Eq(Feedback.VerifierFrom(TestMachine), (string)b["verifier"], "with its verifier");
             Eq("store", (string)b["source"], "Store or GitHub");
             Eq(null, (string)b["logs"], "no logs unless attached");
-            var withLogs = JsonNode.Parse(Feedback.Payload("User123456789", FeedbackKind.Bug, "s", "t", "1", "w", false, "log text"))!;
+            var withLogs = JsonNode.Parse(Feedback.Payload("User9223372036854775808", new string('a', 32), FeedbackKind.Bug, "s", "t", "1", "w", false, "log text"))!;
             Eq("log text", (string)withLogs["logs"], "attached logs go along");
         }
         finally { File.Delete(file); }
     }
 
-    [Scenario("the relay's answers: busy or already sent are remembered as such; an outage changes nothing, so it can be sent again")]
+    [Scenario("the service's report number is shown and kept; an ID the service assigns replaces the derived one, for good")]
+    public static void FeedbackNumbersAndAssignedId()
+    {
+        var (fb, relay, _, advance, file) = NewFeedback();
+        try
+        {
+            string derived = Feedback.UserIdFrom(TestMachine);
+            Eq(derived, fb.UserId, "before any answer, the derived ID");
+            relay.User = derived + "-2";   // another PC already had it
+            var r = fb.SendAsync(Url, FeedbackKind.Bug, "Crash", "It crashed when I opened the shelf.", "1.4.0", "w", false, null).Result;
+            Eq(41L, r.Report, "the report's number");
+            Eq(derived + "-2", fb.UserId, "the ID the service assigned");
+            var (fb2, relay2, _, advance2, _) = NewFeedback(file);
+            Eq(derived + "-2", fb2.UserId, "kept across restarts");
+            Eq(41L, fb2.Reports.Single(), "and so is the report number");
+            advance2(25);
+            relay2.User = null;
+            fb2.SendAsync(Url, FeedbackKind.Feature, "Idea", "A brand new idea for later.", "1.4.0", "w", false, null).Wait();
+            Eq(Feedback.UserIdFrom(TestMachine), (string)relay2.Bodies.Single()["user"], "it still sends the derived ID: the verifier is what the service goes by");
+        }
+        finally { File.Delete(file); }
+    }
+
+    [Scenario("the service's answers: busy or already sent are remembered as such; an outage changes nothing, so it can be sent again")]
     public static void FeedbackRelayAnswers()
     {
         var (fb, relay, _, _, file) = NewFeedback();
         try
         {
             relay.Fail = true;
-            var off = fb.SendAsync(Url, FeedbackKind.Bug, "Crash", "It crashed when I opened the shelf.", "1.3.0", "w", false, null).Result;
+            var off = fb.SendAsync(Url, FeedbackKind.Bug, "Crash", "It crashed when I opened the shelf.", "1.4.0", "w", false, null).Result.Error;
             True(off.Contains("Couldn't reach"), "offline: " + off);
             Eq(null, fb.Problem("Crash", "It crashed when I opened the shelf."), "an outage doesn't use up the day or mark it sent");
 
             relay.Fail = false; relay.Code = HttpStatusCode.Conflict;
-            Eq("You've already sent this.", fb.SendAsync(Url, FeedbackKind.Bug, "Crash", "It crashed when I opened the shelf.", "1.3.0", "w", false, null).Result, "the relay knew it already");
+            Eq("You've already sent this.", fb.SendAsync(Url, FeedbackKind.Bug, "Crash", "It crashed when I opened the shelf.", "1.4.0", "w", false, null).Result.Error, "the service knew it already");
             Eq("You've already sent this.", fb.Problem("Crash", "It crashed when I opened the shelf."), "and now this PC knows too");
 
             relay.Code = HttpStatusCode.TooManyRequests; relay.Message = "One a day, please.";
-            Eq("One a day, please.", fb.SendAsync(Url, FeedbackKind.Feature, "Idea", "Some brand new idea here.", "1.3.0", "w", false, null).Result, "the relay's own words");
+            Eq("One a day, please.", fb.SendAsync(Url, FeedbackKind.Feature, "Idea", "Some brand new idea here.", "1.4.0", "w", false, null).Result.Error, "the service's own words");
             True(fb.Wait > TimeSpan.FromHours(23), "and the day starts here as well");
 
-            Eq("Feedback isn't available in this build.", fb.SendAsync("", FeedbackKind.Bug, "a", "long enough text", "1", "w", false, null).Result, "no relay configured");
+            Eq("Feedback isn't available in this build.", fb.SendAsync("", FeedbackKind.Bug, "a", "long enough text", "1", "w", false, null).Result.Error, "no service configured");
         }
         finally { File.Delete(file); }
     }

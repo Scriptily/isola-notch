@@ -1,0 +1,26 @@
+# The feedback hub: one Cloudflare Worker + D1 + dashboard for every app (see README.md).
+# Nothing account-specific beyond the database ID belongs here: the dashboard's
+# hostname and the Access settings are Worker secrets, and the custom domain is
+# attached in Cloudflare's dashboard, so this public file names no domain.
+name = "feedback-hub"
+main = "src/worker.js"
+compatibility_date = "2025-06-01"
+workers_dev = true
+
+[vars]
+# the apps the hub takes reports for; add a new app's id here
+APPS = "isola"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "feedback-hub"
+# from `npx wrangler d1 create feedback-hub` (an ID, not a secret)
+database_id = "REPLACE_WITH_DATABASE_ID"
+migrations_dir = "migrations"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+# every request reaches the Worker first, so the dashboard's files are only
+# served to someone Access signed in, and only on the dashboard's hostname
+run_worker_first = true

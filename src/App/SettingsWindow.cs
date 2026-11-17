@@ -732,6 +732,7 @@ public sealed unsafe partial class SettingsWindow
     bool fbLogs, fbBusy;
     string fbError;
     double fbSentAt = -10, fbCopiedAt = -10, fbSpinAt = -10;
+    long fbSentReport;
 
     /// <summary>
     /// A subject, a description and, if the person wants, the log; sent to the
@@ -746,7 +747,7 @@ public sealed unsafe partial class SettingsWindow
         var text = Field("fbtext", fields.TryGetValue("fbtext", out var t0) ? t0.Text : "");
         subject.MaxLength = Feedback.SubjectMax;
         text.Multiline = true; text.MaxLength = Feedback.TextMax;
-        bool justSent = Ui.Clock.Now - fbSentAt < 4;
+        bool justSent = Ui.Clock.Now - fbSentAt < 6;
 
         L.Header("Send feedback");
         Seg(L, "fbkind", "Type", null, new[] { "Feature request", "Bug or glitch" }, new[] { "feature", "bug" },
@@ -757,12 +758,12 @@ public sealed unsafe partial class SettingsWindow
             fbKind == FeedbackKind.Bug ? "What happened, and what did you expect? Steps to make it happen again help the most." : "Tell us how you'd use it and why it would help.", 132,
             $"{text.Text.Length:N0} / {Feedback.TextMax:N0}");
         Toggle(L, "fblogs", "Attach logs for diagnostics", "Isola's log, with your name, folders, addresses and tokens removed", fbLogs, v => fbLogs = v);
-        var idRow = LabeledRow(L, "fbid", "Your feedback ID", "A one-way number made from this PC, so we can tell your reports apart", 230, 52);
-        canvas.Text(Feedback.UserId, new Box(idRow.Right - 230, idRow.Y, 150, idRow.H), 13, Col.White.A(0.9f), FontWeight.SemiBold, HAlign.Right);
+        var idRow = LabeledRow(L, "fbid", "Your feedback ID", "A one-way number made from this PC, so we can tell your reports apart", 290, 52);
+        canvas.Text(fb.UserId, new Box(idRow.Right - 290, idRow.Y, 210, idRow.H), 12.5f, Col.White.A(0.9f), FontWeight.SemiBold, HAlign.Right);
         bool copied = Ui.Clock.Now - fbCopiedAt < 1.6;
         float ct = ux.Anim("fb:copied", copied ? 1 : 0, SpringSpec.Snappy);
         var copyBox = Box.Centered(idRow.Right - 44, idRow.CY, 40, 40);
-        ux.Add("fb:copy", copyBox, () => { Win32.SetClipboardText(Feedback.UserId); fbCopiedAt = Ui.Clock.Now; dirty = true; }, 10).Tooltip = copied ? "Copied" : "Copy";
+        ux.Add("fb:copy", copyBox, () => { Win32.SetClipboardText(fb.UserId); fbCopiedAt = Ui.Clock.Now; dirty = true; }, 10).Tooltip = copied ? "Copied" : "Copy";
         float ch = ux.HoverT("fb:copy");
         canvas.Fill(Box.Centered(copyBox.CX, copyBox.CY, 30, 30), Col.White.A(0.06f + 0.08f * ch), 9);
         // the copy icon blurs into a check and back, as one shape
@@ -776,7 +777,7 @@ public sealed unsafe partial class SettingsWindow
         bool untouched = subject.Text.Length == 0 && text.Text.Length == 0;
         var row = new Box(L.X, L.Y, L.W, 44);
         var btn = new Box(row.Right - 168, row.CY - 17, 168, 34);
-        string note = justSent ? "Sent. Thanks, it helps a lot."
+        string note = justSent ? (fbSentReport > 0 ? $"Sent as report #{fbSentReport}. Thanks, it helps a lot." : "Sent. Thanks, it helps a lot.")
             : fbError ?? (Feedback.Endpoint.Length == 0 ? "Feedback isn't available in this build yet." : waiting || !untouched ? problem : null);
         if (note != null)
             canvas.Text(note, new Box(row.X + 4, row.Y, btn.X - row.X - 20, row.H), 12, justSent ? Col.Hex(0x34c759) : fbError != null ? Col.Hex(0xff6961) : Col.White.A(0.55f),
@@ -843,9 +844,9 @@ public sealed unsafe partial class SettingsWindow
         fb.SendAsync(Feedback.Endpoint, kind, subject, text, version, windows, Packaging.IsStore, logs).ContinueWith(t => Ui.Post(() =>
         {
             fbBusy = false;
-            string err = t.IsFaulted ? "Couldn't send it. Try again later." : t.Result;
-            if (err == null) { fbSentAt = Ui.Clock.Now; fields["fbsub"].Set(""); fields["fbtext"].Set(""); fbLogs = false; }
-            else fbError = err;
+            var res = t.IsFaulted ? new Feedback.Result("Couldn't send it. Try again later.", 0) : t.Result;
+            if (res.Ok) { fbSentAt = Ui.Clock.Now; fbSentReport = res.Report; fields["fbsub"].Set(""); fields["fbtext"].Set(""); fbLogs = false; }
+            else fbError = res.Error;
             dirty = true;
         }));
     }

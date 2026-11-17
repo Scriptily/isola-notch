@@ -15,6 +15,7 @@
 <p align="center">
   <a href="https://github.com/Scriptily/isola-notch/releases/latest"><b>Download</b></a> ·
   <a href="#install">Install</a> ·
+  <a href="#feedback">Feedback</a> ·
   <a href="PRIVACY.md">Privacy</a> ·
   <a href="CODE_SIGNING_POLICY.md">Code signing policy</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
@@ -115,11 +116,6 @@ Isola steps aside for fullscreen videos and games on its screen, and can slide
 out of sight after a few quiet minutes. Bring the pointer to the top edge to
 get it back, or press `Ctrl+Alt+I` to hide or show it.
 
-Found a bug or want something added? Settings -> Feedback sends it to the
-developer privately, with a subject, a description and, if you tick it, a log
-with your name, folders and addresses taken out. One a day, so each one gets
-read.
-
 ## Works even better with
 
 Both are optional.
@@ -197,6 +193,18 @@ it:
 Spotify ends these sign-ins after six months. Isola shows the date and puts a
 one-click Renew link under the slider in the last two weeks.
 
+## Feedback
+
+Found a bug or want something added? Use **Settings -> Feedback** in Isola
+rather than a GitHub issue. Pick Feature request or Bug or glitch, write a
+subject and what happened, and if you like, attach the log with your name,
+folders and addresses taken out. It reaches the developer privately and gets a
+report number. You can send one a day, so each one gets read.
+
+Security problems go through
+[private vulnerability reporting](https://github.com/Scriptily/isola-notch/security/advisories/new)
+instead (see [SECURITY.md](SECURITY.md)).
+
 ## Privacy
 
 Isola has no account, no telemetry and no analytics. It talks only to:
@@ -207,7 +215,7 @@ Isola has no account, no telemetry and no analytics. It talks only to:
 | Open-Meteo | weather, if Home Assistant isn't the source | the city or coordinates you entered |
 | Spotify | if you connect it | your sign-in, to read and set playback |
 | GitHub | update checks, every six hours | nothing about you |
-| Isola's feedback relay | only when you press Send feedback | what you wrote, a one-way ID made from your PC, the app and Windows versions, and the log if you attach it |
+| Isola's feedback service | only when you press Send feedback | what you wrote, a one-way ID made from your PC, the app and Windows versions, and the log if you attach it |
 
 Notifications, media, the clipboard and Bluetooth are read on your PC and stay
 there. The Home Assistant token and the Spotify sign-in are encrypted with

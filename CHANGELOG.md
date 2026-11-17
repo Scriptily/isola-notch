@@ -13,9 +13,9 @@ GitHub release notes.
   and a description, and optionally the log, with your account and PC names,
   folders, addresses, emails and tokens removed first. Each report carries a
   feedback ID, a one-way number made from your PC, so reports from the same
-  person can be told apart. It goes to the developer privately (an issue in a
-  private repository, through a small relay that holds the only key), one a
-  day, and never the same report twice.
+  person can be told apart, and gets a report number of its own. It goes to
+  the developer privately (a private database behind Isola's feedback
+  service), one a day, and never the same report twice.
 
 ### Changed
 
@@ -29,6 +29,8 @@ GitHub release notes.
   in Settings space their move and remove buttons further apart.
 - Navigation steps in text read "Settings -> Notifications" instead of using
   an arrow character.
+- The repository's New issue page now points to Settings -> Feedback (and to
+  private vulnerability reporting for security problems).
 
 ## [1.3.0] - 2026-11-16
 
