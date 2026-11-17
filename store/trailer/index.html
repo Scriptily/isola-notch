@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Isola trailer</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #05060a; }
+  canvas#gl { position: absolute; inset: 0; }
+  .caption { position: absolute; color: #f5f5f7; font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif; pointer-events: none; }
+  .caption .line { display: block; font-weight: 650; font-size: 84px; letter-spacing: -0.025em; line-height: 1.04; white-space: nowrap; }
+  .caption .sub { display: block; font-weight: 400; font-size: 32px; color: rgba(235, 235, 245, 0.62); margin-top: 22px; letter-spacing: -0.005em; }
+  .caption .w { display: inline-block; will-change: transform, filter, opacity; }
+  /* two tones, no gradients: the setup in a soft gray, the point in white */
+  .caption .line.lead { color: rgba(235, 235, 245, 0.58); }
+  #logo { position: absolute; left: 0; right: 0; top: 150px; text-align: center; color: #fff; font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif; opacity: 0; }
+  #logo .name { font-size: 190px; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
+  #logo .tag { font-size: 40px; font-weight: 450; color: rgba(235, 235, 245, 0.7); margin-top: 18px; }
+  #logo .badgewrap { margin-top: 56px; }
+  #logo .badgewrap img { height: 92px; }
+  #logo .small { font-size: 24px; color: rgba(235, 235, 245, 0.5); margin-top: 26px; font-weight: 450; }
+  #fade { position: absolute; inset: 0; background: #000; pointer-events: none; }
+</style>
+<script type="importmap">{ "imports": { "three": "./lib/build/three.module.js", "three/addons/": "./lib/examples/jsm/" } }</script>
+</head>
+<body>
+<canvas id="gl" width="1920" height="1080"></canvas>
+<div id="captions"></div>
+<div id="logo">
+  <div class="name">Isola</div>
+  <div class="tag">Dynamic Island for Windows</div>
+  <div class="badgewrap"><img src="store-badge.svg" alt="Get it from Microsoft"></div>
+  <div class="small">Open source · No account · No telemetry</div>
+</div>
+<div id="fade"></div>
+<script type="module" src="./scene.js"></script>
+</body>
+</html>

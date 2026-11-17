@@ -1,0 +1,8 @@
+lib/
+frames/
+out/
+stills/
+edge-profile/
+*.wav
+*.mp4
+store-badge.svg
