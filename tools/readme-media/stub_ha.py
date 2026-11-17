@@ -6,7 +6,9 @@ the island's real HTTP code runs without any real home behind it.
 
   python stub_ha.py <states.json> <port> <calls.log>
 """
-import json, sys, threading
+import json
+import sys, threading
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -58,7 +60,16 @@ def serve(states_path, port, log_path):
                         elif svc == "set_hvac_mode" and "hvac_mode" in body: s["state"] = body["hvac_mode"]
                         if "brightness_pct" in body: s["attributes"]["brightness"] = int(body["brightness_pct"] * 2.55)
                 if parts[3] == "weather":
-                    return self.send(200, {"service_response": {}})
+                    # what a real Home Assistant answers: a week by day, the next hours by hour
+                    kind = body.get("type", "daily")
+                    now = datetime.now().astimezone().replace(minute=0, second=0, microsecond=0)
+                    if kind == "hourly":
+                        temps, conds = [22, 23, 23, 22, 21, 19, 18, 17], ["partlycloudy", "sunny", "sunny", "partlycloudy", "cloudy", "cloudy", "clear-night", "clear-night"]
+                        fc = [{"datetime": (now + timedelta(hours=i + 1)).isoformat(), "temperature": t, "condition": c} for i, (t, c) in enumerate(zip(temps, conds))]
+                    else:
+                        fc = [{"datetime": (now + timedelta(days=i)).isoformat(), "temperature": hi, "templow": lo, "condition": c}
+                              for i, (hi, lo, c) in enumerate([(24, 15, "partlycloudy"), (26, 16, "sunny"), (21, 14, "rainy"), (22, 13, "cloudy")])]
+                    return self.send(200, {"service_response": {eid if isinstance(eid, str) else "weather.home": {"forecast": fc}}})
                 return self.send(200, [])
             self.send(404, {})
 

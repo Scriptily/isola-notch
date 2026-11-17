@@ -21,7 +21,7 @@ PY = sys.executable
 VIDEO = "https://www.youtube.com/watch?v=jNQXAC9IVRw"   # the first video on YouTube, 19 s
 JOBS = [
     ("hello", "hello", 5, 0, 30, False, ["--padx", "260", "--scale", "1"], ""),
-    ("open", "expand:home", 4.5, 1.2, 30, False, [], ""),
+    ("open", "expand:home;ha:light.kitchen@1.9;ha:switch.coffee_maker@3.1", 6.5, 1.2, 30, False, [], ""),
     ("music", "rest;expand:media@3;next@6.2", 10.5, 0.6, 30, False, [], "media"),
     ("popups", "popups:11,13,12,0,14", 21, 1.5, 20, False, [], ""),
     ("downloads", f"download:{VIDEO};rest@6;expand:shelf@13.5", 16, 0.8, 25, False, [], "tools"),

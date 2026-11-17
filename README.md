@@ -32,7 +32,7 @@ happening as it happens (a notification, a call, a song, your AirPods
 connecting) and opens into a dashboard when you click it. Press `Alt+Space`
 and it turns into a launcher.
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/open-dark.webp"><img src="assets/readme/open-light.webp" alt="The island opening into the Home dashboard" width="651"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/open-dark.webp"><img src="assets/readme/open-light.webp" alt="The island opening into the Home dashboard, then turning on the kitchen light and the coffee maker" width="651"></picture></p>
 
 ## Light on your computer
 

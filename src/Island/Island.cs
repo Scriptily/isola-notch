@@ -648,6 +648,8 @@ public sealed partial class Island
         else if (head == "rest") SetMode(Mode.Rest, "showcase");
         // "next": the next track (ShowcaseMedia), for the track change
         else if (head == "next") Svc?.Media?.Next();
+        // "ha:light.kitchen": a Home Assistant tile tapped, exactly as a click taps it
+        else if (head == "ha" && Svc?.Ha?.Entities.TryGetValue(arg, out var ent) == true) Svc.Ha.Tap(ent);
         else if (head == "search")
         {
             SetMode(Mode.Search, "showcase");

@@ -107,7 +107,7 @@ const screenCanvas = document.createElement('canvas'); screenCanvas.width = SW; 
 const sg = screenCanvas.getContext('2d');
 const screenTex = new THREE.CanvasTexture(screenCanvas); screenTex.colorSpace = THREE.SRGBColorSpace; screenTex.anisotropy = 8;
 const SPW = 30, SPH = SPW * SH / SW;
-const screen = new THREE.Mesh(new THREE.PlaneGeometry(SPW, SPH), new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false }));
+const screen = new THREE.Mesh(new THREE.PlaneGeometry(SPW, SPH), new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false, color: 0xe2e2e2 }));
 screen.position.set(0, 0.85 + SPH / 2, 0.012);
 lid.add(screen);
 lid.rotation.x = -0.24;   // open, tipped back a little
@@ -180,7 +180,7 @@ const cards = [];
 const idx = await (await fetch('frames/index.json')).json();
 const load = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
 const clips = {};
-for (const name of ['hello', 'music', 'popups', 'downloads', 'search']) {
+for (const name of ['hello', 'music', 'popups', 'downloads', 'search', 'open']) {
   const n = idx[name].frames;
   clips[name] = await Promise.all(Array.from({ length: n }, (_, i) => load(`frames/${name}/${String(i).padStart(4, '0')}.png`)));
 }
@@ -216,15 +216,18 @@ function islandAt(t) {
     || seg(t, 12.0, 12.3, 'downloads', 24, 36) || seg(t, 12.3, 12.8, 'downloads', 36, 62) || seg(t, 12.8, 13.05, 'downloads', 62, 74)
     || seg(t, 13.05, 14.0, 'downloads', 132, 152) || seg(t, 14.0, 15.1, 'downloads', 168, 214) || seg(t, 15.1, 16.0, 'downloads', 236, 262)
     || seg(t, 16.0, 16.3, 'search', 0, 12) || seg(t, 16.3, 17.9, 'search', 12, 84) || seg(t, 17.9, 20.0, 'search', 84, 95)
-    || seg(t, 20.0, 24.0, 'music', 150, 205) || seg(t, 24.0, 31, 'music', 20, 100);
+    || seg(t, 20.0, 20.4, 'open', 8, 18) || seg(t, 20.4, 21.3, 'open', 18, 42) || seg(t, 21.3, 21.7, 'open', 42, 54) || seg(t, 21.7, 22.5, 'open', 54, 62)
+    || seg(t, 22.5, 22.9, 'open', 62, 72) || seg(t, 22.9, 24.0, 'open', 72, 108) || seg(t, 24.0, 31, 'music', 20, 100);
 }
 
 // the cursor: where it is, and when it clicks
 const cursorKeys = [
   [3.9, [2300, 1500, 0]], [4.2, [2150, 1250, 1]], [4.95, [1300, 60, 1], 'inOut'], [5.6, [1500, 420, 1]], [6.2, [1700, 760, 0]],
   [11.9, [2000, 900, 0]], [12.05, [1900, 760, 1]], [12.25, [1060, 130, 1]], [12.55, [1060, 130, 1]], [12.7, [1690, 130, 1]], [13.2, [1900, 500, 0]],
+  // Home: the Kitchen light, then the coffee maker
+  [20.3, [1750, 900, 0]], [20.6, [1650, 650, 1]], [21.25, [1395, 196, 1]], [21.75, [1395, 196, 1]], [22.45, [924, 470, 1]], [22.9, [924, 470, 1]], [23.5, [1150, 820, 0]],
 ];
-const clicks = [5.0, 12.28, 12.72];
+const clicks = [5.0, 12.28, 12.72, 21.3, 22.5];
 function drawCursor(t) {
   const [x, y, a] = keys(cursorKeys, t);
   if (a <= 0.01) return;
@@ -268,7 +271,7 @@ const CAPS = [
   { a: 8.3, b: 11.8, x: 150, y: 640, lines: ['Notifications', 'that stay out of the way.'], sub: 'Messages, calls, songs and devices, in one pill.' },
   { a: 12.3, b: 15.8, x: 150, y: 640, lines: ['Paste a link.', 'Get the video.'], sub: 'From YouTube and most sites. Or convert to MP3, MP4 or GIF.' },
   { a: 17.05, b: 19.8, x: 150, y: 640, lines: ['Everything,', 'one keystroke away.'], sub: 'Math, apps, files and commands on Alt+Space.' },
-  { a: 20.3, b: 23.8, x: 150, y: 640, lines: ['Your whole day,', 'a click away.'], sub: 'Home, weather, notes and timers.' },
+  { a: 20.3, b: 23.8, x: 150, y: 640, lines: ['Your home,', 'one click away.'], sub: 'Lights, scenes, climate and locks from Home Assistant.' },
 ];
 for (const c of CAPS) {
   const el = document.createElement('div'); el.className = 'caption'; el.style.left = c.x + 'px'; el.style.top = c.y + 'px';
@@ -312,17 +315,19 @@ const shots = [
   [8.0, F(21, 1.6, -0.25)], [11.8, F(19, 1.6, -0.3), 'sine'],
   [12.0, F(31, 5.2)], [12.95, F(30, 5.2), 'sine'], [13.25, F(18, 1.4), 'out'], [15.0, F(16.5, 1.4), 'sine'], [15.35, F(31, 5.2), 'out'], [15.8, F(30, 5.2), 'sine'],
   [16.0, F(42, 7, -0.24)], [19.8, F(36, 6, -0.24), 'sine'],
+  [20.0, F(31, 5.6)], [23.8, F(28.5, 5.6), 'sine'],
 ];
 const camPos = [[0, I(-55, 4, 118)], ...shots.map(([t, f, e]) => [t, f.pos, e]),
-  [20.0, M(-12, 4, 96)], [23.8, M(-22, 2, 88), 'sine'], [24.0, M(-12, 22, 92)], [30, M(0, 40, 128), 'inOut']];
+  [24.0, M(-12, 22, 92)], [30, M(0, 40, 128), 'inOut']];
 const camLook = [[0, M(0, 0, 0)], ...shots.map(([t, f, e]) => [t, f.look, e]),
-  [20.0, M(-6, 13, 0)], [23.8, M(-6, 13, 0)], [24.0, M(0, 16, 0)], [30, M(0, 19, 0)]];
+  [24.0, M(0, 16, 0)], [30, M(0, 19, 0)]];
 
 // ---- post: a bloom so the glow and the screen light the air a little ----------------------------------------
 const composer = new EffectComposer(renderer);
 composer.setPixelRatio(1); composer.setSize(W, H);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.55, 0.65, 0.78);
+// only what's truly bright glows: white tiles and covers stay readable
+const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.5, 0.6, 0.93);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
@@ -331,7 +336,7 @@ const logo = document.getElementById('logo'), fade = document.getElementById('fa
 const cardSpots = [[-24, 17, 30, 0.3], [-6, 23, 22, 0.1], [13, 23, 22, -0.1], [31, 17, 30, -0.3]];
 window.render = t => {
   // the laptop turns slowly, settles, and leans away at the end
-  laptop.rotation.y = keys([[0, [0.55]], [4, [0.06]], [8, [0.02]], [12, [-0.02]], [16, [0.12]], [20, [0.18]], [24, [0.05]], [30, [0]]], t)[0];
+  laptop.rotation.y = keys([[0, [0.55]], [4, [0.06]], [8, [0.02]], [12, [-0.02]], [16, [0.12]], [20, [0.04]], [24, [0.05]], [30, [0]]], t)[0];
   laptop.position.y = Math.sin(t * 0.8) * 0.35;
   drawScreen(t);
   // motes drift up
@@ -358,7 +363,7 @@ window.render = t => {
   }
   cards.forEach((m, i) => {
     const t0 = 20.25 + i * 1.0, k = ease.out(span(t, t0, t0 + 0.75)), out = ease.in(span(t, 23.85, 24.35));
-    m.visible = t >= t0 && t < 24.4;
+    m.visible = false;
     const [x, y, z, ry] = cardSpots[i];
     // an arc: from behind and below the camera, curving into place
     m.position.set(mid.x + lerp(x * 1.8, x, k), mid.y + lerp(y - 26, y, k) + Math.sin(k * Math.PI) * 9 + 30 * out, mid.z + lerp(z + 40, z, k));
@@ -370,7 +375,7 @@ window.render = t => {
   const cp = keys(camPos, t), cl = keys(camLook, t);
   camera.position.set(cp[0] + Math.sin(t * 0.7) * 0.4, cp[1] + Math.sin(t * 0.9) * 0.3, cp[2]);
   camera.lookAt(cl[0], cl[1], cl[2]);
-  bloom.strength = 0.55 + 0.35 * Math.max(0, 1 - span(t, 24, 25.2)) * (t >= 24 ? 1 : 0);
+  bloom.strength = 0.5 + 0.3 * Math.max(0, 1 - span(t, 24, 25.2)) * (t >= 24 ? 1 : 0);
   // words, the logo and the fades
   drawCaptions(t);
   const lg = ease.out(span(t, 24.4, 25.3));

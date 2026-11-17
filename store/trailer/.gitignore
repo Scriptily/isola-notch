@@ -6,3 +6,5 @@ edge-profile/
 *.wav
 *.mp4
 store-badge.svg
+tracks/
+*.mp3

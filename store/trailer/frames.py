@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from PIL import Image
 
-ASSETS = Path(__file__).resolve().parents[2] / "assets" / "readme"
+ASSETS = Path(r"C:\Users\Scriptily\Documents\dirs\isola-notch\assets\readme")
 OUT = Path(__file__).resolve().parent / "frames"
 BG = (13, 17, 23)
 
@@ -26,7 +26,7 @@ def key(im):
 
 
 index = {}
-for clip in ("hello", "music", "popups", "downloads", "search"):
+for clip in ("hello", "music", "popups", "downloads", "search", "open"):
     im = Image.open(ASSETS / f"{clip}-dark.webp")
     d = OUT / clip
     d.mkdir(parents=True, exist_ok=True)
