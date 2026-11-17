@@ -19,7 +19,7 @@ cd store\trailer
 python frames.py                                   # the recordings as frames, backdrop keyed out
 # Three.js 0.169.0 into lib\ (build\three.module.js and the examples\jsm files scene.js imports)
 # and the Store badge: https://get.microsoft.com/images/en-us%20dark.svg as store-badge.svg
-ffmpeg -i tracks9.mp3 -af "atrim=start=11.617,asetpts=PTS-STARTPTS,atempo=1.00134,atrim=end=30,afade=t=in:d=0.4,afade=t=out:st=27:d=3:curve=qsin,highshelf=f=7000:g=-3,loudnorm=I=-16:TP=-1.5:LRA=11,volume=-2dB" -ar 48000 music.wav
+ffmpeg -i tracks\69.mp3 -af "atrim=start=11.617,asetpts=PTS-STARTPTS,atempo=1.00134,atrim=end=30,afade=t=in:d=0.4,afade=t=out:st=27:d=3:curve=qsin,highshelf=f=7000:g=-3,loudnorm=I=-16:TP=-1.5:LRA=11,volume=-2dB" -ar 48000 music.wav
 node capture.mjs 60 0 30                           # out\00000.png ...
 ffmpeg -framerate 60 -i out\%05d.png -i music.wav -c:v libx264 -preset slow -crf 15 -pix_fmt yuv420p -movflags +faststart -c:a aac -b:a 320k -shortest isola-trailer.mp4
 ```
