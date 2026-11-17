@@ -42,3 +42,6 @@ __pycache__/
 
 # Claude Code local settings (personal)
 .claude/settings.local.json
+
+# scratch output (sound candidates and the like)
+.work/
