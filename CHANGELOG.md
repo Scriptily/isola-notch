@@ -31,6 +31,10 @@ GitHub release notes.
   an arrow character.
 - The repository's New issue page now points to Settings -> Feedback (and to
   private vulnerability reporting for security problems).
+- The release pipeline runs each GitHub action at a fixed commit rather than a
+  version tag that could be moved, and Dependabot proposes updates and
+  security fixes for the actions and the NuGet packages. Secret scanning and
+  push protection are on for the repository.
 
 ## [1.3.0] - 2026-11-16
 
