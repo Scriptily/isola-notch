@@ -138,6 +138,14 @@ public sealed class SearchPage : Page
         if (exe) it.Actions.Add(("Run as administrator", Glyph.Shield, "Ctrl+Shift+Enter", () => Open(r, "runas")));
         it.Actions.Add(("Open file location", Glyph.Folder, "Ctrl+Enter", () => { Services.Shell.RevealInExplorer(path); isl.CloseToRest("search reveal"); }));
         it.Actions.Add(("Copy path", Glyph.Copy, "", () => { Win32.SetClipboardText(path); isl.CloseToRest("search copy"); }));
+        // a video or a song found by search can be converted from here
+        var dl = isl?.Svc?.Downloads;
+        if (dl != null && isl.Cfg.Downloads && !r.IsFolder && Services.Downloads.IsMedia(path))
+            foreach (var f in Services.Downloads.FormatsFor(path).Where(f => f is "mp3" or "mp4" or "gif").Take(2))
+            {
+                string to = f;
+                it.Actions.Add(($"Convert to {Services.Downloads.FormatName(to)}", Glyph.Convert, "", () => { try { dl.Convert(path, to); isl.ShowDownloads(); } catch (Exception ex) { App.Log.W("downloads", ex.Message); } }));
+            }
         it.Actions.Add(("Keep on shelf", Glyph.Pin, "", () => { isl.Svc?.Shelf?.Add(new[] { path }); isl.CloseToRest("kept"); }));
         if (exe)
         {

@@ -12,7 +12,7 @@ namespace Isola.Island;
 /// The expanded island: a tab strip and one panel per feature. Tabs slide in
 /// the direction you moved; the island's height springs to fit each panel.
 /// </summary>
-public sealed class DashboardPage : Page
+public sealed partial class DashboardPage : Page
 {
     sealed record TabDef(string Id, string Label, char Glyph, Func<Config, bool> Enabled, float Height);
     static readonly TabDef[] AllTabs =
@@ -22,7 +22,7 @@ public sealed class DashboardPage : Page
         new("home", "Home", Glyph.Home, c => c.HomeAssistant, 330),
         new("weather", "Weather", Glyph.Sun, c => c.Weather, 280),
         new("notes", "Notes", Glyph.Note, c => c.Notes, 320),
-        new("shelf", "Shelf", Glyph.Folder, c => c.Shelf, 290),
+        new("shelf", "Shelf", Glyph.Folder, c => c.Shelf, 336),
         new("clipboard", "Clipboard", Glyph.Clipboard, c => c.Clipboard, 320),
         new("timer", "Timer", Glyph.Timer, c => c.Timer, 270),
         new("devices", "Devices", Glyph.Bluetooth, c => c.BluetoothAlerts || c.AirPods, 400),
@@ -48,6 +48,7 @@ public sealed class DashboardPage : Page
         noteBox.Escape = () => { noteFocused = false; isl.ReleaseKeyboard(); };
         timerBox.Submit = () => StartTyped();
         timerBox.Escape = () => { timerFocused = false; isl.ReleaseKeyboard(); };
+        InitDownloads();
     }
 
     public override string Key => "dashboard";
@@ -105,7 +106,7 @@ public sealed class DashboardPage : Page
         if (CurrentId == "sound") { isl.Svc?.Audio?.RefreshMixerAsync(() => isl.Host.RequestFrame()); lastMixer = isl.Clock.Now; }
         if (CurrentId == "home") RefreshHa(true);
     }
-    public override void Hidden(Island i) { noteFocused = false; timerFocused = false; }
+    public override void Hidden(Island i) { noteFocused = false; timerFocused = false; linkFocused = false; convertFor = null; }
 
     public override double AmbientInterval(Island i) => CurrentId switch
     {
@@ -114,6 +115,8 @@ public sealed class DashboardPage : Page
         "sound" => 1.0,
         "home" => 1.0,
         "notes" => noteFocused ? 0.5 : 0,
+        // the spinner and the bar of a download in progress (its progress also asks for frames)
+        "shelf" => isl.Svc?.Downloads?.ActiveCount > 0 ? 1 / 30.0 : linkFocused ? 0.5 : 0,
         _ => 0,
     };
     public override bool WantsKeyboard => false;
@@ -132,7 +135,7 @@ public sealed class DashboardPage : Page
         isl.Tab = idx;
         isl.Ux.Forget("tabx");
         isl.Ux.ClearZones();
-        noteFocused = false; timerFocused = false;
+        noteFocused = false; timerFocused = false; linkFocused = false; convertFor = null;
         Shown(isl);
         isl.Retarget();
         isl.MarkActive();
@@ -175,6 +178,7 @@ public sealed class DashboardPage : Page
     {
         if (noteFocused) return noteBox.Key(vk, ctrl, shift, isl.Clock.Now);
         if (timerFocused) return timerBox.Key(vk, ctrl, shift, isl.Clock.Now);
+        if (linkFocused) return linkBox.Key(vk, ctrl, shift, isl.Clock.Now);
         if (vk == 0x25) { Swipe(i, -1); return true; }
         if (vk == 0x27) { Swipe(i, 1); return true; }
         return false;
@@ -183,6 +187,7 @@ public sealed class DashboardPage : Page
     {
         if (noteFocused) { noteBox.Char(ch, isl.Clock.Now); return true; }
         if (timerFocused) { timerBox.Char(ch, isl.Clock.Now); return true; }
+        if (linkFocused) { linkBox.Char(ch, isl.Clock.Now); return true; }
         return false;
     }
 
@@ -770,6 +775,15 @@ public sealed class DashboardPage : Page
             c.Stroke(p.Inset(-6), Paint.Accent(isl).A(0.7f * drop * t), 18, 1.6f);
         }
         void Paste() { var tx = Native.Win32.GetClipboardText(); if (!string.IsNullOrWhiteSpace(tx)) shelf.AddText(tx); }
+        var dl = isl.Svc?.Downloads;
+        if (isl.Cfg.Downloads && dl != null)
+        {
+            LinkBar(c, ux, new Box(p.X, p.Y, p.W, 36), t);
+            float top = p.Y + 46;
+            if (dlPanel) { DownloadsPanel(c, ux, new Box(p.X, top, p.W, p.Bottom - top), t); return; }
+            if (RowJob(dl) is { } job) { JobRow(c, ux, job, new Box(p.X, top, p.W, 44), t, false); top += 52; }
+            p = new Box(p.X, top, p.W, p.Bottom - top);
+        }
         if (shelf.Items.Count == 0)
         {
             Empty(c, p, '\uE896', isl.DragHover ? "Drop to keep it here" : "Your shelf is empty",
@@ -777,9 +791,16 @@ public sealed class DashboardPage : Page
             ux.Pill("shelf:paste", Box.Centered(p.CX, p.Bottom - 20, 210, 30), "Keep what's on the clipboard", Paste, Col.White, Glyph.Clipboard);
             return;
         }
-        ux.Pill("shelf:paste", new Box(p.Right - 186, p.Y - 4, 108, 22), "Add clipboard", Paste, Col.White, '\0', false, 11);
-        c.Text($"{shelf.Items.Count} kept · click to open or copy · drag out to use", new Box(p.X, p.Y - 2, p.W - 190, 16), 11, Col.White.A(0.45f * t), FontWeight.SemiBold);
-        ux.Pill("shelf:clear", new Box(p.Right - 70, p.Y - 4, 70, 22), "Clear", shelf.Clear, Col.White, '\0', false, 11);
+        if (convertFor != null && shelf.Items.Contains(convertFor)) ConvertBar(c, ux, p, t);
+        else
+        {
+            convertFor = null;
+            bool dlOn = isl.Cfg.Downloads && dl != null;
+            ux.Pill("shelf:paste", new Box(p.Right - 186, p.Y - 4, 108, 22), "Add clipboard", Paste, Col.White, '\0', false, 11);
+            if (dlOn) ux.Pill("shelf:downloads", new Box(p.Right - 290, p.Y - 4, 96, 22), dl.ActiveCount > 0 ? $"Downloads ({dl.ActiveCount})" : "Downloads", () => { dlPanel = true; isl.Host.RequestFrame(); }, Col.White, '\0', false, 11);
+            c.Text($"{shelf.Items.Count} kept · click to open or copy · drag out to use", new Box(p.X, p.Y - 2, p.W - (dlOn ? 296 : 190), 16), 11, Col.White.A(0.45f * t), FontWeight.SemiBold);
+            ux.Pill("shelf:clear", new Box(p.Right - 70, p.Y - 4, 70, 22), "Clear", shelf.Clear, Col.White, '\0', false, 11);
+        }
         var grid = new Box(p.X, p.Y + 26, p.W, p.H - 26);
         int cols = 5; float cw = grid.W / cols, ch = 96;
         float sc = ux.Anim("scroll:shelf", scroll.GetValueOrDefault("shelf"), ScrollSpring, 0.05);
@@ -839,6 +860,9 @@ public sealed class DashboardPage : Page
                 if (ii.Kind is "text" or "link") isl.Host.StartTextDrag(ii.Text); else isl.Host.StartFileDrag(new[] { ii.Path });
             };
             if (h > 0.4f) ux.IconButton(id + ":x", cb.Right - 12, cb.Y + 12, 20, Glyph.Close, () => shelf.Remove(ii), null, 9);
+            // a video or a song can be converted, right from the shelf
+            if (h > 0.4f && isl.Cfg.Downloads && isl.Svc?.Downloads != null && ii.Kind == "file" && Downloads.IsMedia(ii.Path) && ii.Exists)
+                ux.IconButton(id + ":conv", cb.X + 12, cb.Y + 12, 20, Glyph.Convert, () => { convertFor = ii; isl.Host.RequestFrame(); }, null, 9);
         }
         c.Unfade();
     }

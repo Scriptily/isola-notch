@@ -46,4 +46,24 @@ public static class Paths
     public static string State => Path.Combine(Home, "state.json");
     /// <summary>When feedback was last sent and what (as fingerprints), for the once-a-day and no-repeat limits.</summary>
     public static string FeedbackState => Path.Combine(Home, "feedback.json");
+    /// <summary>The downloads and conversions so far (the last hundred).</summary>
+    public static string DownloadsHistory => Path.Combine(Home, "downloads.json");
+
+    /// <summary>
+    /// yt-dlp, FFmpeg and QuickJS (DownloadTools). Installed: in the program
+    /// folder, so uninstalling removes them and the setup carries them across
+    /// updates. The Store version, a portable copy and a development build keep
+    /// them in their data folder (the Store's is removed with the app).
+    /// </summary>
+    public static string DownloadTools
+    {
+        get
+        {
+            if (Environment.GetEnvironmentVariable("ISOLA_TOOLS") is { Length: > 0 } t) return t;
+            string exeDir = AppContext.BaseDirectory.TrimEnd('\\');
+            string installed = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Isola");
+            return !Packaging.IsStore && string.Equals(exeDir, installed, StringComparison.OrdinalIgnoreCase)
+                ? Path.Combine(exeDir, Isola.Shared.ToolsCarry.Folder) : Path.Combine(Home, Isola.Shared.ToolsCarry.Folder);
+        }
+    }
 }

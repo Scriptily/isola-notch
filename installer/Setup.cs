@@ -133,6 +133,7 @@ public static unsafe partial class Setup
         if (Directory.Exists(Dir)) Retry(() => Directory.Move(Dir, old), "move the old version aside");
         try { Retry(() => Directory.Move(fresh, Dir), "move the new version in"); }
         catch { if (Directory.Exists(old) && !Directory.Exists(Dir)) Directory.Move(old, Dir); throw; }
+        Isola.Shared.ToolsCarry.Keep(old, Dir, Log);   // yt-dlp and FFmpeg aren't in the setup: they come across
         TryDelete(old);
         Log($"files installed to {Dir} ({have ?? "fresh"} -> {Version})");
 
@@ -186,7 +187,7 @@ public static unsafe partial class Setup
 
     static int Uninstall(bool silent, bool wipeData = false)
     {
-        if (!silent && !Dialog("Isola", "Uninstall Isola?", "The island closes and its program files are removed.", Icon.Warning, true)) return 2;
+        if (!silent && !Dialog("Isola", "Uninstall Isola?", "The island closes and its program files, download tools included, are removed.", Icon.Warning, true)) return 2;
         StopRunning();
         RestoreBanners();
         Isola.Shared.Autostart.Disable(Log);

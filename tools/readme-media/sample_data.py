@@ -15,7 +15,7 @@ HOME = WORK / "home"
 PORT = 8125
 
 
-def write(style="notch", hello=False):
+def write(style="notch", hello=False, media=False):
     HOME.mkdir(parents=True, exist_ok=True)
     for f in HOME.iterdir():
         if f.suffix == ".log" or f.name.startswith(("timer", "isola.log")):
@@ -23,11 +23,15 @@ def write(style="notch", hello=False):
     cfg = json.loads((ROOT / "isola.config.example.json").read_text(encoding="utf-8"))
     cfg.update({
         "Style": style, "HelloOnLaunch": hello, "AutoHideMinutes": 0,
-        "Media": False, "ShowOnTrackChange": False,
+        "ShowOnTrackChange": False,
         "BluetoothAlerts": False, "AirPods": False, "DisplayAlerts": False, "BatteryAlerts": False,
         "VolumeHud": False, "CapsLockHud": False, "KeyboardLayoutHud": False,
         "Notifications": False, "Calls": False, "HideWindowsBanners": False, "Sounds": False,
         "AutoUpdate": False, "Clipboard": False, "Shelf": True,
+        # recordings with music use ShowcaseMedia (tracks.json): shown, never played
+        "Media": media, "MediaWaveform": True,
+        # downloads go to a scratch folder here, never the real Downloads
+        "Downloads": True, "DownloadTo": "folder", "DownloadFolder": str(WORK / "downloads"),
         "WeatherSource": "homeassistant", "WeatherEntity": "weather.home",
         "HaBaseUrl": f"http://127.0.0.1:{PORT}", "HaToken": "sample",
         "HaEntities": ["light.living_room", "light.desk_lamp", "light.kitchen", "scene.movie_night",
@@ -61,6 +65,20 @@ def write(style="notch", hello=False):
         {"Text": "Send the slides before lunch", "Done": True, "Created": (now - timedelta(hours=1)).isoformat()},
     ]
     (HOME / "notes.json").write_text(json.dumps(notes, indent=1), encoding="utf-8")
+
+    # the shelf: a video and a song to convert, a link and a note
+    files = WORK / "shelf-files"
+    shelf = [
+        {"Kind": "file", "Path": str(files / "Holiday clip.mp4"), "Added": (now - timedelta(minutes=30)).isoformat()},
+        {"Kind": "file", "Path": str(files / "Podcast episode 12.mp3"), "Added": (now - timedelta(minutes=50)).isoformat()},
+        {"Kind": "link", "Text": "https://github.com/Scriptily/isola-notch", "Title": "Isola on GitHub", "Added": (now - timedelta(hours=2)).isoformat()},
+        {"Kind": "text", "Text": "Flight AB 123 lands 18:40, terminal 2", "Added": (now - timedelta(hours=3)).isoformat()},
+    ]
+    (HOME / "shelf.json").write_text(json.dumps(shelf, indent=1), encoding="utf-8")
+    (WORK / "downloads").mkdir(exist_ok=True)
+    for f in ("downloads.json",):
+        try: (HOME / f).unlink()
+        except FileNotFoundError: pass
 
 
 if __name__ == "__main__":

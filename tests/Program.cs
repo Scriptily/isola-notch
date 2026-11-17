@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using Isola.App;
 
 namespace Isola.Tests;
 
@@ -42,6 +43,9 @@ public static class Program
             Console.WriteLine("wrote " + args[1]);
             return 0;
         }
+        // the real thing, end to end, over the network: the tools from GitHub, a real video, every conversion
+        //   dotnet run -c Release -- --try-downloads <folder> [link]
+        if (args.Length >= 2 && args[0] == "--try-downloads") return TryDownloads(args[1], args.Length > 2 ? args[2] : "https://www.youtube.com/watch?v=jNQXAC9IVRw");
         string filter = args.Length > 0 ? args[0] : null;
         var all = typeof(Scenarios).GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Select(m => (m, a: m.GetCustomAttribute<ScenarioAttribute>()))
@@ -69,5 +73,63 @@ public static class Program
         if (failed > 0) Console.WriteLine("        services' log: " + log);
         Console.WriteLine($"\n{all.Count - failed}/{all.Count} passed in {sw.Elapsed.TotalSeconds:0.0}s");
         return failed;
+    }
+
+    static int TryDownloads(string root, string link)
+    {
+        Directory.CreateDirectory(root);
+        var clock = new RealClock(); Ui.Clock = clock;
+        App.Log.Init(Path.Combine(root, "try.log"));
+        var tools = new Services.DownloadTools(Path.Combine(root, "download-tools"), clock);
+        var t0 = Stopwatch.StartNew();
+        bool ready = Pump(tools.CheckAsync(true));
+        Console.WriteLine($"tools: {(ready ? "ready" : "NOT ready")} in {t0.Elapsed.TotalSeconds:0}s: {tools.Status}, {tools.Bytes / 1_000_000} MB");
+        if (!ready) return 1;
+        var cfg = new App.Config { DownloadTo = "folder", DownloadFolder = Path.Combine(root, "out") };
+        var dl = new Services.Downloads(Path.Combine(root, "downloads.json"), tools) { Cfg = () => cfg };
+        int fails = 0;
+        Services.DownloadJob Go(Func<Services.DownloadJob> make)
+        {
+            var sw = Stopwatch.StartNew();
+            var j = make();
+            string lastStage = "";
+            while (j.Active && sw.Elapsed.TotalMinutes < 10) { Ui.Drain(); if (j.Stage != lastStage) { Console.WriteLine($"   {sw.Elapsed.TotalSeconds,5:0.0}s {j.Stage} ({j.Progress:P0})"); lastStage = j.Stage; } Thread.Sleep(50); }
+            Ui.Drain();
+            string probe = j.State == "done" ? Probe(tools.PathOf("ffmpeg"), j.Output) : "";
+            bool ok = j.State == "done" && File.Exists(j.Output) && new FileInfo(j.Output).Length > 1000 && probe.Contains("Duration");
+            if (!ok) fails++;
+            Console.WriteLine($"{(ok ? "ok  " : "FAIL")} {j.Kind} {j.Format}: {j.State} in {sw.Elapsed.TotalSeconds:0.0}s {(j.State == "done" ? Path.GetFileName(j.Output) + $" {new FileInfo(j.Output).Length / 1024} KB  {probe}" : j.Error)}");
+            return j;
+        }
+        var video = Go(() => dl.Download(link, false));
+        Go(() => dl.Download(link, true));
+        cfg.DownloadAudioFormat = "m4a";
+        Go(() => dl.Download(link, true));
+        if (video.State == "done")
+            foreach (var f in Services.Downloads.FormatsFor(video.Output)) Go(() => dl.Convert(video.Output, f));
+        // a cancel mid-way leaves nothing behind
+        var c = dl.Convert(video.Output, "webm");
+        for (int i = 0; i < 40 && c.State != "running"; i++) { Thread.Sleep(50); Ui.Drain(); }
+        dl.Cancel(c);
+        Thread.Sleep(1500); Ui.Drain();
+        bool clean = !Directory.EnumerateFiles(dl.TempDir).Any();
+        Console.WriteLine($"{(c.State == "cancelled" && clean ? "ok  " : "FAIL")} cancel: {c.State}, work folder {(clean ? "empty" : "NOT empty")}");
+        if (!(c.State == "cancelled" && clean)) fails++;
+        var bad = Go(() => dl.Download("https://example.com/not-a-video", false));
+        if (bad.State == "failed") { fails--; Console.WriteLine($"     (that failure was expected: \"{bad.Error}\")"); }
+        Console.WriteLine(fails == 0 ? "all good" : $"{fails} FAILED");
+        return fails;
+    }
+
+    static T Pump<T>(Task<T> t) { while (!t.IsCompleted) { Ui.Drain(); Thread.Sleep(50); } Ui.Drain(); return t.Result; }
+
+    static string Probe(string ffmpeg, string file)
+    {
+        var psi = new ProcessStartInfo(ffmpeg) { RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
+        psi.ArgumentList.Add("-hide_banner"); psi.ArgumentList.Add("-i"); psi.ArgumentList.Add(file);
+        using var p = Process.Start(psi)!;
+        string err = p.StandardError.ReadToEnd(); p.WaitForExit();
+        var lines = err.Split('\n').Select(l => l.Trim()).Where(l => l.StartsWith("Duration") || l.StartsWith("Stream")).Select(l => l.Length > 70 ? l[..70] : l);
+        return string.Join(" | ", lines);
     }
 }

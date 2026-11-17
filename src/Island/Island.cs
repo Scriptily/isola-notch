@@ -217,6 +217,13 @@ public sealed partial class Island
         _ => null,
     };
 
+    /// <summary>Opens the Shelf tab on its Downloads panel (after starting one from search, or the "downloads" command).</summary>
+    public void ShowDownloads()
+    {
+        P.Dashboard.OpenDownloads();
+        Expand(P.Dashboard.TabIndex("shelf"));
+    }
+
     /// <summary>Recompute targets: which page, what size, where.</summary>
     public void Retarget()
     {
@@ -629,6 +636,18 @@ public sealed partial class Island
             if (t >= 0) Tab = t;
         }
         else if (head == "hud") Hud(arg == "mute" ? HudKind.Mute : HudKind.Volume, 0.62f);
+        // "download:<link>": the Shelf, the link typed into its bar as if pasted, then downloaded (a real download)
+        else if (head == "download" || head == "audio")
+        {
+            Showcase("expand:shelf");
+            Ui.After(0.9, () => P.Dashboard.ShowcaseLink(arg, head == "audio"));
+        }
+        // "downloads": the Shelf's Downloads panel
+        else if (head == "downloads") ShowDownloads();
+        // "rest": just the island at rest (with whatever live activity it has)
+        else if (head == "rest") SetMode(Mode.Rest, "showcase");
+        // "next": the next track (ShowcaseMedia), for the track change
+        else if (head == "next") Svc?.Media?.Next();
         else if (head == "search")
         {
             SetMode(Mode.Search, "showcase");

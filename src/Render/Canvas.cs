@@ -597,5 +597,5 @@ public static class Glyph
         Pin = '', Unpin = '', Copy = '', More = '', Link = '', App = '', Shuffle = '', Repeat = '',
         Airplay = '', Warning = '', Error = '', Wifi = '', Eye = '', Drop = '', Calendar = '', Clock = '',
         Wind = '', Sparkle = '', Run = '', Uninstall = '', Location = '', Refresh = '',
-        Mail = '', Message = '', Back = '', Forward = '', Lock = '', Cast = '', Remote = '', Button = '';
+        Mail = '', Message = '', Back = '', Forward = '', Lock = '', Cast = '', Remote = '', Button = '', Download = '', Video = '', Convert = '', Stop = '';
 }

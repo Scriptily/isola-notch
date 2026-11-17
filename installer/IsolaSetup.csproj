@@ -35,6 +35,7 @@
     <Compile Include="..\src\App\Autostart.cs" Link="Autostart.cs" />
     <!-- replacing the Microsoft Store version, as the wizard does -->
     <Compile Include="..\src\App\Switchover.cs" Link="Switchover.cs" />
+    <Compile Include="..\src\App\ToolsCarry.cs" Link="ToolsCarry.cs" />
   </ItemGroup>
 
 </Project>

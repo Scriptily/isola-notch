@@ -101,6 +101,18 @@ public sealed unsafe partial class App
             Ui.After(2.5, () =>
             {
                 // "popups" for all of them, "popups:0,11,13" for some, by their place in the list
+                // "a;b@4;c@9": a now, then b at 4 s and c at 9 s (a recording that moves between states)
+                if (show.Contains(';'))
+                {
+                    foreach (var part in show.Split(';'))
+                    {
+                        int at = part.LastIndexOf('@');
+                        double when = at > 0 && double.TryParse(part[(at + 1)..], System.Globalization.CultureInfo.InvariantCulture, out var w) ? w : 0;
+                        string st = at > 0 ? part[..at] : part;
+                        Ui.After(when, () => island.Showcase(st));
+                    }
+                    return;
+                }
                 if (!show.StartsWith("popups")) { island.Showcase(show); return; }
                 var all = Alerts.Samples(key => island.DismissAlert(key), null, Col.Hex(0x8b5cf6));
                 var pick = show.Contains(':') ? show[7..].Split(',').Select(int.Parse).Where(i => i < all.Count).Select(i => all[i]) : all;
@@ -127,11 +139,22 @@ public sealed unsafe partial class App
         svc.Audio.VolumeChanged += (m, v) => { if (cfg.VolumeHud) island.Hud(m ? HudKind.Mute : HudKind.Volume, v); };
         svc.Audio.OutputChanged += name => island.Alert(Alerts.Output(name));
 
-        var media = new MediaService(clock, svc.Audio) { Ignored = () => cfg.MediaIgnoredApps };
-        svc.Media = media;
-        media.Changed += () => { island.ActivityChanged(); island.UpdateGlowColors(); };
-        media.TrackChanged += (o, n) => island.TrackChanged(o, n);
-        if (cfg.Media) _ = media.StartAsync();
+        // recordings for the README and the Store (development only): real tracks shown, nothing played
+        if (Environment.GetEnvironmentVariable("ISOLA_SHOWCASE_MEDIA") is { Length: > 0 } list && File.Exists(list))
+        {
+            var show = new ShowcaseMedia(list, clock);
+            svc.Media = show;
+            show.Changed += () => { island.ActivityChanged(); island.UpdateGlowColors(); };
+            show.TrackChanged += (o, n) => island.TrackChanged(o, n);
+        }
+        else
+        {
+            var media = new MediaService(clock, svc.Audio) { Ignored = () => cfg.MediaIgnoredApps };
+            svc.Media = media;
+            media.Changed += () => { island.ActivityChanged(); island.UpdateGlowColors(); };
+            media.TrackChanged += (o, n) => island.TrackChanged(o, n);
+            if (cfg.Media) _ = media.StartAsync();
+        }
 
         svc.Timer = new CountdownTimer(clock) { File = Paths.TimerFile };
         svc.Timer.Changed += () => island.ActivityChanged();
@@ -185,6 +208,22 @@ public sealed unsafe partial class App
 
         svc.Updates = new Updater(clock) { Cfg = () => cfg };
         svc.Feedback = new Feedback(Paths.FeedbackState);
+        svc.Tools = new DownloadTools(Paths.DownloadTools, clock) { Enabled = () => cfg.Downloads };
+        svc.Downloads = new Downloads(Paths.DownloadsHistory, svc.Tools) { Cfg = () => cfg, Shelf = svc.Shelf };
+        int downloading = 0;
+        svc.Downloads.Changed += () =>
+        {
+            island.Host.RequestFrame();
+            // a download starting or the last one ending changes the island's live activity
+            int now = svc.Downloads.ActiveCount;
+            if ((now > 0) != (downloading > 0)) island.ActivityChanged();
+            downloading = now;
+        };
+        svc.Tools.Changed += () => { island.Host.RequestFrame(); settings?.Invalidate(); };
+        svc.Downloads.Finished += job => island.Alert(job.State == "done"
+            ? Alerts.DownloadDone(job, () => Win32.ShellExecute(job.Output), () => Services.Shell.RevealInExplorer(job.Output))
+            : Alerts.DownloadFailed(job, () => { try { svc.Downloads.Retry(job); } catch (Exception ex) { Log.W("downloads", ex.Message); } }));
+        svc.Tools.Start();
         svc.Updates.Installing += v => { Log.I("update", "handing over to the installer"); Log.Flush(); quit = true; };
         svc.Updates.Start();
 

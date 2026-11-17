@@ -44,12 +44,14 @@ public static class Launcher
         ("Note", "note buy milk  (or todo …, n …)", "\uE70B", "note "),
         ("Timer", "timer 10m, t 90s, timer 1:30", "\uE916", "timer 10m"),
         ("Shelf", "shelf some text to keep", "\uE718", "shelf "),
+        ("Download", "Paste a link, or: download <link>, audio <link> (MP3)", "\uE896", "download "),
+        ("Convert", "convert mp3, convert gif: a video or song on your shelf", "\uE8AB", "convert "),
         ("Web search", "g, yt, w, gh, maps, ddg, claude… then your search", "\uE721", "g "),
         ("Open a website", "Type an address: github.com", "\uE71B", "github.com"),
         ("Volume", "vol 40", "\uE767", "vol 40"),
         ("End an app", "kill notepad (asks before ending it)", "\uE71A", "kill "),
         ("Password", "password, pw 32", "\uE8D7", "password"),
-        ("UUID", "uuid", "🆔", "uuid"),
+        ("UUID", "uuid", "\uE8EC", "uuid"),
         ("Date and time", "now, timestamp, epoch 1700000000", "\uE787", "now"),
         ("IP address", "ip", "\uE774", "ip"),
         ("Home Assistant", "Type a device or scene name to switch it", "\uE80F", ""),
@@ -93,6 +95,7 @@ public static class Launcher
         Try(() => Color(q, list));
         Try(() => TimeIn(q, list));
         Try(() => Prefixes(q, isl, list));
+        Try(() => DownloadAnswers(q, isl, list));
         Try(() => Generators(q, list));
         Try(() => Tools(q, isl, list));
         Try(() => Commands(q, isl, list));
@@ -276,7 +279,7 @@ public static class Launcher
         var engines = new Dictionary<string, (string name, string url, string icon)>
         {
             ["g"] = ("Google", "https://www.google.com/search?q=", "\uE721"), ["google"] = ("Google", "https://www.google.com/search?q=", "\uE721"),
-            ["yt"] = ("YouTube", "https://www.youtube.com/results?search_query=", "▶️"), ["youtube"] = ("YouTube", "https://www.youtube.com/results?search_query=", "▶️"),
+            ["yt"] = ("YouTube", "https://www.youtube.com/results?search_query=", "\uE768"), ["youtube"] = ("YouTube", "https://www.youtube.com/results?search_query=", "\uE768"),
             ["w"] = ("Wikipedia", "https://en.wikipedia.org/w/index.php?search=", "\uE721"), ["wiki"] = ("Wikipedia", "https://en.wikipedia.org/w/index.php?search=", "\uE721"),
             ["gh"] = ("GitHub", "https://github.com/search?q=", "\uE721"), ["maps"] = ("Google Maps", "https://www.google.com/maps/search/", "\uE721"),
             ["amazon"] = ("Amazon", "https://www.amazon.com/s?k=", "\uE721"), ["reddit"] = ("Reddit", "https://www.reddit.com/search/?q=", "\uE721"),
@@ -301,6 +304,74 @@ public static class Launcher
         }
     }
 
+    // ---- downloading and converting ------------------------------------------------
+    static readonly Dictionary<string, string> FormatWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["mp3"] = "mp3", ["mp4"] = "mp4", ["gif"] = "gif", ["m4a"] = "m4a", ["wav"] = "wav", ["webm"] = "webm",
+        ["small"] = "small", ["smaller"] = "small", ["compress"] = "small", ["audio"] = "mp3", ["video"] = "mp4",
+    };
+
+    /// <summary>
+    /// "download <link>" and "audio <link>" (and a bare link offers both), and
+    /// "convert mp3": what's on the shelf or just downloaded, turned into it.
+    /// </summary>
+    internal static void DownloadAnswers(string q, Island isl, List<LItem> list)
+    {
+        var dl = isl.Svc?.Downloads;
+        if (dl == null || !isl.Cfg.Downloads) return;
+        string s = q.Trim();
+        int sp = s.IndexOf(' ');
+        string head = sp > 0 ? s[..sp].ToLowerInvariant() : s.ToLowerInvariant(), rest = sp > 0 ? s[(sp + 1)..].Trim() : "";
+        void Offer(string url, bool audio, double score)
+        {
+            string fmt = audio ? (isl.Cfg.DownloadAudioFormat == "m4a" ? "M4A" : "MP3") : "MP4";
+            var it = new LItem
+            {
+                Title = audio ? "Download the audio" : "Download the video", Subtitle = $"{fmt} · {(url.Length > 70 ? url[..70] + "…" : url)}",
+                Tag = "Download", Icon = audio ? "\uE8D6" : "\uE714", Score = score, Answer = true,
+                Run = () => { try { dl.Download(url, audio); isl.ShowDownloads(); } catch (Exception ex) { Log.W("downloads", ex.Message); } },
+            };
+            it.Actions.Add((audio ? "Download audio" : "Download video", Render.Glyph.Download, "Enter", it.Run));
+            list.Add(it);
+        }
+        if (head is "download" or "dl" or "get" or "video" or "save" && Downloads.IsLink(rest)) { Offer(rest, false, 990); Offer(rest, true, 980); return; }
+        if (head is "audio" or "mp3" or "music" or "song" or "m4a" && Downloads.IsLink(rest)) { Offer(rest, true, 990); return; }
+        if (Downloads.IsLink(s)) { Offer(s, false, 939); Offer(s, true, 938); return; }   // under "Open" (940): a link is usually typed to open it
+        if (head is "convert" or "conv" or "to" or "make" or "gif" or "compress")
+        {
+            // what to convert: a file typed in, or what's on the shelf and what was just downloaded
+            string fmt = null;
+            var words = (head is "gif" or "compress" ? head + " " + rest : rest).Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(w => w != "to").ToList();
+            foreach (var w in words) if (FormatWords.TryGetValue(w.TrimStart('.'), out var f)) { fmt = f; break; }
+            var files = new List<string>();
+            string typed = rest.Trim('"');
+            if (typed.Length > 3 && File.Exists(typed) && Downloads.IsMedia(typed)) files.Add(Path.GetFullPath(typed));
+            files.AddRange(isl.Svc.Shelf?.Items.Where(i => i.Kind == "file" && Downloads.IsMedia(i.Path) && File.Exists(i.Path)).Select(i => i.Path) ?? Enumerable.Empty<string>());
+            files.AddRange(dl.Jobs.Where(j => j.State == "done" && File.Exists(j.Output) && Downloads.IsMedia(j.Output)).Select(j => j.Output));
+            files = files.Distinct(StringComparer.OrdinalIgnoreCase).Take(5).ToList();
+            if (files.Count == 0)
+            {
+                list.Add(new LItem { Title = "Nothing to convert yet", Subtitle = "Keep a video or a song on the shelf (drag it onto the island), or download one", Tag = "Convert", Icon = "\uE8AB", Score = 900, Answer = true });
+                return;
+            }
+            double score = 960;
+            foreach (var f in files)
+            foreach (var to in fmt != null ? new[] { fmt } : new[] { "mp3", "mp4", "gif" })
+            {
+                if (!Downloads.FormatsFor(f).Contains(to)) continue;
+                string file = f, target = to;
+                var it = new LItem
+                {
+                    Title = $"Convert {Path.GetFileName(f)} to {Downloads.FormatName(to)}", Subtitle = Path.GetDirectoryName(f) ?? "",
+                    Tag = "Convert", Icon = "\uE8AB", Score = score--, Answer = true,
+                    Run = () => { try { dl.Convert(file, target); isl.ShowDownloads(); } catch (Exception ex) { Log.W("downloads", ex.Message); } },
+                };
+                it.Actions.Add(("Convert", Render.Glyph.Convert, "Enter", it.Run));
+                list.Add(it);
+            }
+        }
+    }
+
     /// <summary>Always offered last: search the web for whatever was typed.</summary>
     public static LItem WebFallback(string q)
     {
@@ -322,7 +393,7 @@ public static class Launcher
         new("Lock screen", "Lock this computer", "\uE72E", new[] { "lock" }, i => () => LockWorkStation()),
         new("Sleep", "Put the laptop to sleep", "\uE708", new[] { "sleep", "suspend" }, i => () => SetSuspendState(false, false, false)),
         new("Restart", "Restart Windows", "\uE777", new[] { "restart", "reboot" }, i => () => Win32.ShellExecute("shutdown.exe", "/r /t 0", null, null, 0), true),
-        new("Shut down", "Turn off the computer", "⏻", new[] { "shutdown", "shut down", "power off", "turn off" }, i => () => Win32.ShellExecute("shutdown.exe", "/s /t 0", null, null, 0), true),
+        new("Shut down", "Turn off the computer", "\uE7E8", new[] { "shutdown", "shut down", "power off", "turn off" }, i => () => Win32.ShellExecute("shutdown.exe", "/s /t 0", null, null, 0), true),
         new("Sign out", "Sign out of Windows", "\uF3B1", new[] { "sign out", "log off", "logout" }, i => () => Win32.ShellExecute("shutdown.exe", "/l", null, null, 0), true),
         new("Empty Recycle Bin", "Windows asks to confirm", "\uE74D", new[] { "empty recycle bin", "empty trash", "trash", "recycle" }, i => () => SHEmptyRecycleBinW(0, null, 0)),
         new("Toggle Bluetooth", "Turn the Bluetooth radio on or off", "\uE702", new[] { "bluetooth", "bt" }, i => () => { var b = i.Svc?.Bluetooth; if (b != null) _ = b.SetRadio(b.RadioOn != true); }),
@@ -331,6 +402,7 @@ public static class Launcher
         new("Next track", "Media", "\uE893", new[] { "next", "skip" }, i => () => i.Svc?.Media?.Next()),
         new("Previous track", "Media", "\uE892", new[] { "previous", "prev", "back" }, i => () => i.Svc?.Media?.Previous()),
         new("Timer", "Set a timer of any length", "\uE916", new[] { "timer", "countdown", "alarm" }, i => () => i.Expand(i.P.Dashboard.TabIndex("timer"))),
+        new("Downloads", "Downloads and conversions, with their history", "\uE896", new[] { "downloads", "download history" }, i => () => i.ShowDownloads()),
         new("Island settings", "Isola", "\uE713", new[] { "settings", "preferences", "island settings" }, i => () => i.Host.OpenSettings()),
         new("Hide the island", "Isola", "\uED1A", new[] { "hide island", "hide" }, i => () => i.SetMode(Mode.Hidden, "command")),
         new("Switch island style", "Pill ⇄ Notch", "\uE8AB", new[] { "style", "notch", "pill" }, i => () => { i.Cfg.Style = i.Cfg.Style == "pill" ? "notch" : "pill"; i.ApplyConfig(i.Cfg); i.SettingsChanged?.Invoke(); }),

@@ -81,6 +81,15 @@ public sealed class Config
     public string DeviceTone { get; set; } = "click";
     public string ChargeTone { get; set; } = "click";
     public string LowTone { get; set; } = "click";
+    /// <summary>Downloading and converting (yt-dlp and FFmpeg, fetched and kept up to date by Isola).</summary>
+    public bool Downloads { get; set; } = true;
+    /// <summary>Where finished files go: downloads (the Downloads folder), shelf, or folder (DownloadFolder).</summary>
+    public string DownloadTo { get; set; } = "downloads";
+    public string DownloadFolder { get; set; } = "";
+    /// <summary>The most a video is downloaded at: 1080, 720 or best.</summary>
+    public string DownloadQuality { get; set; } = "1080";
+    /// <summary>What "download audio" makes: mp3 or m4a.</summary>
+    public string DownloadAudioFormat { get; set; } = "mp3";
     public List<string> NotificationMutedApps { get; set; } = new();
     public bool Calls { get; set; } = true;
     public int AlertSeconds { get; set; } = 5;
@@ -176,6 +185,11 @@ public sealed class Config
         DeviceTone = Services.Sounds.Valid(Services.Sounds.Connect, DeviceTone);
         ChargeTone = Services.Sounds.Valid(Services.Sounds.Charge, ChargeTone);
         LowTone = Services.Sounds.Valid(Services.Sounds.Low, LowTone);
+        DownloadTo = DownloadTo is "shelf" or "folder" ? DownloadTo : "downloads";
+        DownloadFolder = string.IsNullOrWhiteSpace(DownloadFolder) || !Path.IsPathFullyQualified(DownloadFolder) ? "" : DownloadFolder.Trim();
+        if (DownloadTo == "folder" && DownloadFolder.Length == 0) DownloadTo = "downloads";
+        DownloadQuality = DownloadQuality is "720" or "best" ? DownloadQuality : "1080";
+        DownloadAudioFormat = DownloadAudioFormat == "m4a" ? "m4a" : "mp3";
         CollapseDelayMs = Math.Clamp(CollapseDelayMs, 0, 5000);
         RevealZoneWidth = Math.Clamp(RevealZoneWidth, 80, 2000);
         RevealZoneHeight = Math.Clamp(RevealZoneHeight, 2, 40);

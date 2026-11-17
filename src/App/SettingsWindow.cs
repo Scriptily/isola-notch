@@ -49,7 +49,7 @@ public sealed unsafe partial class SettingsWindow
     static readonly (string name, char glyph)[] Sections =
     {
         ("Appearance", ''), ("Behavior", ''), ("Live Activities", ''), ("Notifications", Glyph.Bell),
-        ("Widgets", ''), ("Search & Keys", Glyph.Keyboard), ("Home Assistant", Glyph.Home), ("Spotify", Glyph.Music), ("About & Logs", ''), ("Feedback", Glyph.Message),
+        ("Widgets", ''), ("Downloads", Glyph.Download), ("Search & Keys", Glyph.Keyboard), ("Home Assistant", Glyph.Home), ("Spotify", Glyph.Music), ("About & Logs", ''), ("Feedback", Glyph.Message),
     };
 
     public SettingsWindow(App a, Hub s, Func<Config> cfg, Action<Config> onApply)
@@ -305,18 +305,19 @@ public sealed unsafe partial class SettingsWindow
         c.Text(Sections[section].name, new Box(area.X, y, area.W, 36), 26, Col.White, FontWeight.SemiBold);
         y += 52;
         var L = new Layout(this, c, area.X, y, area.W);
-        switch (section)
+        switch (Sections[section].name)
         {
-            case 0: Appearance(L); break;
-            case 1: Behavior(L); break;
-            case 2: Activities(L); break;
-            case 3: Notifications(L); break;
-            case 4: Widgets(L); break;
-            case 5: Keys(L); break;
-            case 6: HomeAssistantSection(L); break;
-            case 7: SpotifySection(L); break;
-            case 8: About(L); break;
-            case 9: FeedbackSection(L); break;
+            case "Appearance": Appearance(L); break;
+            case "Behavior": Behavior(L); break;
+            case "Live Activities": Activities(L); break;
+            case "Notifications": Notifications(L); break;
+            case "Widgets": Widgets(L); break;
+            case "Downloads": DownloadsSection(L); break;
+            case "Search & Keys": Keys(L); break;
+            case "Home Assistant": HomeAssistantSection(L); break;
+            case "Spotify": SpotifySection(L); break;
+            case "About & Logs": About(L); break;
+            case "Feedback": FeedbackSection(L); break;
         }
         // the same 32 below the last card as at the sides. The fade above used
         // the height measured last frame: if this frame measured another (a page
@@ -451,7 +452,8 @@ public sealed unsafe partial class SettingsWindow
             double nv = min + v * (max - min);
             if (step > 0) nv = Math.Round(nv / step) * step;
             set(nv);
-            if (fin) Changed(); else { work.Normalize(); dirty = true; if (id is "scale" or "glow") apply(work.Clone()); }
+            if (fin) { Changed(); if (id == "sndvol") app.PreviewSound(Sounds.Notification, work.NotificationTone); }
+            else { work.Normalize(); dirty = true; if (id is "scale" or "glow") apply(work.Clone()); }
         }, Col.Hex(0x0a84ff), 4, true);
         canvas.Text(fmt(value), new Box(b.Right - 20 - 54, b.Y, 54, b.H), 12.5f, Col.White.A(0.8f), FontWeight.SemiBold, HAlign.Right);
     }
@@ -570,7 +572,7 @@ public sealed unsafe partial class SettingsWindow
         L.End();
         L.Header("Sounds");
         Toggle(L, "snd", "Island sounds", Packaging.IsStore ? "Its own chimes and ringtone" : "Its own chimes and ringtone; Windows' chime is off while the island shows notifications", work.Sounds, v => work.Sounds = v);
-        Slider(L, "sndvol", "Sound volume", "Of the level Isola's sounds were made at; Windows' volume applies too", work.SoundLevel, 0.5, 1.5, v => $"{v * 100:0}%", v => work.SoundLevel = v, 0.05);
+        Slider(L, "sndvol", "Sound volume", "100% is the level they were tuned at; Windows' volume applies too", work.SoundLevel, 0.5, 1.5, v => $"{v * 100:0}%", v => work.SoundLevel = v, 0.05);
         Toggle(L, "sndnotif", "Chime for notifications", null, work.NotificationSound, v => work.NotificationSound = v);
         Tone(L, "tone:n", "Notification sound", Sounds.Notification, work.NotificationTone, v => work.NotificationTone = v);
         Toggle(L, "sndcall", "Ringtone for calls", null, work.CallRingtone, v => work.CallRingtone = v);
@@ -907,6 +909,58 @@ public sealed unsafe partial class SettingsWindow
             else fbError = res.Error;
             dirty = true;
         }));
+    }
+
+    void DownloadsSection(Layout L)
+    {
+        var tools = svc.Tools; var dl = svc.Downloads;
+        Toggle(L, "dlon", "Downloads and conversion", "Save a video or its audio from a link, and convert what's on your shelf", work.Downloads, v => work.Downloads = v);
+        if (!work.Downloads)
+        {
+            L.Note("Off: the Shelf's link bar and the download commands are gone, and the tools aren't updated. They stay installed until you remove them below.");
+            if (tools?.Ready == true) Button(L, "dlrm", "Remove the tools", $"Frees {tools.Bytes / 1_000_000} MB", "Remove", () => tools.Remove());
+            return;
+        }
+        L.Note("Paste a link in the Shelf's bar, or type download and a link in search (audio and a link for just the sound). Hover a video or song on the shelf to convert it, or type convert in search.", 34);
+        Seg(L, "dlto", "Save to", work.DownloadTo == "folder" ? work.DownloadFolder : work.DownloadTo == "shelf" ? "Kept on the shelf, in Isola's own folder" : "Your Downloads folder",
+            new[] { "Downloads", "Shelf", "A folder" }, new[] { "downloads", "shelf", "folder" }, work.DownloadTo, v =>
+            {
+                if (v == "folder")
+                {
+                    string got = Native.FolderPicker.Pick(hwnd, "Save downloads to", string.IsNullOrEmpty(work.DownloadFolder) ? Services.KnownFolders.Downloads : work.DownloadFolder);
+                    if (got == null) return;   // cancelled: stays where it was
+                    work.DownloadFolder = got;
+                }
+                work.DownloadTo = v;
+            });
+        if (work.DownloadTo == "folder")
+            Button(L, "dlfolder", "Folder", work.DownloadFolder, "Change", () =>
+            {
+                string got = Native.FolderPicker.Pick(hwnd, "Save downloads to", work.DownloadFolder);
+                if (got != null) { work.DownloadFolder = got; Changed(); }
+            });
+        Seg(L, "dlq", "Video quality", "The most it downloads, as H.264 MP4 so it plays everywhere", new[] { "720p", "1080p", "Best" }, new[] { "720", "1080", "best" }, work.DownloadQuality, v => work.DownloadQuality = v);
+        Seg(L, "dla", "Audio format", "What downloading the audio makes", new[] { "MP3", "M4A" }, new[] { "mp3", "m4a" }, work.DownloadAudioFormat, v => work.DownloadAudioFormat = v);
+        if (tools != null)
+        {
+            string sub = tools.Busy ? tools.Status : tools.Ready ? $"{tools.Summary()} · {tools.Bytes / 1_000_000} MB · checked daily" : "Not installed yet: they're fetched (about 130 MB) the first time you download";
+            Button(L, "dltools", "yt-dlp, FFmpeg and QuickJS", sub, tools.Ready ? "Update now" : "Get them now", () => { _ = tools.CheckAsync(true); dirty = true; }, tools.Busy,
+                "Free programs from their own projects: yt-dlp downloads from YouTube and most other sites, FFmpeg converts and merges, QuickJS lets yt-dlp read YouTube's player. Isola fetches them from each project's GitHub releases, checks each file against the checksum GitHub publishes, and keeps them up to date. They're removed when you uninstall Isola.");
+            if (tools.Busy && tools.Progress >= 0)
+            {
+                var bar = new Box(L.X + 4, L.Y - 6, L.W - 8, 3);
+                canvas.Fill(bar, Col.White.A(0.08f), 1.5f);
+                canvas.Fill(new Box(bar.X, bar.Y, bar.W * (float)tools.Progress, bar.H), Col.Hex(0x0a84ff), 1.5f);
+                L.Y += 4;
+            }
+            if (tools.Ready && !tools.Busy) Button(L, "dlrm", "Remove the tools", $"Frees {tools.Bytes / 1_000_000} MB. They come back the next time you download", "Remove", () => { tools.Remove(); dirty = true; });
+        }
+        if (dl != null)
+        {
+            int n = dl.Jobs.Count(j => !j.Active);
+            Button(L, "dlhist", "History", n == 0 ? "Nothing yet" : $"{n} downloads and conversions, in the Shelf's Downloads", "Clear", () => { dl.ClearHistory(); dirty = true; });
+        }
+        L.Note("Download only what you have the right to keep.");
     }
 
     void About(Layout L)

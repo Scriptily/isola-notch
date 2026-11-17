@@ -31,6 +31,8 @@ public sealed class Hub
     public Updater Updates;
     public SpotifyService Spotify;
     public Feedback Feedback;
+    public DownloadTools Tools;
+    public Downloads Downloads;
 }
 
 public interface IMediaSourceEx : IMediaSource

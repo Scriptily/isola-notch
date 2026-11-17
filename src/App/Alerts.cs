@@ -95,6 +95,28 @@ public static class Alerts
         return a;
     }
 
+    /// <summary>A download or conversion finished: open it, or show it in its folder.</summary>
+    public static Alert DownloadDone(DownloadJob job, Action open, Action reveal) => new()
+    {
+        Key = "download:" + job.Id, Kind = "download", Title = job.Kind == "convert" ? "Converted" : "Downloaded",
+        Subtitle = job.ToShelf ? "On your shelf" : Path.GetFileName(job.Output), Detail = job.Label,
+        Glyph = Glyph.Download, Accent = Col.Hex(0x34c759), Seconds = 6, Sound = Services.Sounds.Notification,
+        Actions =
+        {
+            new AlertAction { Label = "Open", Glyph = Glyph.Play, Tint = Col.Hex(0x0a84ff), Primary = true, Run = open },
+            new AlertAction { Label = "Show in folder", Glyph = Glyph.Folder, Run = reveal },
+        },
+    };
+
+    /// <summary>It didn't work: why, in words, and a way to try again.</summary>
+    public static Alert DownloadFailed(DownloadJob job, Action retry) => new()
+    {
+        Key = "download:" + job.Id, Kind = "download", Title = job.Kind == "convert" ? "Couldn't convert it" : "Couldn't download it",
+        Subtitle = job.Error, Detail = job.Label,
+        Glyph = Glyph.Warning, Accent = Col.Hex(0xff9f0a), Seconds = 8,
+        Actions = { new AlertAction { Label = "Try again", Glyph = Glyph.Refresh, Tint = Col.Hex(0x0a84ff), Primary = true, Run = retry } },
+    };
+
     /// <summary>The moment after copying: a check, briefly.</summary>
     public static Alert Copied() => new()
     {

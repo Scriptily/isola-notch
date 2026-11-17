@@ -403,6 +403,7 @@ public sealed class CompactPage : Page
         var s = isl.Svc;
         if (s == null) return null;
         if (s.Timer != null && s.Timer.Running) return "timer";
+        if (isl.Cfg.Downloads && s.Downloads?.ActiveCount > 0) return "download";
         var m = s.Media?.Current;
         if (isl.Cfg.Media && m != null && !string.IsNullOrEmpty(m.Title) && (m.Playing || isl.Clock.Now - s.Media.LastPlayingAt < 60)) return "media";
         return null;
@@ -410,13 +411,14 @@ public sealed class CompactPage : Page
 
     public override (float, float, float) Size(Island isl) => kind switch
     {
-        "timer" => (250, 34, 17),
+        "timer" or "download" => (250, 34, 17),
         _ => (318, 34, 17),
     };
     public override bool WantsContinuousFrames(Island isl) => false;
     public override double AmbientInterval(Island isl)
     {
         if (kind == "timer") return 0.5;
+        if (kind == "download") return 1 / 30.0;
         var m = isl.Svc?.Media?.Current;
         return m != null && m.Playing && isl.Cfg.MediaWaveform ? 1 / 30.0 : 0;
     }
@@ -434,6 +436,26 @@ public sealed class CompactPage : Page
             c.Arc(a.X + 19, a.CY, 9, 0, MathF.PI * 2 * Math.Max(0.001f, left), col.A(t), 2.6f);
             c.Text(tm.Paused ? "Paused" : "Timer", new Box(a.X + 36, a.Y, 80, a.H), 12.5f, Col.White.A(0.75f * t), FontWeight.SemiBold);
             c.Text(Paint.Time(tm.Remaining(now)), new Box(a.Right - 92, a.Y, 78, a.H), 14, col.A(t), FontWeight.SemiBold, HAlign.Right);
+            return;
+        }
+        if (kind == "download")
+        {
+            var dl = isl.Svc.Downloads;
+            var j = dl.Current;
+            var blue = Col.Hex(0x0a84ff);
+            float pr = isl.Ux.Anim("compact:dl", dl.Overall, SpringSpec.Smooth);
+            bool waiting = j == null || j.State != "running" || j.Progress <= 0.001;
+            // a ring that fills as it downloads, like the timer's that empties
+            if (waiting) Paint.Spinner(c, a.X + 19, a.CY, 18, Col.White.A(0.8f), now, t);
+            else
+            {
+                c.Ring(a.X + 19, a.CY, 9, blue.A(0.25f * t), 2.6f);
+                c.Arc(a.X + 19, a.CY, 9, 0, MathF.PI * 2 * Math.Max(0.001f, pr), blue.A(t), 2.6f);
+            }
+            int n = dl.ActiveCount;
+            string what = j?.Kind == "convert" ? "Converting" : "Downloading";
+            c.Text(n > 1 ? $"{what} {n}" : what, new Box(a.X + 36, a.Y, 120, a.H), 12.5f, Col.White.A(0.75f * t), FontWeight.SemiBold);
+            if (!waiting) c.Text($"{pr * 100:0}%", new Box(a.Right - 92, a.Y, 78, a.H), 14, blue.A(t), FontWeight.SemiBold, HAlign.Right);
             return;
         }
         var m = isl.Svc.Media.Current;
