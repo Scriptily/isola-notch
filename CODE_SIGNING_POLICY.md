@@ -16,6 +16,14 @@ from then on will be signed.
   from other projects is signed under Isola's name.
 - Every signing request is approved by hand by an approver below.
 
+## Programs Isola fetches
+
+Isola's own files are the only ones built and signed here. For downloading
+and converting, Isola fetches yt-dlp, FFmpeg (Gyan's essentials build) and
+QuickJS from those projects' own GitHub releases, signed (or not) by them.
+Isola installs one only if it matches the SHA-256 checksum GitHub publishes
+for that release file, and never runs anything else.
+
 ## Team roles
 
 | Role | Members |

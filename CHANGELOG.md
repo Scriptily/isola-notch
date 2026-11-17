@@ -1,9 +1,59 @@
 # Changelog
 
-Isola follows [semantic versioning](https://semver.org/): the major number
-changes for breaking or very large changes, the minor number for new features,
-and the patch number for fixes only. Each release's section below is also its
-GitHub release notes.
+Version numbers are MAJOR.MINOR.PATCH. The major number changes only for big
+overhauls. The minor number goes up for new features or substantial changes
+(by more than one when a release brings many), and the patch number goes up by
+the number of changes in a release that only fixes and adjusts things, so
+1.4.0 with two fixes is 1.4.2. Each release's section below is also its GitHub
+release notes.
+
+## [Unreleased]
+
+### Added
+
+- Downloads and conversion. Paste a link into the new bar at the top of the
+  Shelf tab, choose Video or Audio, and press Enter: it downloads from YouTube
+  and most other video and music sites, as an MP4 up to 1080p (or the best
+  there is) or as MP3 or M4A. The progress shows in the pill while you do
+  something else, and a popup says when it's done, with Open and Show in
+  folder. Files go to your Downloads folder, a folder you choose, or the Shelf
+  (Settings -> Downloads).
+- Any video or song on the Shelf converts to MP4, MP3, GIF, M4A, WAV or WebM,
+  or to a smaller MP4, from the button on its tile. Search results that are
+  videos or songs offer it too.
+- In search: `download` or `audio` and a link, `convert mp3` (or gif, mp4 and
+  the rest), and `downloads` for the history. Pasting a link offers to
+  download it.
+- A Downloads panel on the Shelf lists every download and conversion, newest
+  first, with its progress, a way to cancel, and Open, Show in folder or Try
+  again when it's over.
+- The work is done by yt-dlp, FFmpeg (the essentials build) and QuickJS. They
+  aren't in the installer: Isola fetches them from each project's GitHub
+  releases the first time you download (about 130 MB), checks each file
+  against the checksum GitHub publishes, and updates them once a day. They're
+  kept across Isola's updates and removed when you uninstall it.
+- A sound volume setting, from 50% to 150%, with 100% in the middle. Letting go
+  of the slider plays a chime at the new level. Your earlier volume carries
+  over.
+
+### Changed
+
+- Sounds play the moment something happens. Each one used to start with a
+  short silence (0.15 s, or 0.4 s on Bluetooth headphones) so a dozing output
+  couldn't swallow its start. Now that silence is added only when the output
+  really is asleep, not when music is playing or another sound just played.
+  Each sound is also built once instead of for every volume, and Settings
+  builds them all ahead, so a preview never waits.
+- Checking a to-do in Notes draws its check mark instead of popping an icon in.
+- The glow takes the colors of the cover of whatever is playing from the
+  moment Isola starts, not only after the first track change.
+- The README's animations are full-color WebP instead of GIF, so the glow no
+  longer bands, and they show real songs, downloads and the Shelf.
+
+### Fixed
+
+- Three command icons in search were emoji (YouTube, UUID and Shut down). They
+  use Isola's own icons now, like everything else.
 
 ## [1.4.0] - 2026-11-17
 

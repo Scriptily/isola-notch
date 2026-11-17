@@ -257,7 +257,8 @@ Isola has no account, no telemetry and no analytics. It talks only to:
 | Your Home Assistant | if you set it up | your token, to the address you entered |
 | Open-Meteo | weather, if Home Assistant isn't the source | the city or coordinates you entered |
 | Spotify | if you connect it | your sign-in, to read and set playback |
-| GitHub | update checks, every six hours | nothing about you |
+| GitHub | update checks, every six hours; with downloads on, the download tools' releases once a day | nothing about you |
+| The site a link points to | when you download from a link | the link, as a browser would, without your sign-ins |
 | Isola's feedback service | when you open Settings -> Feedback, to see whether it's open (nothing about you); and when you press Send feedback | what you wrote, a one-way ID made from your computer, the app and Windows versions, and the log if you attach it |
 
 Notifications, media, the clipboard and Bluetooth are read on your computer and stay
