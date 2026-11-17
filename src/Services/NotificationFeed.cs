@@ -91,9 +91,7 @@ public sealed partial class NotificationFeed
                     Shape(it, texts, bundle);
                 }
                 catch { }
-                string all = (it.Title + " " + it.Body).ToLowerInvariant();
-                it.IsCall = (it.App.Contains("Phone Link", StringComparison.OrdinalIgnoreCase) || it.AppId.Contains("YourPhone", StringComparison.OrdinalIgnoreCase))
-                    && (all.Contains("incoming call") || all.Contains("is calling") || all.Contains("calling…") || all.Contains("calling..."));
+                it.IsCall = IsPhoneCall(it);
                 // relayed phone apps all share Phone Link's id: their icons are keyed by app
                 string iconKey = it.Bundle != null ? "phone:" + it.Bundle : it.AppId;
                 if (!string.IsNullOrEmpty(iconKey) && !icons.ContainsKey(iconKey))
@@ -125,6 +123,23 @@ public sealed partial class NotificationFeed
         it.Title = texts[1];
         it.Body = string.Join(" ", texts.Skip(2));
     }
+
+    /// <summary>
+    /// Whether a notification is a phone call ringing. Only Phone Link's own
+    /// call notification counts: its first line is exactly "Incoming call" (or
+    /// "Calling…"), the caller under it. Matching "is calling" anywhere made an
+    /// app's message ("Your cart is calling", relayed from the phone) ring like
+    /// a call, so a phone app relayed by Phone Link never counts, and the
+    /// words must be the whole line, not part of a sentence.
+    /// </summary>
+    internal static bool IsPhoneCall(NotificationItem it)
+    {
+        bool fromPhoneLink = it.AppId.Contains("YourPhone", StringComparison.OrdinalIgnoreCase) || it.App.Equals("Phone Link", StringComparison.OrdinalIgnoreCase);
+        if (!fromPhoneLink || it.Bundle != null || it.Via.Length > 0) return false;
+        return CallLine.IsMatch(it.Title.Trim());
+    }
+    static readonly System.Text.RegularExpressions.Regex CallLine = new(@"^(incoming (voice |video |audio )?call|calling(…|\.\.\.)?)$",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
     /// <summary>
     /// The app's own icon. GetLogo gives one only for packaged apps; desktop apps

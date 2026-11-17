@@ -187,6 +187,15 @@ public sealed partial class Island
         if (old == Mode.Hello || m == Mode.Hello) Ui.Post(UpdateGlowColors);
         if (m != Mode.Peek && m != Mode.Expanded && m != Mode.Search) Ui.Cancel(ref collapseTimer);
         if (old == Mode.Search && m != Mode.Search) ReleaseKeyboard();
+        // An alert's sound belongs to the alert being on screen. Leaving it any
+        // other way than EndTransient (opened, hovered into, hidden for a
+        // fullscreen app) used to leave a ringtone looping with nothing showing,
+        // and the alert's timer then skipped its cleanup: it rang forever.
+        if (old == Mode.Alert && m != Mode.Alert && CurrentAlert != null && SoundOff != null)
+        {
+            var silenced = CurrentAlert;
+            Ui.Guard("alert sound", () => SoundOff(silenced));
+        }
         Mode = m;
         if (m == Mode.Off) { Host.SetHitArea(default, 0); }
         else Host.SetShown(true);
@@ -484,7 +493,8 @@ public sealed partial class Island
     public void DismissAlert(string key)
     {
         alertQueue.RemoveAll(q => q.Key == key);
-        if (CurrentAlert?.Key == key && Mode == Mode.Alert) EndTransient("dismissed");
+        // also when the island was opened over it: the call ended, so it's gone
+        if (CurrentAlert?.Key == key && Mode != Mode.Hud) EndTransient("dismissed");
     }
 
     void PumpAlerts()
@@ -552,7 +562,17 @@ public sealed partial class Island
 
     public void EndTransient(string why)
     {
-        if (Mode is not (Mode.Alert or Mode.Hud)) return;
+        if (Mode is not (Mode.Alert or Mode.Hud))
+        {
+            // the alert was already off screen (the island was opened over it):
+            // it's over all the same, so nothing of it (a sound, its hooks) lingers
+            Ui.Cancel(ref transientTimer);
+            var stale = CurrentAlert;
+            CurrentAlert = null;
+            if (stale != null && SoundOff != null) Ui.Guard("alert sound", () => SoundOff(stale));
+            if (stale?.Ended != null) Ui.Guard("alert ended", stale.Ended);
+            return;
+        }
         Ui.Cancel(ref transientTimer);
         var leaving = CurrentAlert;
         CurrentAlert = null;

@@ -39,6 +39,16 @@ GitHub release notes.
   security fixes for the actions and the NuGet packages. Secret scanning and
   push protection are on for the repository.
 
+### Fixed
+
+- A message relayed from the phone that happened to contain "calling" (a
+  shopping app's "Your cart is calling") rang as an incoming call. Only Phone
+  Link's own call notification counts as a call now.
+- A ringtone could keep playing forever once its call left the screen
+  another way than timing out (opening the island over it, a fullscreen app
+  hiding it). It now stops whenever its call does, and any looping sound
+  stops by itself after two minutes, whatever happens.
+
 ## [1.3.0] - 2026-11-16
 
 ### Added

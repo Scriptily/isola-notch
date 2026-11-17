@@ -113,9 +113,21 @@ public static class Sounds
                 }
                 Playing = ok ? kind + ":" + variant : null;
             }
+            // Failing safe: a looping sound stops by itself after a while, so a
+            // missed stop (anywhere) can never leave a ringtone going forever.
+            Ui.Cancel(ref loopLimit);
+            if (Loops(kind) && Playing != null)
+            {
+                string mine = Playing;
+                loopLimit = Ui.After(MaxLoopSeconds, () => { if (Playing == mine) { Log.W("sound", $"{mine} still looping after {MaxLoopSeconds} s; stopped"); Stop(); } });
+            }
         }
         catch (Exception ex) { Log.D("sound", $"{kind}: {ex.Message}"); }
     }
+
+    /// <summary>The longest a ringtone or timer alarm loops (a call's alert gives up at 75 s).</summary>
+    internal const double MaxLoopSeconds = 120;
+    static long loopLimit;
 
     public static void Stop()
     {
