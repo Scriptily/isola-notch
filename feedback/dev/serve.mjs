@@ -38,7 +38,8 @@ for (const [kind, subject, text, version, source, hoursAgo, logs] of samples) {
   n++;
   await handle(new Request('http://localhost/feedback', {
     method: 'POST', headers: { 'cf-connecting-ip': `10.0.0.${n}` },
-    body: JSON.stringify({ app: n % 3 === 0 ? 'notes-app' : 'isola', user: `User${String(73_000_000_000 + n * 7_919_123_457).slice(0, 11 + (n % 4))}`, verifier: n.toString(16).padStart(32, '0'), kind, subject, text, version, windows: '10.0.26100', source,
+    body: JSON.stringify({ app: n % 3 === 0 ? 'notes-app' : 'isola', user: String(10n ** 19n + BigInt(n) * 7_919_123_457_123_457n), verifier: n.toString(16).padStart(32, '0'), kind, subject, text, version, windows: '10.0.26100', source,
+      tz: ['+03:00', '-05:00', '+01:00', '+09:00'][n % 4],
       logs: logs ? `2026-11-17 09:01:12.004 INF [app] Isola ${version} starting\n2026-11-17 09:01:12.110 INF [gfx] device ready\n2026-11-17 09:01:14.930 WRN [display] monitor changed while rendering\n2026-11-17 09:01:15.002 ERR [gfx] present failed 0x887A0005\n2026-11-17 09:01:15.050 INF [gfx] recovering GPU device` : null }),
   }), env, { now: now - hoursAgo * H });
 }
@@ -46,7 +47,7 @@ const db = env.DB.raw;
 db.exec(`UPDATE reports SET status = 'closed', closed_at = ${now - 2 * H} WHERE id IN (3)`);
 db.exec(`INSERT INTO events (report_id, actor, what, at) VALUES (3, 'dev@localhost', 'closed', ${now - 2 * H})`);
 db.exec(`INSERT INTO tags VALUES (3, 'fixed'), (1, 'planned'), (6, 'planned'), (2, 'needs info')`);
-db.exec(`INSERT INTO notes (report_id, author, body, created_at) VALUES (1, 'dev@localhost', 'Reproduced on a 150% + 100% setup. DComp target resize race.', ${now - 20 * H})`);
+db.exec(`INSERT INTO notes (report_id, author, body, created_at) VALUES (1, 'dev@localhost', 'Reproduced on a 150% + 100% setup. Probably the same cause as #' || (SELECT number FROM reports WHERE id = 5) || '.', ${now - 20 * H})`);
 
 http.createServer(async (req, res) => {
   const chunks = [];

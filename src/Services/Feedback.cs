@@ -45,31 +45,47 @@ public sealed partial class Feedback
 
     // ---- who: a number made from this PC, never the PC's ID itself ----------
 
+    // The keys are the same in every app on purpose: one machine is one person
+    // across all of them, so a report in one app and a report in another can be
+    // told apart from two people's.
+    static ReadOnlySpan<byte> IdKey => "Scriptily device id v1"u8;
+    static ReadOnlySpan<byte> VerifierKey => "Scriptily device verifier v1"u8;
+    static readonly UInt128 IdLow = UInt128.Parse("10000000000000000000"), IdSpan = UInt128.Parse("90000000000000000000");   // 20-digit numbers: 10^19 .. 10^20 - 1
+
     /// <summary>
-    /// "User" and a 19- or 20-digit number, the same every time on this PC: a
-    /// one-way hash of Windows' machine GUID, all 64 bits of it, so two PCs
-    /// practically never land on the same number. The GUID never leaves the PC
-    /// and the number can't be turned back into it (there is no decrypt). The
-    /// service makes the "practically" certain: see <see cref="VerifierFrom"/>.
+    /// Always 20 digits, the same every time on this machine and in every app:
+    /// a one-way hash of Windows' machine GUID. The GUID never leaves the PC and
+    /// the number can't be turned back into it (there is no decrypt). 9 x 10^19
+    /// possible IDs is about 11 billion for every person alive; the feedback
+    /// hub makes "no two machines share one" certain (see <see cref="VerifierFrom"/>).
     /// </summary>
     public static string UserIdFrom(string hardwareId)
     {
-        ulong v = BitConverter.ToUInt64(HMACSHA256.HashData("Isola feedback id v2"u8, Norm(hardwareId)), 0);
-        return "User" + (v | 1UL << 63).ToString(CultureInfo.InvariantCulture);   // the top bit set: always 19 or 20 digits
+        var h = HMACSHA256.HashData(IdKey, Norm(hardwareId));
+        var v = new UInt128(BitConverter.ToUInt64(h, 8), BitConverter.ToUInt64(h, 0));
+        return (IdLow + v % IdSpan).ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>
-    /// A second, independent hash of the same GUID. The service keys each PC by
-    /// it, so if another PC ever derived the same ID, it's given its own ("-2")
-    /// instead of sharing one, and an ID once given is never given to anyone else.
+    /// A second, independent hash of the same GUID. The hub knows each machine
+    /// by it, so if another machine ever derived the same ID, it's given another
+    /// free 20-digit one instead of sharing, and an ID once given is never given
+    /// to anyone else.
     /// </summary>
     public static string VerifierFrom(string hardwareId) =>
-        Convert.ToHexString(HMACSHA256.HashData("Isola feedback verifier v1"u8, Norm(hardwareId)), 0, 16).ToLowerInvariant();
+        Convert.ToHexString(HMACSHA256.HashData(VerifierKey, Norm(hardwareId)), 0, 16).ToLowerInvariant();
 
     static byte[] Norm(string hardwareId) => Encoding.UTF8.GetBytes((hardwareId ?? "").Trim().ToLowerInvariant());
 
     public static bool ValidUserId(string id) => id != null && UserIdRx().IsMatch(id);
-    [GeneratedRegex(@"^User[1-9]\d{5,19}(-\d{1,3})?$")] private static partial Regex UserIdRx();
+    [GeneratedRegex(@"^[1-9]\d{19}$")] private static partial Regex UserIdRx();
+
+    /// <summary>The sender's UTC offset right now, "+03:00": the hub shows each report in its reader's time and its sender's.</summary>
+    public static string Offset(DateTime utcNow, TimeZoneInfo zone = null)
+    {
+        var o = (zone ?? TimeZoneInfo.Local).GetUtcOffset(utcNow);
+        return (o < TimeSpan.Zero ? "-" : "+") + o.Duration().ToString(@"hh\:mm", CultureInfo.InvariantCulture);
+    }
 
     static string hardware;
     static string Hardware => hardware ??= HardwareId();
@@ -179,7 +195,7 @@ public sealed partial class Feedback
 
     // ---- sending ---------------------------------------------------------------
 
-    public static string Payload(string user, string verifier, FeedbackKind kind, string subject, string text, string version, string windows, bool store, string logs) =>
+    public static string Payload(string user, string verifier, FeedbackKind kind, string subject, string text, string version, string windows, bool store, string logs, string tz = null) =>
         new JsonObject
         {
             ["app"] = "isola",   // the feedback hub serves several apps
@@ -191,6 +207,7 @@ public sealed partial class Feedback
             ["version"] = version,
             ["windows"] = windows,
             ["source"] = store ? "store" : "github",
+            ["tz"] = tz,
             ["logs"] = string.IsNullOrEmpty(logs) ? null : logs,
         }.ToJsonString();
 
@@ -215,7 +232,7 @@ public sealed partial class Feedback
         string fp = Fingerprint(subject, text);
         try
         {
-            using var body = new StringContent(Payload(UserIdFrom(Hardware), VerifierFrom(Hardware), kind, subject, text, version, windows, store, logs), Encoding.UTF8, "application/json");
+            using var body = new StringContent(Payload(UserIdFrom(Hardware), VerifierFrom(Hardware), kind, subject, text, version, windows, store, logs, Offset(now())), Encoding.UTF8, "application/json");
             using var resp = await http.PostAsync(endpoint, body).ConfigureAwait(false);
             JsonNode answer = null;
             try { answer = JsonNode.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false)); } catch { }

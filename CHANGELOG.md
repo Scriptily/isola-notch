@@ -12,8 +12,8 @@ GitHub release notes.
 - Settings -> Feedback: send a feature request or a bug report with a subject
   and a description, and optionally the log, with your account and PC names,
   folders, addresses, emails and tokens removed first. Each report carries a
-  feedback ID, a one-way number made from your PC, so reports from the same
-  person can be told apart, and gets a report number of its own. It goes to
+  feedback ID, a one-way 20-digit number made from your PC, so reports from
+  the same person can be told apart, and gets a report number of its own. It goes to
   the developer privately (a private database behind Isola's feedback
   service), one a day, and never the same report twice.
 

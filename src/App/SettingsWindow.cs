@@ -759,11 +759,11 @@ public sealed unsafe partial class SettingsWindow
             $"{text.Text.Length:N0} / {Feedback.TextMax:N0}");
         Toggle(L, "fblogs", "Attach logs for diagnostics", "Isola's log, with your name, folders, addresses and tokens removed", fbLogs, v => fbLogs = v);
         var idRow = LabeledRow(L, "fbid", "Your feedback ID", "A one-way number made from this PC, so we can tell your reports apart", 290, 52);
-        canvas.Text(fb.UserId, new Box(idRow.Right - 290, idRow.Y, 210, idRow.H), 12.5f, Col.White.A(0.9f), FontWeight.SemiBold, HAlign.Right);
+        canvas.Text("@" + fb.UserId, new Box(idRow.Right - 290, idRow.Y, 210, idRow.H), 12.5f, Col.White.A(0.9f), FontWeight.SemiBold, HAlign.Right);
         bool copied = Ui.Clock.Now - fbCopiedAt < 1.6;
         float ct = ux.Anim("fb:copied", copied ? 1 : 0, SpringSpec.Snappy);
         var copyBox = Box.Centered(idRow.Right - 44, idRow.CY, 40, 40);
-        ux.Add("fb:copy", copyBox, () => { Win32.SetClipboardText(fb.UserId); fbCopiedAt = Ui.Clock.Now; dirty = true; }, 10).Tooltip = copied ? "Copied" : "Copy";
+        ux.Add("fb:copy", copyBox, () => { Win32.SetClipboardText("@" + fb.UserId); fbCopiedAt = Ui.Clock.Now; dirty = true; }, 10).Tooltip = copied ? "Copied" : "Copy";
         float ch = ux.HoverT("fb:copy");
         canvas.Fill(Box.Centered(copyBox.CX, copyBox.CY, 30, 30), Col.White.A(0.06f + 0.08f * ch), 9);
         // the copy icon blurs into a check and back, as one shape

@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>Feedback Hub</title>
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="app.css">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/app.css">
 </head>
 <body>
   <header class="top">
-    <a class="brand" href="#/" aria-label="Feedback Hub, inbox">
+    <a class="brand" href="/" data-nav aria-label="Feedback Hub, home">
       <span class="pill" aria-hidden="true"><i></i><i></i><b></b></span>
       <span class="brand-name">Feedback <span>Hub</span></span>
     </a>
@@ -24,8 +24,8 @@
       <div class="menu-wrap">
         <button class="btn ghost" id="export-btn" aria-haspopup="menu" aria-expanded="false"><svg class="ico"><use href="#i-download"/></svg><span>Export</span></button>
         <div class="menu" id="export-menu" role="menu" hidden>
-          <a role="menuitem" href="/api/export?format=csv">CSV</a>
-          <a role="menuitem" href="/api/export?format=json">JSON</a>
+          <a role="menuitem" id="export-csv" href="/api/export?format=csv">CSV</a>
+          <a role="menuitem" id="export-json" href="/api/export?format=json">JSON</a>
         </div>
       </div>
       <span class="who" id="who"></span>
@@ -36,6 +36,10 @@
     <nav class="side" id="side" aria-label="Views"></nav>
 
     <main class="main">
+      <section class="view home" id="home-view" hidden></section>
+      <section class="view doc" id="agents-view" hidden></section>
+      <section class="view feedback" id="feedback-view" hidden>
+      <div class="view-head" id="view-head"></div>
       <section class="stats" id="stats" aria-label="Overview"></section>
       <div class="toolbar">
         <div class="seg" id="status-seg" role="tablist" aria-label="Status">
@@ -67,6 +71,7 @@
         <span class="keys"><kbd>J</kbd><kbd>K</kbd> move <kbd>X</kbd> close or reopen <kbd>?</kbd> shortcuts</span>
       </div>
       <div class="list" id="list" role="listbox" aria-label="Reports" tabindex="0"></div>
+      </section>
     </main>
 
     <aside class="detail" id="detail" aria-label="Report" hidden></aside>
@@ -113,8 +118,12 @@
       <symbol id="i-window" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M3.5 9h17"/></symbol>
       <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3 2"/></symbol>
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="M4.5 11 12 4.5l7.5 6.5"/><path d="M6.5 9.5v10h11v-10"/><path d="M10 19.5v-5h4v5"/></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 5.5A1.5 1.5 0 0 1 6.5 4H18v14H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H18M9 8h5"/></symbol>
+      <symbol id="i-app" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4.5"/><path d="M8.5 12h7"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5"/></symbol>
     </defs>
   </svg>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>

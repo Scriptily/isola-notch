@@ -40,22 +40,24 @@ public static partial class Scenarios
 
     const string Url = "https://relay.example/feedback";
 
-    [Scenario("the feedback ID is 'User' and a 19-20 digit number, the same for the same PC, different for another, and never the PC's ID")]
+    [Scenario("the feedback ID is always 20 digits, the same for the same machine in every app, different for another, and never the machine's ID")]
     public static void FeedbackUserId()
     {
         string a = Feedback.UserIdFrom(TestMachine);
         True(Feedback.ValidUserId(a), "format: " + a);
-        True(a.Length is 23 or 24, "all 64 bits, as 19 or 20 digits: " + a);
+        Eq(20, a.Length, "always 20 digits: " + a);
+        // the key is shared by every app (the template keeps it as is), so this value is what every app derives on this machine
+        Eq("72073953124684870734", a, "the same ID in every app");
         Eq(a, Feedback.UserIdFrom(" 4C4C4544-0042-3510-8051-B4C04F4E4D32 "), "same PC, however the GUID is written");
         True(a != Feedback.UserIdFrom("4c4c4544-0042-3510-8051-b4c04f4e4d33"), "another PC gets another number");
         True(!a.Contains("4c4c"), "the hardware ID itself isn't in it");
         string v = Feedback.VerifierFrom(TestMachine);
         True(v.Length == 32 && v.All(Uri.IsHexDigit), "the verifier is 32 hex digits: " + v);
         True(!a.Contains(v[..8]) && v != Feedback.VerifierFrom("other"), "an independent hash");
-        var many = Enumerable.Range(0, 5000).Select(i => Feedback.UserIdFrom(Guid.NewGuid().ToString())).ToList();
-        True(many.All(Feedback.ValidUserId), "always valid");
-        Eq(5000, many.Distinct().Count(), "no collisions among 5000 PCs");
-        True(Feedback.ValidUserId("User9223372036854775808-2"), "an ID the service assigned after a collision is valid too");
+        var many = Enumerable.Range(0, 20000).Select(i => Feedback.UserIdFrom(Guid.NewGuid().ToString())).ToList();
+        True(many.All(id => id.Length == 20 && Feedback.ValidUserId(id)), "always exactly 20 digits");
+        Eq(20000, many.Distinct().Count(), "no collisions among 20,000 machines");
+        True(!Feedback.ValidUserId("User16409431318738264986") && !Feedback.ValidUserId("1640943131873826498") && !Feedback.ValidUserId("06409431318738264986"), "nothing but 20 digits");
     }
 
     [Scenario("feedback: one a day, the same text never twice (whatever the case or spacing), both remembered across restarts")]
@@ -102,9 +104,11 @@ public static partial class Scenarios
             Eq("A darker tint for the settings window, please.", (string)b["text"], "text trimmed");
             Eq(Feedback.UserIdFrom(TestMachine), (string)b["user"], "the derived ID goes along");
             Eq(Feedback.VerifierFrom(TestMachine), (string)b["verifier"], "with its verifier");
+            Eq(Feedback.Offset(new DateTime(2026, 11, 17, 12, 0, 0, DateTimeKind.Utc)), (string)b["tz"], "and the sender's UTC offset");
+            Eq("isola", (string)b["app"], "and the app");
             Eq("store", (string)b["source"], "Store or GitHub");
             Eq(null, (string)b["logs"], "no logs unless attached");
-            var withLogs = JsonNode.Parse(Feedback.Payload("User9223372036854775808", new string('a', 32), FeedbackKind.Bug, "s", "t", "1", "w", false, "log text"))!;
+            var withLogs = JsonNode.Parse(Feedback.Payload("16409431318738264986", new string('a', 32), FeedbackKind.Bug, "s", "t", "1", "w", false, "log text"))!;
             Eq("log text", (string)withLogs["logs"], "attached logs go along");
         }
         finally { File.Delete(file); }
@@ -118,12 +122,12 @@ public static partial class Scenarios
         {
             string derived = Feedback.UserIdFrom(TestMachine);
             Eq(derived, fb.UserId, "before any answer, the derived ID");
-            relay.User = derived + "-2";   // another PC already had it
+            relay.User = "27182818284590452353";   // another machine already had it: the hub gave this one another
             var r = fb.SendAsync(Url, FeedbackKind.Bug, "Crash", "It crashed when I opened the shelf.", "1.4.0", "w", false, null).Result;
             Eq(41L, r.Report, "the report's number");
-            Eq(derived + "-2", fb.UserId, "the ID the service assigned");
+            Eq("27182818284590452353", fb.UserId, "the ID the hub assigned");
             var (fb2, relay2, _, advance2, _) = NewFeedback(file);
-            Eq(derived + "-2", fb2.UserId, "kept across restarts");
+            Eq("27182818284590452353", fb2.UserId, "kept across restarts");
             Eq(41L, fb2.Reports.Single(), "and so is the report number");
             advance2(25);
             relay2.User = null;
@@ -176,5 +180,15 @@ public static partial class Scenarios
         True(Feedback.Redact("tabcat", "", "", "", new[] { "abc" }).Contains("abc"), "too-short values aren't treated as secrets");
         string big = string.Concat(Enumerable.Repeat("DBG [perf] idle trim\n", Feedback.LogMaxChars / 10)) + "END";
         True(Feedback.Redact(big, "", "", "").Length <= Feedback.LogMaxChars && Feedback.Redact(big, "", "", "").EndsWith("END"), "the newest part, capped");
+    }
+
+    [Scenario("reports carry the sender's UTC offset, including half hours and the minus side")]
+    public static void FeedbackOffset()
+    {
+        var t = new DateTime(2026, 11, 17, 12, 0, 0, DateTimeKind.Utc);
+        Eq("+03:00", Feedback.Offset(t, TimeZoneInfo.FindSystemTimeZoneById("Arab Standard Time")), "GMT+3");
+        Eq("-05:00", Feedback.Offset(t, TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time")), "New York in November");
+        Eq("+05:30", Feedback.Offset(t, TimeZoneInfo.FindSystemTimeZoneById("India Standard Time")), "half hours");
+        Eq("+00:00", Feedback.Offset(t, TimeZoneInfo.Utc), "UTC");
     }
 }

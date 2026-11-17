@@ -318,3 +318,60 @@ kbd {
   .row { grid-template-columns: 20px 22px minmax(0, 1fr); } .row .meta { display: none; }
   .select span { display: none; }
 }
+
+/* ---- views ------------------------------------------------------------------------- */
+.view.feedback { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.view.home, .view.doc { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 40px; }
+.view-head { margin: 2px 0 16px; }
+.view-head h1 { margin: 0; display: flex; align-items: center; gap: 10px; font: 600 24px/1.2 var(--display); letter-spacing: -0.015em; }
+.view-head h1 .dot { width: 10px; height: 10px; border-radius: 50%; }
+.lede { margin: 6px 0 0; color: var(--text-2); }
+.quiet { color: var(--text-3); font-size: 12.5px; }
+a.stat, a.nav { display: block; text-decoration: none; }
+a.nav { display: flex; }
+.who-link { font-weight: 600; }
+
+/* home: one card per app */
+.apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.app-card { display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: var(--r-lg); background: var(--s1); border: 1px solid var(--line); color: var(--text); min-width: 0; }
+.app-top { display: flex; align-items: center; gap: 12px; color: var(--text); border-radius: 10px; }
+.app-top:hover .go, .app-card.guide:hover .go { transform: translateX(3px); color: var(--text); }
+.app-badge { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; color: var(--c, var(--text-2));
+  background: color-mix(in oklch, var(--c, var(--text-3)) 16%, var(--s2)); box-shadow: 0 0 0 1px color-mix(in oklch, var(--c, white) 22%, transparent) inset; }
+.app-title { display: flex; flex-direction: column; min-width: 0; }
+.app-title b { font: 600 17px/1.25 var(--display); }
+.app-title span { color: var(--text-3); font-size: 12.5px; }
+.go { margin-left: auto; color: var(--text-3); transition: transform var(--fast) var(--ease), color var(--fast); }
+.app-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+/* inner radius = card radius (18) minus its padding (16), rounded up to stay visibly round */
+.app-stats a { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 6px; background: var(--s2); color: var(--text); transition: background var(--fast) var(--ease); }
+.app-stats a:hover { background: var(--s3); }
+.app-stats b { font: 600 22px/1 var(--display); font-variant-numeric: tabular-nums; }
+.app-stats span { color: var(--text-3); font-size: 12px; }
+.recent { display: flex; flex-direction: column; gap: 2px; }
+.recent-row { display: grid; grid-template-columns: 20px auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 8px; border-radius: 8px; color: var(--text); font-size: 13px; }
+.recent-row:hover { background: var(--s2); }
+.recent-row .num { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.recent-row .subject { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.recent-row time { color: var(--text-3); font-size: 12px; }
+.recent-row .state { width: 18px; height: 18px; }
+.app-card.guide { grid-column: 1 / -1; flex-direction: row; align-items: center; text-decoration: none; transition: background var(--fast) var(--ease); }
+.app-card.guide:hover { background: var(--s2); }
+
+/* the guide for agents */
+.md { max-width: 760px; line-height: 1.6; color: var(--text); }
+.md h1 { font: 600 28px/1.2 var(--display); letter-spacing: -0.02em; margin: 4px 0 14px; }
+.md h2 { font: 600 19px/1.3 var(--display); margin: 30px 0 10px; padding-top: 18px; border-top: 1px solid var(--line); }
+.md h3 { font: 600 15px/1.3 var(--display); margin: 22px 0 8px; }
+.md p, .md li { color: var(--text-2); }
+.md strong { color: var(--text); }
+.md code { font: 12.5px var(--mono); padding: 1px 6px; border-radius: 5px; background: var(--s2); color: var(--text); }
+.md pre { padding: 12px 14px; border-radius: var(--r); background: var(--s1); overflow-x: auto; }
+.md pre code { padding: 0; background: none; }
+.md ul, .md ol { padding-left: 22px; }
+.md li { margin: 4px 0; }
+.md table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13.5px; }
+.md td { padding: 9px 12px; border-top: 1px solid var(--line); vertical-align: top; color: var(--text-2); }
+.md td:first-child { white-space: nowrap; color: var(--text); }
+.raw { margin-top: 30px; }
+@media (max-width: 640px) { .apps { grid-template-columns: minmax(0, 1fr); } .app-stats { grid-template-columns: repeat(2, 1fr); } }
