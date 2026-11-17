@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from PIL import Image
 
-ASSETS = Path(r"C:\Users\Scriptily\Documents\dirs\isola-notch\assets\readme")
+ASSETS = Path(__file__).resolve().parents[2] / "assets" / "readme"
 OUT = Path(__file__).resolve().parent / "frames"
 BG = (13, 17, 23)
 
