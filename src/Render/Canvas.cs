@@ -154,6 +154,26 @@ public sealed class Canvas
     public void Line(float x0, float y0, float x1, float y1, Color4 c, float width = 1, ID2D1StrokeStyle style = null) =>
         C.DrawLine(new Vector2(x0, y0), new Vector2(x1, y1), Brush(c), width, style);
 
+    /// <summary>
+    /// A check mark that draws itself: <paramref name="p"/> 0 is nothing, 1 the
+    /// whole mark, traced from its short stroke into the long one (the same
+    /// path as the hub's, a 24-unit box). Round caps, so the tip reads as a pen.
+    /// </summary>
+    public void DrawnCheck(float cx, float cy, float size, float p, Color4 c, float width)
+    {
+        p = Math.Clamp(p, 0, 1);
+        if (p <= 0.001f || c.A <= 0.003f) return;
+        float k = size / 24f;
+        var a = new Vector2(cx + (6 - 12) * k, cy + (12.5f - 12) * k);
+        var b = new Vector2(cx + (10 - 12) * k, cy + (16.5f - 12) * k);
+        var e = new Vector2(cx + (18 - 12) * k, cy + (8 - 12) * k);
+        float l1 = Vector2.Distance(a, b), l2 = Vector2.Distance(b, e), d = p * (l1 + l2);
+        if (d <= l1) { Line(a.X, a.Y, a.X + (b.X - a.X) * d / l1, a.Y + (b.Y - a.Y) * d / l1, c, width, RoundCap); return; }
+        Line(a.X, a.Y, b.X, b.Y, c, width, RoundCap);
+        float t = (d - l1) / l2;
+        Line(b.X, b.Y, b.X + (e.X - b.X) * t, b.Y + (e.Y - b.Y) * t, c, width, RoundCap);
+    }
+
     /// <summary>Arc for progress rings, from angle a0 to a1 in radians (0 = up, clockwise).</summary>
     public void Arc(float cx, float cy, float r, float a0, float a1, Color4 c, float width)
     {

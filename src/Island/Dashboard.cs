@@ -740,7 +740,9 @@ public sealed class DashboardPage : Page
                 float dt = ux.Anim(rid + ":done", n.Done ? 1 : 0, SpringSpec.Press);
                 c.Stroke(check, Col.White.A((0.5f - 0.5f * dt) * t), 9, 1.5f);
                 c.Fill(check.Scale(dt), Paint.Accent(isl).A(t), 9);
-                if (dt > 0.3f) c.Icon(Glyph.Check, check.CX, check.CY, 10, Col.White.A(dt * t));
+                // the mark draws itself a beat after the box fills (and unwinds when cleared)
+                float tick = ux.Anim(rid + ":tick", n.Done ? 1 : 0, SpringSpec.Content);
+                c.DrawnCheck(check.CX, check.CY, 14, (tick - 0.2f) / 0.8f, Col.White.A(t), 2.2f);
                 var nn = n;
                 ux.Add(rid, new Box(row.X, row.Y, row.W - 36, row.H), () => notes.Toggle(nn), 10);
                 float slide = i == 0 ? added * 14 : 0;

@@ -242,6 +242,9 @@ public sealed partial class AudioService
         }
     }
 
+    /// <summary>The output's peak right now, unsmoothed: above zero means it's playing (so it's awake).</summary>
+    public float PeakNow() { float p = 0; try { meter?.GetPeakValue(out p); } catch { } return p; }
+
     public void SetVolume(float v) { try { vol?.SetMasterVolumeLevelScalar(Math.Clamp(v, 0, 1), volCb.Ours); Volume = v; } catch { } }
     public void ToggleMute() { try { vol?.SetMute(!Muted, volCb.Ours); Muted = !Muted; } catch { } }
 }

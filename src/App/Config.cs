@@ -66,7 +66,10 @@ public sealed class Config
     public bool HideWindowsBanners { get; set; } = true;
     /// <summary>The island's own sounds: master switch and level (0..1).</summary>
     public bool Sounds { get; set; } = true;
-    public double SoundVolume { get; set; } = 0.6;
+    /// <summary>How loud Isola's sounds are, as a multiple of the level they were tuned at: 0.5 to 1.5.</summary>
+    public double SoundLevel { get; set; } = 1;
+    /// <summary>The volume setting before 1.5 (0 to 1, 0.6 by default): read once and turned into SoundLevel.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? SoundVolume { get; set; }
     public bool NotificationSound { get; set; } = true;
     public bool CallRingtone { get; set; } = true;
     public bool DeviceSounds { get; set; } = true;
@@ -165,7 +168,8 @@ public sealed class Config
         Scale = Math.Clamp(double.IsFinite(Scale) ? Scale : 1, 0.7, 1.6);
         AutoHideMinutes = Math.Clamp(double.IsFinite(AutoHideMinutes) ? AutoHideMinutes : 2, 0, 120);
         HoverDelayMs = Math.Clamp(HoverDelayMs, 0, 2000);
-        SoundVolume = double.IsFinite(SoundVolume) ? Math.Clamp(SoundVolume, 0, 1) : 0.6;
+        if (SoundVolume is double old) { SoundLevel = double.IsFinite(old) && old > 0 ? old / 0.6 : 1; SoundVolume = null; }
+        SoundLevel = double.IsFinite(SoundLevel) ? Math.Clamp(SoundLevel, 0.5, 1.5) : 1;
         NotificationTone = Services.Sounds.Valid(Services.Sounds.Notification, NotificationTone);
         Ringtone = Services.Sounds.Valid(Services.Sounds.Call, Ringtone);
         TimerTone = Services.Sounds.Valid(Services.Sounds.Timer, TimerTone);

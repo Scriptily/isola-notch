@@ -999,14 +999,19 @@ public static partial class Scenarios
             Eq(null, Sounds.Playing, "and stops after its own 3.2 s");
             True(calls[^1].silentSamples < 2205, $"a looping sound has no lead-in, its rhythm stays even ({calls[^1].silentSamples} silent samples)");
 
-            // a chime starts with silence the output can wake up on; longer on Bluetooth
+            // a chime on a dozing output starts with silence it can wake up on; longer on Bluetooth
             calls.Clear();
             Sounds.OutputIsBluetooth = () => false;
+            Sounds.Doze();
             Sounds.Play(Sounds.Notification, 0.6f, "bubble");
             True(calls[^1].silentSamples >= (int)(Sounds.LeadIn * Sounds.Rate * 2) * 0.95, $"wired: {calls[^1].silentSamples} silent samples first");
             Sounds.OutputIsBluetooth = () => true;
+            Sounds.Doze();
             Sounds.Play(Sounds.Notification, 0.6f, "bubble");
             True(calls[^1].silentSamples >= (int)(Sounds.LeadInBluetooth * Sounds.Rate * 2) * 0.95, $"Bluetooth: {calls[^1].silentSamples} silent samples first");
+            // but an output already awake gets the sound at once
+            Sounds.Play(Sounds.Notification, 0.6f, "pop");
+            True(calls[^1].silentSamples < 200, $"right after another sound: no lead-in ({calls[^1].silentSamples} silent samples)");
 
             // a refused PlaySound is tried once more
             calls.Clear(); refuseNext = true;

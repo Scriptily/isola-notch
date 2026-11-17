@@ -123,6 +123,7 @@ public sealed unsafe partial class App
         svc.Audio = new AudioService();
         svc.Audio.Start();
         Sounds.OutputIsBluetooth = () => AudioService.IsBluetoothOutput(svc.Audio.Bus, svc.Audio.ContainerId, svc.Audio.DeviceName, svc.Bluetooth?.Devices);
+        Sounds.OutputAwake = () => svc.Audio.PeakNow() > 0.0005f;
         svc.Audio.VolumeChanged += (m, v) => { if (cfg.VolumeHud) island.Hud(m ? HudKind.Mute : HudKind.Volume, v); };
         svc.Audio.OutputChanged += name => island.Alert(Alerts.Output(name));
 
@@ -202,8 +203,8 @@ public sealed unsafe partial class App
         island.OpenNotificationCenter = () => Win32.ShellExecute("ms-actioncenter:");
         island.PreviewPopups = PreviewPopups;
         // the chosen sounds, built in the background now so the first one plays without a wait
-        { var c0 = cfg; Task.Run(() => { foreach (var k in Sounds.All) Sounds.Warm(k, (float)c0.SoundVolume, ToneFor(c0, k)); }); }
-        island.SoundOn = a => { if (SoundAllowed(cfg, a)) Sounds.Play(a.Sound, (float)cfg.SoundVolume, ToneFor(cfg, a.Sound)); };
+        { var c0 = cfg; Task.Run(() => { foreach (var k in Sounds.All) Sounds.Warm(k, ToneFor(c0, k)); }); }
+        island.SoundOn = a => { if (SoundAllowed(cfg, a)) Sounds.Play(a.Sound, SoundVolumeOf(cfg), ToneFor(cfg, a.Sound)); };
         island.SoundOff = a => { if (a.Sound != null && Sounds.Loops(a.Sound)) Sounds.Stop(); };
         if (FeedWanted(cfg)) _ = svc.Notifications.StartAsync();
     }
@@ -653,7 +654,12 @@ public sealed unsafe partial class App
 
     void OpenSettings(string section)
     {
-        if (settings == null || !settings.Alive) settings = new SettingsWindow(this, svc, () => cfg, ApplySettings);
+        if (settings == null || !settings.Alive)
+        {
+            settings = new SettingsWindow(this, svc, () => cfg, ApplySettings);
+        }
+        // every sound ready before it's picked, so its preview plays at once
+        Task.Run(Sounds.WarmAll);
         if (section != null) settings.GoTo(section);
         settings.Show(displays.Laptop);
     }
@@ -713,7 +719,15 @@ public sealed unsafe partial class App
     };
 
     /// <summary>Settings: hear a sound as it's picked (a looping one plays a few seconds).</summary>
-    public void PreviewSound(string kind, string variant) => Sounds.Preview(kind, (float)cfg.SoundVolume, variant);
+    public void PreviewSound(string kind, string variant) => Sounds.Preview(kind, SoundVolumeOf(cfg), variant);
+
+    /// <summary>
+    /// The level sounds play at: 100% in Settings is the level they were tuned
+    /// at (0.6 of full scale); 50% to 150% scale it. At 150% the loudest peak
+    /// is still under full scale (0.9 x 0.9), so nothing ever clips.
+    /// </summary>
+    internal const double BaseSoundVolume = 0.6;
+    internal static float SoundVolumeOf(Config c) => (float)(BaseSoundVolume * c.SoundLevel);
 
     /// <summary>Whether an alert's sound plays, by the settings for its kind.</summary>
     internal static bool SoundAllowed(Config c, Alert a) => c.Sounds && a?.Sound != null && a.Sound switch

@@ -224,6 +224,7 @@ public sealed unsafe partial class SettingsWindow
             case Win32.WM_CLOSE:
                 Win32.ShowWindow(hwnd, Win32.SW_HIDE);   // keep it around: reopening is instant
                 FlushSave();
+                { var c = getCfg(); Sounds.Keep(Sounds.All.Select(k => (k, App.ToneFor(c, k)))); }   // only the chosen sounds stay built
                 return 0;
             case Win32.WM_GETMINMAXINFO:
                 ((POINT*)l)[3] = new POINT((int)(760 * scale), (int)(520 * scale));
@@ -569,7 +570,7 @@ public sealed unsafe partial class SettingsWindow
         L.End();
         L.Header("Sounds");
         Toggle(L, "snd", "Island sounds", Packaging.IsStore ? "Its own chimes and ringtone" : "Its own chimes and ringtone; Windows' chime is off while the island shows notifications", work.Sounds, v => work.Sounds = v);
-        Slider(L, "sndvol", "Sound volume", null, work.SoundVolume, 0, 1, v => $"{v * 100:0}%", v => work.SoundVolume = v, 0.05);
+        Slider(L, "sndvol", "Sound volume", "Of the level Isola's sounds were made at; Windows' volume applies too", work.SoundLevel, 0.5, 1.5, v => $"{v * 100:0}%", v => work.SoundLevel = v, 0.05);
         Toggle(L, "sndnotif", "Chime for notifications", null, work.NotificationSound, v => work.NotificationSound = v);
         Tone(L, "tone:n", "Notification sound", Sounds.Notification, work.NotificationTone, v => work.NotificationTone = v);
         Toggle(L, "sndcall", "Ringtone for calls", null, work.CallRingtone, v => work.CallRingtone = v);

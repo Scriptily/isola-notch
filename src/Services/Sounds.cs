@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using Isola.App;
 using Isola.Native;
@@ -39,7 +40,12 @@ public static class Sounds
     public static string Valid(string kind, string id) => Choices(kind).Any(c => c.id == id) ? id : Choices(kind)[0].id;
 
     internal const int Rate = 48000;
-    static readonly Dictionary<(string, int), byte[]> cache = new();
+    // Each sound is built once (the synthesizer is the slow part), loudness-matched
+    // at full level; a play only scales it and puts the lead-in in front, which
+    // takes well under a millisecond. It used to be cached per volume step and
+    // lead-in, so connecting headphones or previewing an unpicked sound built
+    // one on the spot, on the UI thread, before it could play.
+    static readonly Dictionary<string, short[]> pcm = new();
     static GCHandle playing;
     static readonly object gate = new();
 
@@ -48,10 +54,33 @@ public static class Sounds
     // short chime then came out clipped, or not at all until a second click
     // found the device awake. Short sounds start with a little silence for the
     // wake-up to eat; looping ones don't, so their rhythm stays even.
+    //
+    // But only an idle output dozes. When something is already playing (music,
+    // a video, the previous preview) or Isola played a sound in the last few
+    // seconds, the output is awake and a sound starts at once: the lead-in was
+    // added to every one-shot before, which made each preview and every
+    // notification over music late by 0.15 s, or 0.4 s on Bluetooth.
     internal const double LeadIn = 0.15, LeadInBluetooth = 0.4;
+    /// <summary>How long an output stays awake after Isola's last sound ends.</summary>
+    internal const double StaysAwake = 3;
+    static double awakeUntil = double.NegativeInfinity;
 
     /// <summary>Whether the default output is a Bluetooth device (set by the app from AudioService).</summary>
     public static Func<bool> OutputIsBluetooth = () => false;
+    /// <summary>Whether the default output is playing something right now (its meter; set by the app).</summary>
+    public static Func<bool> OutputAwake = () => false;
+
+    /// <summary>The silence a sound starts with: none for a loop or an awake output, else enough for it to wake.</summary>
+    internal static double LeadFor(string kind)
+    {
+        if (Loops(kind) || Ui.Clock.Now < awakeUntil) return 0;
+        bool awake = false;
+        try { awake = OutputAwake(); } catch { }
+        return awake ? 0 : OutputIsBluetooth() ? LeadInBluetooth : LeadIn;
+    }
+
+    /// <summary>Forgets that the output was recently in use (tests).</summary>
+    internal static void Doze() => awakeUntil = double.NegativeInfinity;
 
     /// <summary>Where a sound goes: PlaySound from memory, or a stand-in in tests (which mustn't make noise).</summary>
     internal static Func<nint, uint, bool> Output = (wav, flags) => Win32.PlaySoundMem(wav, 0, flags);
@@ -67,13 +96,11 @@ public static class Sounds
         {
             if (kind == null || volume <= 0.001f) return;
             variant = Valid(kind, variant);
-            int vkey = (int)Math.Round(Math.Clamp(volume, 0, 1) * 20);   // cached in 5% steps
-            double lead = Loops(kind) ? 0 : OutputIsBluetooth() ? LeadInBluetooth : LeadIn;
-            var key = (kind + ":" + variant + ":" + lead, vkey);
-            byte[] wav;
+            var samples = Samples(kind, variant);
+            double lead = LeadFor(kind);
+            byte[] wav = Wav(samples, Math.Clamp(volume, 0, 1), (int)Math.Round(lead * Rate));
             lock (gate)
             {
-                if (!cache.TryGetValue(key, out wav)) cache[key] = wav = Render(kind, vkey / 20f, variant, lead);
                 Stop();
                 // PlaySound reads the memory while it plays: keep it pinned until the next sound
                 playing = GCHandle.Alloc(wav, GCHandleType.Pinned);
@@ -87,6 +114,8 @@ public static class Sounds
                     ok = Output(playing.AddrOfPinnedObject(), flags);
                 }
                 Playing = ok ? kind + ":" + variant : null;
+                // awake through this sound and a little after (a loop: until it stops, see Stop)
+                if (ok) awakeUntil = Loops(kind) ? double.PositiveInfinity : Ui.Clock.Now + lead + samples.Length / 2.0 / Rate + StaysAwake;
             }
             // Failing safe: a looping sound stops by itself after a while, so a
             // missed stop (anywhere) can never leave a ringtone going forever.
@@ -104,20 +133,20 @@ public static class Sounds
     /// Builds a sound ahead of time (off the UI thread), so its first play is
     /// instant: the app warms the chosen ones at startup and when one is picked.
     /// </summary>
-    public static void Warm(string kind, float volume, string variant)
+    public static void Warm(string kind, string variant)
     {
-        try
-        {
-            if (kind == null || volume <= 0.001f) return;
-            variant = Valid(kind, variant);
-            int vkey = (int)Math.Round(Math.Clamp(volume, 0, 1) * 20);
-            double lead = Loops(kind) ? 0 : OutputIsBluetooth() ? LeadInBluetooth : LeadIn;
-            var key = (kind + ":" + variant + ":" + lead, vkey);
-            lock (gate) if (cache.ContainsKey(key)) return;
-            var wav = Render(kind, vkey / 20f, variant, lead);
-            lock (gate) cache.TryAdd(key, wav);
-        }
+        try { if (kind != null) Samples(kind, Valid(kind, variant)); }
         catch (Exception ex) { Log.D("sound", $"warming {kind}: {ex.Message}"); }
+    }
+
+    /// <summary>Every sound, so each preview in Settings plays the moment it's picked (off the UI thread).</summary>
+    public static void WarmAll() { foreach (var k in All) foreach (var (id, _) in Choices(k)) Warm(k, id); }
+
+    /// <summary>Lets go of the sounds not in use (Settings closed): about 10 MB with all of them built.</summary>
+    public static void Keep(IEnumerable<(string kind, string variant)> chosen)
+    {
+        var keep = chosen.Select(c => c.kind + ":" + Valid(c.kind, c.variant)).ToHashSet();
+        lock (gate) foreach (var k in pcm.Keys.Where(k => !keep.Contains(k)).ToList()) pcm.Remove(k);
     }
 
     /// <summary>The longest a ringtone or timer alarm loops (a call's alert gives up at 75 s).</summary>
@@ -128,6 +157,7 @@ public static class Sounds
     {
         lock (gate)
         {
+            if (double.IsPositiveInfinity(awakeUntil)) awakeUntil = Ui.Clock.Now + StaysAwake;
             try { Silence(); } catch { }
             if (playing.IsAllocated) playing.Free();
             Playing = null;
@@ -368,7 +398,7 @@ public static class Sounds
     static Track Shot(double sec, Action<Track, double> draw, double wet)
     {
         var t = New(sec + 2.5);
-        draw(t, 0.02);
+        draw(t, 0);   // from the first sample: no silence of its own before the sound
         Room(t, wet); Polish(t);
         return Trim(t);
     }
@@ -427,15 +457,32 @@ public static class Sounds
     internal static int Built;
 
     /// <summary>The sound as a 16-bit stereo WAV at <paramref name="volume"/> (0..1), loudness-matched. Public for tests.</summary>
-    public static byte[] Render(string kind, float volume, string variant = null, double leadIn = 0)
+    public static byte[] Render(string kind, float volume, string variant = null, double leadIn = 0) =>
+        Wav(Samples(kind, Valid(kind, variant)), Math.Clamp(volume, 0, 1), (int)Math.Round(leadIn * Rate));
+
+    /// <summary>A sound's samples, interleaved stereo, loudness-matched at full level: built the first time, then kept.</summary>
+    static short[] Samples(string kind, string variant)
     {
-        Built++;
-        var t = Draw(kind, Valid(kind, variant));
+        string key = kind + ":" + variant;
+        lock (gate) if (pcm.TryGetValue(key, out var have)) return have;
+        var made = Build(kind, variant);   // outside the lock: building takes tens of milliseconds
+        lock (gate) return pcm.TryAdd(key, made) ? made : pcm[key];
+    }
+
+    static short[] Build(string kind, string variant)
+    {
+        Interlocked.Increment(ref Built);
+        var t = Draw(kind, variant);
         double loud = Loudness(t.L, t.R), peak = 0;
         for (int i = 0; i < t.N; i++) peak = Math.Max(peak, Math.Max(Math.Abs(t.L[i]), Math.Abs(t.R[i])));
-        double v = Math.Clamp(volume, 0, 1);
-        double gain = peak > 0 ? Math.Min(Math.Pow(10, (TargetLoudness - loud) / 20), Ceiling / peak) * v : 0;
-        return Wav(t, gain, (int)(leadIn * Rate));
+        double gain = peak > 0 ? Math.Min(Math.Pow(10, (TargetLoudness - loud) / 20), Ceiling / peak) : 0;
+        var s = new short[t.N * 2];
+        for (int i = 0; i < t.N; i++)
+        {
+            s[2 * i] = (short)Math.Clamp(Math.Round(t.L[i] * gain * 32767), -32767, 32767);
+            s[2 * i + 1] = (short)Math.Clamp(Math.Round(t.R[i] * gain * 32767), -32767, 32767);
+        }
+        return s;
     }
 
     /// <summary>
@@ -586,21 +633,18 @@ public static class Sounds
     };
 
     /// <summary>16-bit stereo PCM, the sound scaled by <paramref name="gain"/>, after <paramref name="silence"/> silent frames.</summary>
-    static byte[] Wav(Track t, double gain, int silence = 0)
+    static byte[] Wav(short[] s, double volume, int silence = 0)
     {
-        using var ms = new MemoryStream();
-        using var w = new BinaryWriter(ms);
-        int data = (silence + t.N) * 4;
-        w.Write("RIFF"u8); w.Write(36 + data); w.Write("WAVE"u8);
-        w.Write("fmt "u8); w.Write(16); w.Write((short)1); w.Write((short)2); w.Write(Rate); w.Write(Rate * 4); w.Write((short)4); w.Write((short)16);
-        w.Write("data"u8); w.Write(data);
-        for (int i = 0; i < silence * 2; i++) w.Write((short)0);
-        for (int i = 0; i < t.N; i++)
-        {
-            w.Write((short)Math.Clamp(Math.Round(t.L[i] * gain * 32767), -32768, 32767));
-            w.Write((short)Math.Clamp(Math.Round(t.R[i] * gain * 32767), -32768, 32767));
-        }
-        w.Flush();
-        return ms.ToArray();
+        int data = (silence * 2 + s.Length) * 2;
+        var b = new byte[44 + data];
+        var h = b.AsSpan();
+        "RIFF"u8.CopyTo(h); BinaryPrimitives.WriteInt32LittleEndian(h[4..], 36 + data); "WAVE"u8.CopyTo(h[8..]);
+        "fmt "u8.CopyTo(h[12..]); BinaryPrimitives.WriteInt32LittleEndian(h[16..], 16); BinaryPrimitives.WriteInt16LittleEndian(h[20..], 1); BinaryPrimitives.WriteInt16LittleEndian(h[22..], 2);
+        BinaryPrimitives.WriteInt32LittleEndian(h[24..], Rate); BinaryPrimitives.WriteInt32LittleEndian(h[28..], Rate * 4); BinaryPrimitives.WriteInt16LittleEndian(h[32..], 4); BinaryPrimitives.WriteInt16LittleEndian(h[34..], 16);
+        "data"u8.CopyTo(h[36..]); BinaryPrimitives.WriteInt32LittleEndian(h[40..], data);
+        var outp = MemoryMarshal.Cast<byte, short>(h[(44 + silence * 4)..]);   // the silence is already zeros
+        if (volume >= 0.9999) s.CopyTo(outp);
+        else for (int i = 0; i < s.Length; i++) outp[i] = (short)Math.Round(s[i] * volume);
+        return b;
     }
 }
