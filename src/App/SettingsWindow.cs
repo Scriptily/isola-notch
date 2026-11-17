@@ -737,6 +737,47 @@ public sealed unsafe partial class SettingsWindow
     }
 
     // ---- feedback ---------------------------------------------------------------
+    bool fbStatusAsked;
+
+    /// <summary>
+    /// Feedback is paused: the form, greyed out and blurred behind a notice
+    /// that says why, with a way to check again. Nothing on it can be used.
+    /// </summary>
+    void FeedbackPaused(Layout L, Feedback fb)
+    {
+        L.Header("Send feedback");
+        var area = new Box(L.X, L.Y, L.W, 390);
+        // a still picture of the form, out of focus
+        canvas.Blurred(7, () =>
+        {
+            float y = area.Y;
+            foreach (var (h, label) in new[] { (52f, "Type"), (82f, "Subject"), (162f, "Description"), (52f, "Attach logs for diagnostics") })
+            {
+                var r = new Box(area.X, y, area.W, h);
+                canvas.Fill(r, Col.White.A(0.055f), 8);
+                canvas.Text(label, new Box(r.X + 20, r.Y + 14, 300, 20), 13.5f, Col.White.A(0.9f), FontWeight.Medium);
+                if (h > 60) canvas.Fill(new Box(r.X + 20, r.Y + 40, r.W - 40, h - 54), Col.White.A(0.06f), 10);
+                y += h + 3;
+            }
+        }, 0.45f);
+        // the notice, on top
+        float cw = Math.Min(440, area.W - 48);
+        var card = Box.Centered(area.CX, area.CY, cw, 190);
+        canvas.Fill(card, Col.Hex(0x2a2a31, 0.97f), 18);
+        canvas.Stroke(card, Col.White.A(0.1f), 18);
+        canvas.Fill(Box.Centered(card.CX, card.Y + 38, 40, 40), Col.Hex(0xff9f0a, 0.16f), 12);
+        canvas.Icon(Glyph.Pause, card.CX, card.Y + 38, 17, Col.Hex(0xffb340));
+        canvas.Text("Feedback is paused", new Box(card.X + 20, card.Y + 66, card.W - 40, 22), 15, Col.White, FontWeight.SemiBold, HAlign.Center);
+        canvas.Text("Isola's developer has paused feedback for a while, so nothing can be sent right now. Please try again later.", new Box(card.X + 28, card.Y + 92, card.W - 56, 40), 12.5f, Col.White.A(0.65f), FontWeight.Normal, HAlign.Center, VAlign.Top, true);
+        var again = Box.Centered(card.CX, card.Bottom - 30, 140, 34);
+        bool checking = Spinning(fbSpinAt);
+        ux.Add("fb:recheck", again, () => { fbSpinAt = Ui.Clock.Now; dirty = true; fb.CheckPausedAsync(Feedback.Endpoint, true).ContinueWith(_ => Ui.Post(() => dirty = true)); }, 17);
+        canvas.Fill(again, Col.White.A(0.1f + 0.08f * ux.HoverT("fb:recheck")), 17);
+        if (checking) Paint.Spinner(canvas, again.CX, again.CY, 14, Col.White, Ui.Clock.Now);
+        else canvas.Text("Check again", again, 13, Col.White, FontWeight.SemiBold, HAlign.Center, VAlign.Middle);
+        L.Y += area.H + 14;
+    }
+
     internal const string BugHint = "What happened, and what did you expect instead?\nSteps to reproduce:\n1. Open …\n2. Click …\n3. See …";
     FeedbackKind fbKind = FeedbackKind.Feature;
     bool fbLogs, fbBusy;
@@ -753,6 +794,9 @@ public sealed unsafe partial class SettingsWindow
     {
         var fb = svc.Feedback;
         if (fb == null) return;
+        // is feedback open? asked as the page opens; until the answer, the form shows as usual
+        if (!fbStatusAsked) { fbStatusAsked = true; fb.CheckPausedAsync(Feedback.Endpoint).ContinueWith(_ => Ui.Post(() => dirty = true)); }
+        if (fb.Paused == true) { FeedbackPaused(L, fb); return; }
         var subject = Field("fbsub", fields.TryGetValue("fbsub", out var s0) ? s0.Text : "");
         var text = Field("fbtext", fields.TryGetValue("fbtext", out var t0) ? t0.Text : "");
         subject.MaxLength = Feedback.SubjectMax;

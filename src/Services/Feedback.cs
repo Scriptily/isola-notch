@@ -223,6 +223,31 @@ public sealed partial class Feedback
         public bool Ok => Error == null;
     }
 
+    /// <summary>
+    /// Whether the developer has paused feedback for now: true, false, or null
+    /// until asked. Asked when the Feedback page opens (and again after a
+    /// minute), so the form can say so before anyone writes. Failing open:
+    /// if the service can't be reached, the form stays usable.
+    /// </summary>
+    public bool? Paused { get; private set; }
+    public string PausedMessage { get; private set; } = "";
+    DateTime pausedAsked;
+
+    public async Task CheckPausedAsync(string endpoint, bool force = false)
+    {
+        if (string.IsNullOrEmpty(endpoint)) return;
+        if (!force && Paused != null && now() - pausedAsked < TimeSpan.FromMinutes(1)) return;
+        pausedAsked = now();
+        try
+        {
+            using var resp = await http.GetAsync(endpoint + "/status?app=isola").ConfigureAwait(false);
+            var j = JsonNode.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+            Paused = resp.IsSuccessStatusCode && (bool?)j?["paused"] == true;
+            PausedMessage = Paused == true ? (string)j?["message"] ?? "" : "";
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException) { Paused = false; PausedMessage = ""; }
+    }
+
     /// <summary>Sends it: the report's number on success, otherwise what to tell the person.</summary>
     public async Task<Result> SendAsync(string endpoint, FeedbackKind kind, string subject, string text, string version, string windows, bool store, string logs)
     {
@@ -242,6 +267,7 @@ public sealed partial class Feedback
             string said = (string)answer?["message"] ?? "";
             // whatever it answered, the ID it names is this computer's from now on
             if ((string)answer?["user"] is { } u && ValidUserId(u) && u != assignedId) { assignedId = u; Save(); }
+            bool pausedNow = answer?["paused"]?.GetValueKind() == System.Text.Json.JsonValueKind.True;
             switch (resp.StatusCode)
             {
                 case HttpStatusCode.OK or HttpStatusCode.Created or HttpStatusCode.Accepted:
@@ -255,6 +281,10 @@ public sealed partial class Feedback
                 case HttpStatusCode.Conflict:
                     sent.Add(fp); Save();
                     return new("You've already sent this.", 0);
+                case HttpStatusCode.ServiceUnavailable when pausedNow:
+                    // paused since the page opened: the page shows it now
+                    Paused = true; PausedMessage = said;
+                    return new(said.Length > 0 ? said : "Feedback is paused for now. Please try again later.", 0);
                 default:
                     App.Log.W("feedback", $"the feedback service answered {(int)resp.StatusCode}");
                     return new(said.Length > 0 ? said : $"Couldn't send it ({(int)resp.StatusCode}). Try again later.", 0);

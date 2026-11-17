@@ -23,6 +23,9 @@ GitHub release notes.
 - A notification with a sign-in or verification code (an SMS through Phone
   Link, an email, WhatsApp) gets a Copy button and stays 20 seconds, like
   Windows' own banners. The copied code stays out of clipboard history.
+- If feedback is paused for a while, Settings -> Feedback says so (the form
+  greyed out behind a notice, with Check again) instead of letting you write
+  something that can't be sent.
 - Quit Isola at the bottom of Settings stops it for now. It starts again the
   next time you open it, or with Windows if it's set to.
 

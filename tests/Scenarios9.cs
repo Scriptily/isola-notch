@@ -15,9 +15,19 @@ public static partial class Scenarios
         public string User;          // the ID the service answers with; null to echo the one sent
         public readonly List<JsonNode> Bodies = new();
         public bool Fail;
+        public bool Paused;          // the developer paused feedback
+        public int StatusAsks;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage r, CancellationToken ct)
         {
             if (Fail) throw new HttpRequestException("offline");
+            if (r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith("/status"))
+            {
+                StatusAsks++;
+                var st = new JsonObject { ["app"] = "isola", ["paused"] = Paused };
+                if (Paused) st["message"] = "Feedback is paused for now. Please try again later.";
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(st.ToJsonString()) };
+            }
+            if (Paused) return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { Content = new StringContent("{\"message\":\"Feedback is paused for now. Please try again later.\",\"paused\":true}") };
             var b = JsonNode.Parse(await r.Content!.ReadAsStringAsync(ct))!;
             Bodies.Add(b);
             var answer = new JsonObject { ["message"] = Message, ["user"] = User ?? (string)b["user"] };
@@ -191,5 +201,40 @@ public static partial class Scenarios
         Eq("-05:00", Feedback.Offset(t, TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time")), "New York in November");
         Eq("+05:30", Feedback.Offset(t, TimeZoneInfo.FindSystemTimeZoneById("India Standard Time")), "half hours");
         Eq("+00:00", Feedback.Offset(t, TimeZoneInfo.Utc), "UTC");
+    }
+
+    [Scenario("paused feedback: the page asks as it opens (once a minute at most), and a send that finds it paused says so; unreachable means open")]
+    public static void FeedbackPausedByTheDeveloper()
+    {
+        var (fb, relay, _, advance, file) = NewFeedback();
+        try
+        {
+            Eq(null, fb.Paused, "not known before asking");
+            fb.CheckPausedAsync(Url).Wait();
+            Eq(false, fb.Paused, "open");
+            Eq("https://relay.example/feedback/status?app=isola", Url + "/status?app=isola", "where it asks");
+            relay.Paused = true;
+            fb.CheckPausedAsync(Url).Wait();
+            Eq(false, fb.Paused, "asked again within the minute: the earlier answer stands");
+            Eq(1, relay.StatusAsks, "without asking the service again");
+            fb.CheckPausedAsync(Url, force: true).Wait();
+            Eq(true, fb.Paused, "Check again asks right away");
+            Eq("Feedback is paused for now. Please try again later.", fb.PausedMessage, "with the developer's words");
+
+            // paused after the page opened: sending finds out
+            var (fb2, relay2, _, _, _) = NewFeedback();
+            fb2.CheckPausedAsync(Url).Wait();
+            relay2.Paused = true;
+            var r = fb2.SendAsync(Url, FeedbackKind.Bug, "Crash", "It crashed when I opened the shelf.", "1.4.0", "w", false, null).Result;
+            Eq("Feedback is paused for now. Please try again later.", r.Error, "the send says so");
+            Eq(true, fb2.Paused, "and the page switches to the paused notice");
+
+            // failing open: the service can't be reached, so the form stays usable
+            var (fb3, relay3, _, _, _) = NewFeedback();
+            relay3.Fail = true;
+            fb3.CheckPausedAsync(Url).Wait();
+            Eq(false, fb3.Paused, "unreachable: treated as open");
+        }
+        finally { File.Delete(file); }
     }
 }
