@@ -20,8 +20,8 @@ public enum FeedbackKind { Feature, Bug }
 /// </summary>
 public sealed partial class Feedback
 {
-    /// <summary>The relay's address; empty until it's deployed (the page then says feedback isn't available).</summary>
-    public const string Endpoint = "";
+    /// <summary>The hub's public intake (every app sends here); empty would make the page say feedback isn't available.</summary>
+    public const string Endpoint = "https://hub.scriptily.workers.dev/feedback";
 
     public const int SubjectMax = 120, TextMin = 10, TextMax = 4000, LogMaxChars = 60_000;
     public static readonly TimeSpan Cooldown = TimeSpan.FromHours(24);
