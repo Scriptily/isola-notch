@@ -319,10 +319,10 @@ public static class Launcher
 
     static readonly Cmd[] Cmds =
     {
-        new("Lock screen", "Lock this PC", "\uE72E", new[] { "lock" }, i => () => LockWorkStation()),
+        new("Lock screen", "Lock this computer", "\uE72E", new[] { "lock" }, i => () => LockWorkStation()),
         new("Sleep", "Put the laptop to sleep", "\uE708", new[] { "sleep", "suspend" }, i => () => SetSuspendState(false, false, false)),
         new("Restart", "Restart Windows", "\uE777", new[] { "restart", "reboot" }, i => () => Win32.ShellExecute("shutdown.exe", "/r /t 0", null, null, 0), true),
-        new("Shut down", "Turn off the PC", "⏻", new[] { "shutdown", "shut down", "power off", "turn off" }, i => () => Win32.ShellExecute("shutdown.exe", "/s /t 0", null, null, 0), true),
+        new("Shut down", "Turn off the computer", "⏻", new[] { "shutdown", "shut down", "power off", "turn off" }, i => () => Win32.ShellExecute("shutdown.exe", "/s /t 0", null, null, 0), true),
         new("Sign out", "Sign out of Windows", "\uF3B1", new[] { "sign out", "log off", "logout" }, i => () => Win32.ShellExecute("shutdown.exe", "/l", null, null, 0), true),
         new("Empty Recycle Bin", "Windows asks to confirm", "\uE74D", new[] { "empty recycle bin", "empty trash", "trash", "recycle" }, i => () => SHEmptyRecycleBinW(0, null, 0)),
         new("Toggle Bluetooth", "Turn the Bluetooth radio on or off", "\uE702", new[] { "bluetooth", "bt" }, i => () => { var b = i.Svc?.Bluetooth; if (b != null) _ = b.SetRadio(b.RadioOn != true); }),

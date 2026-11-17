@@ -48,8 +48,8 @@ public static partial class Scenarios
         Eq(20, a.Length, "always 20 digits: " + a);
         // the key is shared by every app (the template keeps it as is), so this value is what every app derives on this machine
         Eq("72073953124684870734", a, "the same ID in every app");
-        Eq(a, Feedback.UserIdFrom(" 4C4C4544-0042-3510-8051-B4C04F4E4D32 "), "same PC, however the GUID is written");
-        True(a != Feedback.UserIdFrom("4c4c4544-0042-3510-8051-b4c04f4e4d33"), "another PC gets another number");
+        Eq(a, Feedback.UserIdFrom(" 4C4C4544-0042-3510-8051-B4C04F4E4D32 "), "same computer, however the GUID is written");
+        True(a != Feedback.UserIdFrom("4c4c4544-0042-3510-8051-b4c04f4e4d33"), "another computer gets another number");
         True(!a.Contains("4c4c"), "the hardware ID itself isn't in it");
         string v = Feedback.VerifierFrom(TestMachine);
         True(v.Length == 32 && v.All(Uri.IsHexDigit), "the verifier is 32 hex digits: " + v);
@@ -150,7 +150,7 @@ public static partial class Scenarios
 
             relay.Fail = false; relay.Code = HttpStatusCode.Conflict;
             Eq("You've already sent this.", fb.SendAsync(Url, FeedbackKind.Bug, "Crash", "It crashed when I opened the shelf.", "1.4.0", "w", false, null).Result.Error, "the service knew it already");
-            Eq("You've already sent this.", fb.Problem("Crash", "It crashed when I opened the shelf."), "and now this PC knows too");
+            Eq("You've already sent this.", fb.Problem("Crash", "It crashed when I opened the shelf."), "and now this computer knows too");
 
             relay.Code = HttpStatusCode.TooManyRequests; relay.Message = "One a day, please.";
             Eq("One a day, please.", fb.SendAsync(Url, FeedbackKind.Feature, "Idea", "Some brand new idea here.", "1.4.0", "w", false, null).Result.Error, "the service's own words");
@@ -161,7 +161,7 @@ public static partial class Scenarios
         finally { File.Delete(file); }
     }
 
-    [Scenario("attached logs lose the account and PC names, profile paths, addresses, emails, tokens and the person's own settings")]
+    [Scenario("attached logs lose the account and computer names, profile paths, addresses, emails, tokens and the person's own settings")]
     public static void FeedbackRedactsLogs()
     {
         string log = string.Join("\n",

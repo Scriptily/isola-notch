@@ -78,6 +78,30 @@ public static class Alerts
         Glyph = Glyph.Bell, Accent = Col.Hex(0x0a84ff), Seconds = seconds,
     };
 
+    /// <summary>How long a notification with a one-time code stays, to read or copy it.</summary>
+    internal const double CodeSeconds = 20;
+
+    /// <summary>
+    /// Adds a Copy button to a notification that carries a one-time code (as
+    /// Windows' own banners do), and keeps it on screen long enough to use.
+    /// With message previews off, the code isn't shown, only offered.
+    /// </summary>
+    public static Alert OfferCode(Alert a, string code, bool previews, Action<string> copy)
+    {
+        if (a == null || string.IsNullOrEmpty(code)) return a;
+        a.Seconds = Math.Max(a.Seconds, CodeSeconds);
+        if (!previews) a.Detail = "A one-time code is ready to copy";
+        a.Actions.Add(new AlertAction { Label = "Copy code", Glyph = Glyph.Copy, Tint = Col.Hex(0x0a84ff), Primary = true, Run = () => copy(code) });
+        return a;
+    }
+
+    /// <summary>The moment after copying: a check, briefly.</summary>
+    public static Alert Copied() => new()
+    {
+        Key = "copied", Kind = "copied", Title = "Code copied", Subtitle = "Paste it where it's asked for",
+        Glyph = Glyph.Check, Accent = Col.Hex(0x34c759), Seconds = 1.8,
+    };
+
     public static Alert Display(string name, string detail, bool connected) => new()
     {
         Key = "display:" + name, Kind = "display", Title = name, Subtitle = connected ? $"Connected · {detail}" : "Disconnected",

@@ -149,5 +149,6 @@ public static partial class Scenarios
     {
         Eq("Scriptily", App.SettingsWindow.Author, "the name shown");
         Eq("https://github.com/Scriptily/isola-notch", App.SettingsWindow.RepoPage, "where it goes");
+        Eq("https://github.com/sponsors/Scriptily?frequency=one-time&sponsor=Scriptily", App.SettingsWindow.SponsorPage, "Support Isola opens the GitHub Sponsors page, one-time first");
     }
 }

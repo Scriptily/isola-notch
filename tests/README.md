@@ -76,7 +76,7 @@ One exception, stated plainly: `ImageDecodeStorm` covers the move to native
 image decoding, but it doesn't reproduce the original crash with the old code,
 which only happened under real media session churn.
 
-## Checked by hand on a real PC
+## Checked by hand on a real computer
 
 Drawing and some Windows APIs can't run in the suite, so each change is also
 checked on the real island. Set `ISOLA_ZONES` to a folder and each window

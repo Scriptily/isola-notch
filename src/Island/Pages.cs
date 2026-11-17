@@ -598,7 +598,7 @@ public sealed class AlertPage : Page
         if (cur == null) return (300, 40, 20);
         if (cur.Kind == "call") return (440, 80, 40);
         if (cur.Batteries.Count > 0) return (400, 70, 35);
-        if (!string.IsNullOrEmpty(cur.Detail)) return (440, 70 + 16 * DetailLines(cur.Detail), 32);
+        if (!string.IsNullOrEmpty(cur.Detail)) return (440, 70 + 16 * DetailLines(cur.Detail, cur.Actions.Count), 32);
         return (Math.Clamp(140 + Math.Max(TextW(cur.Title, 14), TextW(cur.Subtitle, 12)), 290, 440), 62, 31);
     }
     static float TextW(string s, float px) => string.IsNullOrEmpty(s) ? 0 : s.Length * px * 0.55f;
@@ -607,7 +607,8 @@ public sealed class AlertPage : Page
     // is sized before it is drawn, so the line count is estimated from the
     // text's length at the width it gets; the text itself wraps exactly.
     internal const float DetailWidth = 340;
-    internal static int DetailLines(string s) => string.IsNullOrEmpty(s) ? 0 : Math.Clamp((int)Math.Ceiling(TextW(s, 12) / DetailWidth), 1, 3);
+    // each action button to the right of the text takes 54 DIP of its width
+    internal static int DetailLines(string s, int actions = 0) => string.IsNullOrEmpty(s) ? 0 : Math.Clamp((int)Math.Ceiling(TextW(s, 12) / (DetailWidth - 54 * actions)), 1, 3);
 
     public override void Draw(Island isl, Canvas c, Ux ux, Box a, float t)
     {
@@ -652,7 +653,7 @@ public sealed class AlertPage : Page
             }
             right = bx + 22;
         }
-        int dl = al.Kind == "call" ? 0 : DetailLines(al.Detail);
+        int dl = al.Kind == "call" ? 0 : DetailLines(al.Detail, al.Actions.Count);
         float textH = 37 + (dl > 0 ? 16 * dl + 2 : 0);
         float ty = a.CY - textH / 2;
         // Text runs to 16 DIP from the edge when nothing sits to its right, about

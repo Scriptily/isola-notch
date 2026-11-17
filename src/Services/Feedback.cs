@@ -43,7 +43,7 @@ public sealed partial class Feedback
         Load();
     }
 
-    // ---- who: a number made from this PC, never the PC's ID itself ----------
+    // ---- who: a number made from this computer, never the computer's ID itself ----------
 
     // The keys are the same in every app on purpose: one machine is one person
     // across all of them, so a report in one app and a report in another can be
@@ -54,7 +54,7 @@ public sealed partial class Feedback
 
     /// <summary>
     /// Always 20 digits, the same every time on this machine and in every app:
-    /// a one-way hash of Windows' machine GUID. The GUID never leaves the PC and
+    /// a one-way hash of Windows' machine GUID. The GUID never leaves the computer and
     /// the number can't be turned back into it (there is no decrypt). 9 x 10^19
     /// possible IDs is about 11 billion for every person alive; the feedback
     /// hub makes "no two machines share one" certain (see <see cref="VerifierFrom"/>).
@@ -89,10 +89,10 @@ public sealed partial class Feedback
 
     static string hardware;
     static string Hardware => hardware ??= HardwareId();
-    /// <summary>Set by tests in place of this PC's GUID.</summary>
+    /// <summary>Set by tests in place of this computer's GUID.</summary>
     internal static string HardwareOverride { set => hardware = value; }
 
-    /// <summary>The ID the service gave this PC, once it has answered; until then the one this PC derives.</summary>
+    /// <summary>The ID the service gave this computer, once it has answered; until then the one this computer derives.</summary>
     public string UserId => assignedId ?? UserIdFrom(Hardware);
 
     /// <summary>Windows' machine GUID (set when Windows is installed); if it can't be read, a random one kept beside the settings.</summary>
@@ -168,7 +168,7 @@ public sealed partial class Feedback
     // ---- logs: diagnostics without the person in them ------------------------
 
     /// <summary>
-    /// The end of the log, with the account name, the PC's name, profile paths,
+    /// The end of the log, with the account name, the computer's name, profile paths,
     /// addresses, emails and tokens taken out. The log already leaves out who a
     /// notification is from and what it says.
     /// </summary>
@@ -212,7 +212,7 @@ public sealed partial class Feedback
         }.ToJsonString();
 
     readonly List<long> reports = new();
-    /// <summary>The numbers of the reports this PC has sent, newest last.</summary>
+    /// <summary>The numbers of the reports this computer has sent, newest last.</summary>
     public IReadOnlyList<long> Reports => reports;
 
     public readonly record struct Result(string Error, long Report)
@@ -237,7 +237,7 @@ public sealed partial class Feedback
             JsonNode answer = null;
             try { answer = JsonNode.Parse(await resp.Content.ReadAsStringAsync().ConfigureAwait(false)); } catch { }
             string said = (string)answer?["message"] ?? "";
-            // whatever it answered, the ID it names is this PC's from now on
+            // whatever it answered, the ID it names is this computer's from now on
             if ((string)answer?["user"] is { } u && ValidUserId(u) && u != assignedId) { assignedId = u; Save(); }
             switch (resp.StatusCode)
             {

@@ -284,6 +284,15 @@ public sealed unsafe partial class SettingsWindow
             c.Text(Sections[i].name, new Box(b.X + 42, b.Y, 150, b.H), 13, Col.White.A(i == section ? 1 : 0.75f), i == section ? FontWeight.SemiBold : FontWeight.Medium);
             sy += 40;
         }
+        // Quit, at the foot of the sidebar: Isola stops for now, and starts again
+        // from Start, or with Windows if it's set to. Red only on approach.
+        var qb = new Box(14, H - 84, 194, 34);
+        ux.Add("quit", qb, () => app.Quit("Settings -> Quit Isola"), 8).Tooltip = "Stops Isola until you open it again or Windows next starts it";
+        float qh = ux.HoverT("quit");
+        if (qh > 0.01f) c.Fill(qb, Col.Hex(0xff453a, 0.14f * qh), 8);
+        var qcol = Col.Mix(Col.White.A(0.7f), Col.Hex(0xff6961), qh);
+        c.Icon(Glyph.Power, qb.X + 22, qb.CY, 14, qcol);
+        c.Text("Quit Isola", new Box(qb.X + 42, qb.Y, 150, qb.H), 13, qcol, FontWeight.Medium);
         c.Text("Changes apply instantly", new Box(24, H - 34, 190, 20), 11, Col.White.A(0.35f), FontWeight.Medium);
 
         // content: the scroll position follows its target on a spring
@@ -611,7 +620,7 @@ public sealed unsafe partial class SettingsWindow
         Text(L, "haurl", "Home Assistant URL", HomeAssistant.InsecureRemote(work.HaBaseUrl) ? "Not encrypted: use an https:// address when connecting over the internet" : null, work.HaBaseUrl, v => work.HaBaseUrl = v.TrimEnd('/'), "http://homeassistant.local:8123", false, 340,
             help: "The address you open Home Assistant at, such as http://homeassistant.local:8123. A remote address (Home Assistant Cloud or your own domain) works too, and keeps working when you're away from home.");
         Text(L, "hatok", "Access token", "A long-lived token from your Home Assistant profile", work.HaToken, v => work.HaToken = v, "Paste token", true, 340,
-            help: "In Home Assistant, open your profile (your name at the bottom left), then the Security tab. Under Long-lived access tokens, press Create token, name it Isola, and copy it. Home Assistant shows it only once, so paste it here right away. The token stays on this PC.");
+            help: "In Home Assistant, open your profile (your name at the bottom left), then the Security tab. Under Long-lived access tokens, press Create token, name it Isola, and copy it. Home Assistant shows it only once, so paste it here right away. The token stays on this computer.");
         Button(L, "hatest", "Test connection", testResult.Length > 0 ? testResult : ha?.StatusText, "Test", () => { testResult = "Testing…"; testAt = Ui.Clock.Now; Test(); }, testResult == "Testing…" || Spinning(testAt));
         L.Header($"Entities on the island ({work.HaEntities.Count})");
         if (ha == null) return;
@@ -760,7 +769,7 @@ public sealed unsafe partial class SettingsWindow
             fbKind == FeedbackKind.Bug ? BugHint : "Tell us how you'd use it and why it would help.", 132,
             $"{text.Text.Length:N0} / {Feedback.TextMax:N0}");
         Toggle(L, "fblogs", "Attach logs for diagnostics", "Isola's log, with your name, folders, addresses and tokens removed", fbLogs, v => fbLogs = v);
-        var idRow = LabeledRow(L, "fbid", "Your feedback ID", "A one-way number made from this PC, so we can tell your reports apart", 290, 52);
+        var idRow = LabeledRow(L, "fbid", "Your feedback ID", "A one-way number made from this computer, so we can tell your reports apart", 290, 52);
         canvas.Text("@" + fb.UserId, new Box(idRow.Right - 290, idRow.Y, 210, idRow.H), 12.5f, Col.White.A(0.9f), FontWeight.SemiBold, HAlign.Right);
         bool copied = Ui.Clock.Now - fbCopiedAt < 1.6;
         float ct = ux.Anim("fb:copied", copied ? 1 : 0, SpringSpec.Snappy);
@@ -862,6 +871,7 @@ public sealed unsafe partial class SettingsWindow
         AuthorLine(b.X + 20, b.Y + 34);
         canvas.Text($"GPU: {Gfx.AdapterName}  ·  Memory: {proc.WorkingSet64 / 1048576.0:0} MB working set, {proc.PrivateMemorySize64 / 1048576.0:0} MB private", new Box(b.X + 20, b.Y + 58, b.W - 36, 18), 11.5f, Col.White.A(0.55f));
         canvas.Text($"Data folder: {Paths.Home}", new Box(b.X + 20, b.Y + 78, b.W - 36, 18), 11.5f, Col.White.A(0.55f));
+        Button(L, "sponsor", "Support Isola", "It's free and open source. A one-time or monthly sponsorship on GitHub keeps it going", "Sponsor", () => Win32.ShellExecute(SponsorPage));
         L.Header("Updates");
         if (Packaging.IsStore)
             Button(L, "updstore", "Updates", "The Microsoft Store keeps Isola up to date", "Open Store", () => Win32.ShellExecute("ms-windows-store://downloadsandupdates"));
@@ -877,7 +887,8 @@ public sealed unsafe partial class SettingsWindow
         L.End();
     }
 
-    internal const string Author = "Scriptily", RepoPage = "https://github.com/" + Updater.Repo;
+    internal const string Author = "Scriptily", RepoPage = "https://github.com/" + Updater.Repo,
+        SponsorPage = "https://github.com/sponsors/Scriptily?frequency=one-time&sponsor=Scriptily";
 
     /// <summary>"Created by Scriptily", the name a link to the project's page.</summary>
     void AuthorLine(float x, float y)

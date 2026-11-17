@@ -3,12 +3,14 @@
 Isola has no account, no telemetry, no analytics and no ads. Nobody, including
 the people who make it, receives anything about you or how you use it.
 
-## What stays on your PC
+## What stays on your computer
 
-Isola reads these on your PC to show them in the island, and never sends them
+Isola reads these on your computer to show them in the island, and never sends them
 anywhere:
 
-- Notifications and Phone Link calls (the app, the sender and the message)
+- Notifications and Phone Link calls (the app, the sender and the message).
+  A one-time code you copy from one is kept out of Windows' clipboard history,
+  its cloud clipboard and Isola's own Clipboard tab
 - What's playing in your media apps, and the cover art
 - Your clipboard history (Win+V), if the Clipboard tab is on
 - Bluetooth devices and battery levels, including AirPods

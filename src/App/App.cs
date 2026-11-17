@@ -310,7 +310,15 @@ public sealed unsafe partial class App
         }
         // an app Windows hadn't seen before has a settings key only now
         if (banners is { Active: true } && BannerKeys(n).Any(k => !bannerExempt.Contains(k))) bannerRescan = true;
-        island.Alert(Alerts.Notification(n.Id.ToString(), n.Via.Length > 0 ? $"{n.App} · {n.Via}" : n.App, n.Title, cfg.NotificationPreviews ? n.Body : "", n.Icon, cfg.AlertSeconds));
+        var alert = Alerts.Notification(n.Id.ToString(), n.Via.Length > 0 ? $"{n.App} · {n.Via}" : n.App, n.Title, cfg.NotificationPreviews ? n.Body : "", n.Icon, cfg.AlertSeconds);
+        island.Alert(Alerts.OfferCode(alert, OneTimeCode.Find(n.Title, n.Body), cfg.NotificationPreviews, CopyCode));
+    }
+
+    /// <summary>Copies a one-time code, kept out of clipboard history (Isola's and Windows') and cloud sync.</summary>
+    void CopyCode(string code)
+    {
+        Win32.SetClipboardSecret(code);
+        island.Alert(Alerts.Copied());
     }
 
     /// <summary>
@@ -620,6 +628,17 @@ public sealed unsafe partial class App
             case 7: Restart(); break;
             case 8: quit = true; break;
         }
+    }
+
+    /// <summary>
+    /// Stops Isola for this session, as the tray menu's Quit does: a clean exit,
+    /// so the watcher doesn't bring it back, and autostart is left as it is.
+    /// </summary>
+    public void Quit(string why)
+    {
+        Log.I("app", "quitting: " + why);
+        quit = true;
+        Win32.PostMessageW(host.Input, 0, 0, 0);   // wake the loop if it's waiting
     }
 
     void Restart()

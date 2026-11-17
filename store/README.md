@@ -30,7 +30,7 @@ signing for the GitHub download.
 |---|---|
 | `AppxManifest.xml` | The package manifest, with `{{tokens}}` for the identity and version |
 | `identity.json` | The package identity from Partner Center (public values, not secrets). Placeholders until the name is reserved |
-| `build-msix.ps1` | Builds `dist\Isola-<version>.msix` (version from `VERSION`, as x.y.z.0); `-Register` installs the unpacked build on this PC |
+| `build-msix.ps1` | Builds `dist\Isola-<version>.msix` (version from `VERSION`, as x.y.z.0); `-Register` installs the unpacked build on this computer |
 | `make_tiles.py` | Redraws the tile and logo images in `assets/` from `assets/island.png` |
 
 ## Releasing
@@ -89,7 +89,7 @@ If certification fails or Partner Center is down, the package is still an
 artifact of the release run (`Isola-<version>-msix`) and can be uploaded by
 hand: Isola Notch -> Update -> Packages.
 
-## Trying the package on this PC
+## Trying the package on this computer
 
 Turn on Developer Mode (Settings -> System -> For developers), close the GitHub
 install's island, then:
@@ -116,7 +116,7 @@ Certification Kit (as administrator):
 
 > Isola puts a small pill at the top of your screen. It shows what's happening as it happens: notifications with the app's icon, calls from your phone through Phone Link, the song that's playing, your Bluetooth devices and AirPods battery, and a timer. Click it for a dashboard with media controls, per-app volume, Home Assistant devices, weather, notes, a file shelf and your clipboard history. Press Alt+Space and it becomes a launcher with math, unit conversion and commands.
 >
-> It's light on your PC (about 30 MB of memory, under 0.1% CPU at rest), has no account and no telemetry, and is free and open source under GPL-3.0.
+> It's light on your computer (about 30 MB of memory, under 0.1% CPU at rest), has no account and no telemetry, and is free and open source under GPL-3.0.
 
 **Screenshots:** `store/screenshots/1-home.png` to `5-hello.png` (1920x1080),
 made from sample data by `make_screenshots.py`.

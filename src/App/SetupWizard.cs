@@ -21,7 +21,7 @@ public sealed class SetupStep
 /// <summary>
 /// The setup wizard: IsolaSetup.exe unpacks the island to a temporary
 /// folder and runs it with --setup-wizard, so the wizard is drawn by the
-/// island's own renderer and looks like its settings. Pages: what this PC has,
+/// island's own renderer and looks like its settings. Pages: what this computer has,
 /// the options (Everything and MagicPods off by default, and grayed out as
 /// "Already installed" when they are), the install with a line per step, and
 /// done. The island itself is installed by the setup program it came from
@@ -393,7 +393,7 @@ public sealed unsafe partial class SetupWizard
     {
         string ver = typeof(SetupWizard).Assembly.GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "";
         Title(c, a, installed != null ? "Isola " + ver : "Install Isola " + ver,
-            installed != null ? $"Version {Services.Updater.Short(installed)} is installed. First, what this PC has:" : "For your account only. First, what this PC already has:");
+            installed != null ? $"Version {Services.Updater.Short(installed)} is installed. First, what this computer has:" : "For your account only. First, what this computer already has:");
         float y = a.Y + 74, w = a.W;
         if (!checksDone)
         {

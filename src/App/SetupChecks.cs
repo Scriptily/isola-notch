@@ -6,7 +6,7 @@ namespace Isola.App;
 /// <summary>
 /// What the setup wizard checks and installs. The island itself is one
 /// self-contained program (no .NET or other runtime to install); what a fresh
-/// PC can lack is the icon font (part of Windows 11, missing on Windows 10),
+/// computer can lack is the icon font (part of Windows 11, missing on Windows 10),
 /// a permission or two, and the optional helpers: Everything and MagicPods.
 /// </summary>
 public static class SetupChecks

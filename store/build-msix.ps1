@@ -5,7 +5,7 @@
 
 .DESCRIPTION
   The package is left unsigned: Partner Center signs it with Microsoft's
-  certificate when it passes certification. To try it on this PC first, turn
+  certificate when it passes certification. To try it on this computer first, turn
   on Developer Mode (Settings -> System -> For developers) and register the
   unpacked layout instead:
 
@@ -13,7 +13,7 @@
 
 .EXAMPLE
   .\store\build-msix.ps1            # dist\Isola-1.2.0.msix
-  .\store\build-msix.ps1 -Register  # also install the layout on this PC (Developer Mode)
+  .\store\build-msix.ps1 -Register  # also install the layout on this computer (Developer Mode)
 #>
 param([switch]$Register, [switch]$SkipBuild, [switch]$SkipTiles)
 

@@ -5,7 +5,7 @@ The scripts that make the images and GIFs in the main README and the logos in
 always shows the app as it is.
 
 They run the development build on a made-up data folder (sample Home Assistant
-devices, notes, weather), so nothing from your own PC appears, and they send no
+devices, notes, weather), so nothing from your own computer appears, and they send no
 keyboard or mouse input: each state is opened with the `ISOLA_SHOWCASE`
 switch, over a solid backdrop drawn with `ISOLA_BACKDROP`.
 

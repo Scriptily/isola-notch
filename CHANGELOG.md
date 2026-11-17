@@ -10,15 +10,21 @@ GitHub release notes.
 ### Added
 
 - Settings -> Feedback: send a feature request or a bug report with a subject
-  and a description, and optionally the log, with your account and PC names,
+  and a description, and optionally the log, with your account and computer names,
   folders, addresses, emails and tokens removed first. Each report carries a
-  feedback ID, a one-way 20-digit number made from your PC, so reports from
+  feedback ID, a one-way 20-digit number made from your computer, so reports from
   the same person can be told apart, and gets a report number of its own. It goes to
   the developer privately (a private database behind Isola's feedback
   service), one a day, and never the same report twice. A bug report's
   description shows how to lay out the steps to reproduce it.
 - Settings -> About & Logs says who made Isola; the name opens the project's
-  GitHub page.
+  GitHub page. Support Isola opens its GitHub Sponsors page, and the repository
+  has a Sponsor button.
+- A notification with a sign-in or verification code (an SMS through Phone
+  Link, an email, WhatsApp) gets a Copy button and stays 20 seconds, like
+  Windows' own banners. The copied code stays out of clipboard history.
+- Quit Isola at the bottom of Settings stops it for now. It starts again the
+  next time you open it, or with Windows if it's set to.
 
 ### Changed
 

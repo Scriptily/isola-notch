@@ -26,7 +26,7 @@ public interface IDisplaySource
 {
     IReadOnlyList<DisplayPath> ActivePaths();
     IReadOnlyList<Monitor> Monitors();
-    /// <summary>Whether this PC has a built-in panel at all, switched on or not (a desktop has none).</summary>
+    /// <summary>Whether this computer has a built-in panel at all, switched on or not (a desktop has none).</summary>
     bool HasBuiltInPanel();
 }
 
@@ -84,7 +84,7 @@ public sealed unsafe class RealDisplays : IDisplaySource
             if (paths[i].targetInfo.outputTechnology is Win32.DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INTERNAL or Win32.DISPLAYCONFIG_OUTPUT_TECHNOLOGY_DISPLAYPORT_EMBEDDED or Win32.DISPLAYCONFIG_OUTPUT_TECHNOLOGY_UDI_EMBEDDED)
                 any = true;
         builtIn = any;
-        Log.I("display", any ? "this PC has a built-in panel" : "no built-in panel (a desktop): \"Built-in\" means the main screen");
+        Log.I("display", any ? "this computer has a built-in panel" : "no built-in panel (a desktop): \"Built-in\" means the main screen");
         return any;
     }
 

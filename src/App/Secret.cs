@@ -6,7 +6,7 @@ namespace Isola.App;
 /// Tokens at rest (the Home Assistant token, the Spotify sign-in), encrypted
 /// with Windows' data protection for the signed-in user (DPAPI). A copied
 /// config file, or one attached to a bug report, holds nothing another
-/// account or PC can use. A plain value (an older config, or one typed into
+/// account or computer can use. A plain value (an older config, or one typed into
 /// the file by hand) is still read, and is encrypted the next time it's saved.
 /// </summary>
 public static partial class Secret
@@ -32,14 +32,14 @@ public static partial class Secret
         return r == null ? plain : Prefix + Convert.ToBase64String(r);
     }
 
-    /// <summary>The plain value; a plain input is returned as is. Empty if it was encrypted for another user or PC.</summary>
+    /// <summary>The plain value; a plain input is returned as is. Empty if it was encrypted for another user or computer.</summary>
     public static string Unprotect(string stored)
     {
         if (!IsProtected(stored)) return stored ?? "";
         try
         {
             var r = Transform(Convert.FromBase64String(stored[Prefix.Length..]), protect: false);
-            if (r == null) { Log.W("secret", "a saved token can't be read on this account or PC; it needs entering again"); return ""; }
+            if (r == null) { Log.W("secret", "a saved token can't be read on this account or computer; it needs entering again"); return ""; }
             return System.Text.Encoding.UTF8.GetString(r);
         }
         catch { return ""; }

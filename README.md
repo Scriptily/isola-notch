@@ -19,7 +19,8 @@
   <a href="PRIVACY.md">Privacy</a> ·
   <a href="CODE_SIGNING_POLICY.md">Code signing policy</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
-  <a href="#build-it-yourself">Build</a>
+  <a href="#build-it-yourself">Build</a> ·
+  <a href="#support-isola">Support</a>
 </p>
 
 <p align="center">
@@ -33,7 +34,7 @@ and it turns into a launcher.
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/open-dark.gif"><img src="assets/readme/open-light.gif" alt="The island opening into the Home dashboard" width="651"></picture></p>
 
-## Light on your PC
+## Light on your computer
 
 Isola is one native program, compiled ahead of time, so there's no .NET or
 other runtime to install. It runs as your user and doesn't need administrator
@@ -64,6 +65,8 @@ Link (answer or decline right on the island), track changes, Bluetooth devices
 with battery levels, AirPods per bud and case, screens and chargers, the timer,
 and volume and Caps Lock changes. A burst of notifications queues up, and
 anything past the newest four folds into one summary. A call always goes first.
+A notification with a sign-in or verification code gets a Copy button and stays
+a little longer, as Windows' own banners do.
 
 Isola has its own sounds, made in code: a chime for notifications, a ringtone
 for calls, a bell for the timer, and soft tones for devices. Each has a few to
@@ -144,13 +147,13 @@ Notifications opens Windows' page where you can turn them off yourself.
 
 1. Download `IsolaSetup.exe` from the
    [latest release](https://github.com/Scriptily/isola-notch/releases/latest).
-2. Run it. Windows may say it protected your PC, because the setup isn't
+2. Run it. Windows may say it protected your computer, because the setup isn't
    code-signed yet (see the [code signing policy](CODE_SIGNING_POLICY.md)):
    choose **More info**, then **Run anyway**. Every release is built by GitHub
    Actions from the public source, and its notes link a
    [VirusTotal](https://www.virustotal.com/) scan of the setup and list
    anything it found.
-3. The setup shows what it found on your PC, lets you choose options, and
+3. The setup shows what it found on your computer, lets you choose options, and
    opens the island.
 
 It installs for your account only (no administrator rights), adds Isola to the
@@ -215,9 +218,9 @@ Isola has no account, no telemetry and no analytics. It talks only to:
 | Open-Meteo | weather, if Home Assistant isn't the source | the city or coordinates you entered |
 | Spotify | if you connect it | your sign-in, to read and set playback |
 | GitHub | update checks, every six hours | nothing about you |
-| Isola's feedback service | only when you press Send feedback | what you wrote, a one-way ID made from your PC, the app and Windows versions, and the log if you attach it |
+| Isola's feedback service | only when you press Send feedback | what you wrote, a one-way ID made from your computer, the app and Windows versions, and the log if you attach it |
 
-Notifications, media, the clipboard and Bluetooth are read on your PC and stay
+Notifications, media, the clipboard and Bluetooth are read on your computer and stay
 there. The Home Assistant token and the Spotify sign-in are encrypted with
 Windows' data protection for your account, so a copied config file is useless
 anywhere else. The log records which app a notification came from, never who
@@ -271,6 +274,13 @@ displays, clocks, Bluetooth and Home Assistant; see
 * A window that Task Manager sets to "Always on top" can cover the island.
   Only apps signed for UI Access can sit above those.
 * Windows only. There's no macOS or Linux version.
+
+## Support Isola
+
+Isola is free and always will be. If it's become part of your day and you'd
+like to say thanks, you can
+[sponsor its development on GitHub](https://github.com/sponsors/Scriptily?frequency=one-time&sponsor=Scriptily),
+once or monthly. It also has a link in Settings -> About & Logs.
 
 ## License
 

@@ -401,6 +401,29 @@ public static unsafe partial class Win32
         }
         finally { CloseClipboard(); }
     }
+    /// <summary>
+    /// Copies text that shouldn't be remembered (a one-time code): marked so
+    /// clipboard watchers, Isola's own included, skip it, and kept out of
+    /// Windows' clipboard history and cloud clipboard.
+    /// </summary>
+    public static void SetClipboardSecret(string s)
+    {
+        if (!OpenClipboard(0)) return;
+        try
+        {
+            EmptyClipboard();
+            nuint bytes = (nuint)((s.Length + 1) * 2); nint mem = GlobalAlloc(GMEM_MOVEABLE, bytes);
+            char* p = (char*)GlobalLock(mem); fixed (char* src = s) Buffer.MemoryCopy(src, p, (long)bytes, s.Length * 2); p[s.Length] = '\0'; GlobalUnlock(mem);
+            SetClipboardData(CF_UNICODETEXT, mem);
+            foreach (var name in new[] { "ExcludeClipboardContentFromMonitorProcessing", "CanIncludeInClipboardHistory", "CanUploadToCloudClipboard" })
+            {
+                nint flag = GlobalAlloc(GMEM_MOVEABLE, 4);
+                *(uint*)GlobalLock(flag) = 0; GlobalUnlock(flag);   // 0: no
+                SetClipboardData(RegisterClipboardFormatW(name), flag);
+            }
+        }
+        finally { CloseClipboard(); }
+    }
     public static string GetClipboardText()
     {
         if (!IsClipboardFormatAvailable(CF_UNICODETEXT) || !OpenClipboard(0)) return null;
