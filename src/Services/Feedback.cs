@@ -10,9 +10,9 @@ namespace Isola.Services;
 public enum FeedbackKind { Feature, Bug }
 
 /// <summary>
-/// Feedback from Settings -> Feedback. It goes to Isola's feedback service
-/// (feedback/ in the repository), which stores it privately: nothing in this
-/// open source build can read feedback or get around the service's limits.
+/// Feedback from Settings -> Feedback. It goes to the hub (the apps' service on
+/// Cloudflare, its own project), which stores it privately: nothing in this
+/// open source build can read feedback or get around the hub's limits.
 ///
 /// The limits (one a day per person, never the same text twice) are checked
 /// here first so the page can say so before anything is sent, and again by the

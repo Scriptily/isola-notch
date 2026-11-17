@@ -25,13 +25,6 @@ jobs:
       - name: Tests
         run: dotnet run -c Release --project tests\Isola.Tests.csproj
 
-      # the feedback service enforces the limits the app can only ask for
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - name: Feedback service tests
-        run: node --test feedback/test/service.test.mjs
-
       - name: Build IsolaSetup.exe (NativeAOT)
         shell: pwsh
         run: .\build.ps1 -SkipTests

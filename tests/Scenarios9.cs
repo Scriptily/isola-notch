@@ -77,7 +77,7 @@ public static partial class Scenarios
             Eq("You've already sent this.", dup, "the same words differently written are the same feedback");
             Eq(1, relay.Bodies.Count, "the repeat isn't sent");
 
-            // the service computes the same fingerprint (feedback/test/service.test.mjs checks this value too)
+            // the hub computes the same fingerprint (its test/service.test.mjs checks this value too)
             Eq("8ca0f056b8b880f2a301253119330f994ef493c90ae3f58622ef626d46bd5426", Feedback.Fingerprint("Glow flickers", "The glow flickers, on my 2nd screen!"), "the service's fingerprint");
 
             var (fb2, _, _, advance2, _) = NewFeedback(file);
