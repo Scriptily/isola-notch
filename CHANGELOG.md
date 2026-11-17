@@ -15,7 +15,10 @@ GitHub release notes.
   feedback ID, a one-way 20-digit number made from your PC, so reports from
   the same person can be told apart, and gets a report number of its own. It goes to
   the developer privately (a private database behind Isola's feedback
-  service), one a day, and never the same report twice.
+  service), one a day, and never the same report twice. A bug report's
+  description shows how to lay out the steps to reproduce it.
+- Settings -> About & Logs says who made Isola; the name opens the project's
+  GitHub page.
 
 ### Changed
 

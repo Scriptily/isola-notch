@@ -45,6 +45,26 @@ public static partial class Scenarios
             try { return Enumerable.Range(0, h).Select(y => Marshal.ReadByte(m.Bits, y * (int)m.Pitch + x * 4 + 3)).ToArray(); }
             finally { read.Unmap(); }
         }
+        /// <summary>The lines of text drawn: runs of rows with any ink in them.</summary>
+        public int InkLines()
+        {
+            using var read = Ctx.CreateBitmap(new SizeI(w, h), IntPtr.Zero, 0,
+                new BitmapProperties1(new Vortice.DCommon.PixelFormat(Format.B8G8R8A8_UNorm, Vortice.DCommon.AlphaMode.Premultiplied), 96, 96, BitmapOptions.CpuRead | BitmapOptions.CannotDraw));
+            read.CopyFromBitmap(Target);
+            var m = read.Map(MapOptions.Read);
+            try
+            {
+                int lines = 0; bool inLine = false;
+                for (int y = 0; y < h; y++)
+                {
+                    bool ink = Enumerable.Range(0, w).Any(x => Marshal.ReadByte(m.Bits, y * (int)m.Pitch + x * 4 + 3) > 60);
+                    if (ink && !inLine) lines++;
+                    inLine = ink;
+                }
+                return lines;
+            }
+            finally { read.Unmap(); }
+        }
         public void Dispose() { Target.Dispose(); Ctx.Dispose(); }
     }
 
@@ -113,5 +133,21 @@ public static partial class Scenarios
         Fill(false, false);
         a = off.AlphaColumn(30);
         True(a[0] > 250 && a[199] > 250, "a list that fits fades nowhere");
+    }
+    [Scenario("a bug report's description asks for the steps to reproduce it, laid out as numbered lines in the field")]
+    public static void BugHintAsksForSteps()
+    {
+        True(App.SettingsWindow.BugHint.Contains("Steps to reproduce"), "it names the steps");
+        using var off = new Offscreen(520, 150);
+        var tb = new TextBox { Multiline = true, Placeholder = App.SettingsWindow.BugHint };
+        off.Draw(c => tb.Draw(c, new Box(0, 0, 520, 150), 13, false, 0, Col.White));
+        int lines = off.InkLines();
+        True(lines >= 5, $"what happened, the heading and three numbered steps, each on its own line ({lines} lines)");
+    }
+    [Scenario("About credits the author, and the name opens the project's GitHub page")]
+    public static void AboutCreditsAuthor()
+    {
+        Eq("Scriptily", App.SettingsWindow.Author, "the name shown");
+        Eq("https://github.com/Scriptily/isola-notch", App.SettingsWindow.RepoPage, "where it goes");
     }
 }

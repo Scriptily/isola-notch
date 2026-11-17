@@ -728,6 +728,7 @@ public sealed unsafe partial class SettingsWindow
     }
 
     // ---- feedback ---------------------------------------------------------------
+    internal const string BugHint = "What happened, and what did you expect instead?\nSteps to reproduce:\n1. Open …\n2. Click …\n3. See …";
     FeedbackKind fbKind = FeedbackKind.Feature;
     bool fbLogs, fbBusy;
     string fbError;
@@ -755,7 +756,8 @@ public sealed unsafe partial class SettingsWindow
         // label above a full-width field: these hold sentences, not settings
         StackedField(L, "fbsub", "Subject", subject, fbKind == FeedbackKind.Bug ? "What went wrong, in a few words" : "What would you like Isola to do?", 32);
         StackedField(L, "fbtext", "Description", text,
-            fbKind == FeedbackKind.Bug ? "What happened, and what did you expect? Steps to make it happen again help the most." : "Tell us how you'd use it and why it would help.", 132,
+            // a bug report is only as useful as its steps: the hint shows the shape of one
+            fbKind == FeedbackKind.Bug ? BugHint : "Tell us how you'd use it and why it would help.", 132,
             $"{text.Text.Length:N0} / {Feedback.TextMax:N0}");
         Toggle(L, "fblogs", "Attach logs for diagnostics", "Isola's log, with your name, folders, addresses and tokens removed", fbLogs, v => fbLogs = v);
         var idRow = LabeledRow(L, "fbid", "Your feedback ID", "A one-way number made from this PC, so we can tell your reports apart", 290, 52);
@@ -855,10 +857,11 @@ public sealed unsafe partial class SettingsWindow
     {
         var proc = System.Diagnostics.Process.GetCurrentProcess();
         L.Header("Isola");
-        var b = L.Row(84);
+        var b = L.Row(106);
         canvas.Text("Version " + Updater.Short(typeof(App).Assembly.GetName().Version ?? new Version(1, 0, 0)), new Box(b.X + 20, b.Y + 12, 400, 20), 13.5f, Col.White, FontWeight.SemiBold);
-        canvas.Text($"GPU: {Gfx.AdapterName}  ·  Memory: {proc.WorkingSet64 / 1048576.0:0} MB working set, {proc.PrivateMemorySize64 / 1048576.0:0} MB private", new Box(b.X + 20, b.Y + 34, b.W - 36, 18), 11.5f, Col.White.A(0.55f));
-        canvas.Text($"Data folder: {Paths.Home}", new Box(b.X + 20, b.Y + 54, b.W - 36, 18), 11.5f, Col.White.A(0.55f));
+        AuthorLine(b.X + 20, b.Y + 34);
+        canvas.Text($"GPU: {Gfx.AdapterName}  ·  Memory: {proc.WorkingSet64 / 1048576.0:0} MB working set, {proc.PrivateMemorySize64 / 1048576.0:0} MB private", new Box(b.X + 20, b.Y + 58, b.W - 36, 18), 11.5f, Col.White.A(0.55f));
+        canvas.Text($"Data folder: {Paths.Home}", new Box(b.X + 20, b.Y + 78, b.W - 36, 18), 11.5f, Col.White.A(0.55f));
         L.Header("Updates");
         if (Packaging.IsStore)
             Button(L, "updstore", "Updates", "The Microsoft Store keeps Isola up to date", "Open Store", () => Win32.ShellExecute("ms-windows-store://downloadsandupdates"));
@@ -872,5 +875,25 @@ public sealed unsafe partial class SettingsWindow
         Button(L, "log", "Log file", Paths.LogFile, "Open log", () => { Log.Flush(); Win32.ShellExecute(Paths.LogFile); });
         Button(L, "folder", "Data folder", "Settings, notes, shelf and logs", "Open folder", () => Win32.ShellExecute(Paths.Home));
         L.End();
+    }
+
+    internal const string Author = "Scriptily", RepoPage = "https://github.com/" + Updater.Repo;
+
+    /// <summary>"Created by Scriptily", the name a link to the project's page.</summary>
+    void AuthorLine(float x, float y)
+    {
+        const string lead = "Created by ";
+        const float size = 12.5f;
+        float lw = canvas.Measure(lead, size, FontWeight.Medium).w;
+        float nw = canvas.Measure(Author, size, FontWeight.SemiBold).w;
+        canvas.Text(lead, new Box(x, y, lw + 4, 18), size, Col.White.A(0.7f), FontWeight.Medium);
+        var name = new Box(x + lw, y, nw, 18);
+        // the clickable area reaches past the word, so it's easy to hit
+        ux.Add("about:author", name.Inset(-8, -6), () => Win32.ShellExecute(RepoPage), 6).Tooltip = RepoPage.Replace("https://", "");
+        float h = ux.HoverT("about:author");
+        var color = Col.Mix(Col.Hex(0x0a84ff), Col.Hex(0x64b5ff), h);
+        canvas.Text(Author, new Box(name.X, name.Y, nw + 4, name.H), size, color, FontWeight.SemiBold);
+        // an underline grows in on hover, the way links say "this goes somewhere"
+        if (h > 0.01f) canvas.Fill(new Box(name.X, name.Bottom - 1.5f, nw * h, 1.25f), color, 0.6f);
     }
 }
