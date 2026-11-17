@@ -114,12 +114,13 @@ Certification Kit (as administrator):
 
 **Description**
 
-> Isola puts a small pill at the top of your screen. It shows what's happening as it happens: notifications with the app's icon, calls from your phone through Phone Link, the song that's playing, your Bluetooth devices and AirPods battery, and a timer. Click it for a dashboard with media controls, per-app volume, Home Assistant devices, weather, notes, a file shelf and your clipboard history. Press Alt+Space and it becomes a launcher with math, unit conversion and commands.
+> Isola puts a small pill at the top of your screen. It shows what's happening as it happens: notifications with the app's icon, calls from your phone through Phone Link, the song that's playing with its cover and a glow in its colors, your Bluetooth devices and AirPods battery, and a timer. Click it for a dashboard with media controls, per-app volume, Home Assistant devices, weather, notes, a file shelf and your clipboard history. Paste a link into the shelf to download a video or its audio from YouTube and most other sites, or convert a file to MP3, MP4 or GIF. Press Alt+Space and it becomes a launcher with math, unit conversion and commands.
 >
 > It's light on your computer (about 30 MB of memory, under 0.1% CPU at rest), has no account and no telemetry, and is free and open source under GPL-3.0.
 
-**Screenshots:** `store/screenshots/1-home.png` to `5-hello.png` (1920x1080),
-made from sample data by `make_screenshots.py`.
+**Screenshots:** `store/screenshots/1-music.png` to `7-hello.png` (1920x1080):
+`record_sources.py` records the stills from sample data, then
+`make_screenshots.py` frames them.
 
 **Privacy policy URL:** `https://github.com/Scriptily/isola-notch/blob/main/PRIVACY.md`
 

@@ -99,7 +99,8 @@ public static class Alerts
     public static Alert DownloadDone(DownloadJob job, Action open, Action reveal) => new()
     {
         Key = "download:" + job.Id, Kind = "download", Title = job.Kind == "convert" ? "Converted" : "Downloaded",
-        Subtitle = job.ToShelf ? "On your shelf" : Path.GetFileName(job.Output), Detail = job.Label,
+        // the file's name already says what it is; on the shelf, say where it went
+        Subtitle = job.ToShelf ? job.Label : Path.GetFileName(job.Output), Detail = job.ToShelf ? "On your shelf" : "",
         Glyph = Glyph.Download, Accent = Col.Hex(0x34c759), Seconds = 6, Sound = Services.Sounds.Notification,
         Actions =
         {

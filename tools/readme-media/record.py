@@ -6,7 +6,7 @@ started again afterwards, whatever happens. Frames are kept only once the
 island is drawing its backdrop: before that, its window shows whatever is on
 the desktop behind it, and that must never end up in a public image.
 
-  python record.py <state> <seconds> <out.gif|out.png> [--delay s] [--fps n]
+  python record.py <state> <seconds> <out.webp|out.gif|out.png> [--delay s] [--fps n]
                    [--bg rrggbb] [--padx px] [--scale f] [--still]
 
 <state> is "rest", "hello" (the start-up animation; set HelloOnLaunch in the
@@ -121,6 +121,7 @@ def main():
     ap.add_argument("--bg", default="0d1117"); ap.add_argument("--padx", type=int, default=24)
     ap.add_argument("--scale", type=float, default=0, help="0: back to 1x (96 DPI) from the screen's scaling")
     ap.add_argument("--still", action="store_true", help="save the last frame as PNG")
+    ap.add_argument("--lossless", action="store_true", help="WebP: lossless (bigger, exact)")
     a = ap.parse_args()
     BG = tuple(int(a.bg[i:i + 2], 16) for i in (0, 2, 4))
     try:
@@ -163,8 +164,13 @@ def main():
             durs[-1] += dur
             continue
         kept.append(f); durs.append(dur)
-    pal = [f.quantize(colors=255, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE) for f in kept]
-    pal[0].save(a.out, save_all=True, append_images=pal[1:], duration=[int(d) for d in durs], loop=0, optimize=True, disposal=1)
+    if a.out.lower().endswith(".webp"):
+        # full color (a GIF's 256 colors per frame turned the glow's gradients into steps)
+        kept[0].save(a.out, save_all=True, append_images=kept[1:], duration=[int(d) for d in durs], loop=0,
+                     lossless=a.lossless, quality=95 if not a.lossless else 80, method=6)
+    else:
+        pal = [f.quantize(colors=255, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE) for f in kept]
+        pal[0].save(a.out, save_all=True, append_images=pal[1:], duration=[int(d) for d in durs], loop=0, optimize=True, disposal=1)
     print(f"{len(frames)} frames at {real_fps:.1f} fps -> {len(kept)} kept, {os.path.getsize(a.out) // 1024} KB, {kept[0].size} -> {a.out}")
 
 

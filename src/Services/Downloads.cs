@@ -222,7 +222,9 @@ public sealed class Downloads
         {
             "--ignore-config", "--no-playlist", "--newline", "--progress", "--no-colors", "--windows-filenames", "--no-mtime", "--quiet",
             "--ffmpeg-location", tools.PathOf("ffmpeg"),
-            "--js-runtimes", "quickjs:" + tools.PathOf("quickjs"),
+            // YouTube's player needs a JavaScript engine: Node when it's installed (it solves
+            // YouTube's challenge in about half the time), else the QuickJS Isola keeps
+            "--js-runtimes", "node", "--js-runtimes", "quickjs:" + tools.PathOf("quickjs"),
             "-P", dest, "-P", "temp:" + TempDir,
             "-o", "%(title).150B.%(ext)s",
             "--progress-template", "download:ISOLA|dl|%(progress.downloaded_bytes)s|%(progress.total_bytes)s|%(progress.total_bytes_estimate)s|%(progress.speed)s|%(progress.eta)s|%(info.vcodec)s|%(info.acodec)s",
@@ -238,6 +240,8 @@ public sealed class Downloads
             // H.264 and AAC first, so the MP4 plays everywhere (Windows' player, phones, editors)
             a.AddRange(new[] { "-f", "bv*+ba/b", "-S", "vcodec:h264" + cap + ",acodec:m4a", "--merge-output-format", "mp4", "--embed-metadata" });
         }
+        // recordings only (README, trailer): a real download, slowed so its progress can be seen
+        if (Environment.GetEnvironmentVariable("ISOLA_DOWNLOAD_RATE") is { Length: > 0 } rate && System.Text.RegularExpressions.Regex.IsMatch(rate, @"^\d+[KM]?$")) a.AddRange(new[] { "--limit-rate", rate });
         a.Add("--");   // whatever comes next is the link, never an option
         a.Add(job.Source);
         return a;

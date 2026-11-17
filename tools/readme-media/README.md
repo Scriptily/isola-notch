@@ -1,6 +1,7 @@
 # README media
 
-The scripts that make the images and GIFs in the main README and the logos in
+The scripts that make the images and animations (WebP, full color, so the
+glow's gradients don't band as they did in GIFs) in the main README and the logos in
 `assets/`. Re-record whenever a feature on the page changes, so the page
 always shows the app as it is.
 
@@ -25,6 +26,12 @@ python tools\readme-media\logos.py                # the logos and wordmarks
 | `sample_data.py` | Writes the sample data folder into `.work/` (ignored by git) |
 | `stub_ha.py` | A stand-in Home Assistant serving the sample devices on `127.0.0.1:8125` |
 | `logos.py` | The icon with the name, with and without the tagline, and the name alone |
+
+Two more switches for recordings: `ISOLA_SHOWCASE_MEDIA` (a tracks.json in
+`.work/media`) shows real songs playing without playing anything, and
+`ISOLA_TOOLS` points at a copy of the download tools so a take downloads for
+real (slowed by `ISOLA_DOWNLOAD_RATE`, into `.work/Downloads`). Showcase states
+chain: `download:<link>;rest@6;expand:shelf@13.5`.
 
 A take keeps a frame only if the window's edges show the backdrop. Until the
 island draws its first frame, its window shows whatever is behind it on the

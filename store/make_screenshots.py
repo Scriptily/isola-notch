@@ -61,8 +61,12 @@ def shot(island, title, sub, name):
     print(name)
 
 
-shot(Image.open(SRC / "home.png").convert("RGB"), "Your home, at the top of the screen", "Lights, scenes, climate and locks from Home Assistant, a click away", "1-home.png")
+for old in OUT.glob("*.png"):
+    old.unlink()   # the set changes; none of the last one stays behind
+shot(Image.open(SRC / "music.png").convert("RGB"), "Your music, alive at the top", "The cover, a waveform and a glow in its colors, whatever app is playing", "1-music.png")
 shot(Image.open(SRC / "popup.png").convert("RGB"), "Notifications that don't get in the way", "Messages, calls from your phone, music and devices, in one small pill", "2-popups.png")
-shot(Image.open(SRC / "search.png").convert("RGB"), "A launcher on Alt+Space", "Math, units, commands, apps and files as you type", "3-search.png")
-shot(Image.open(SRC / "notes.png").convert("RGB"), "Notes and to-dos, always at hand", "Weather, a file shelf, your clipboard and a timer are a scroll away", "4-notes.png")
-shot(Image.open(SRC / "hello.png").convert("RGB"), "Isola", "A small, fast island for Windows: about 30 MB of memory, no telemetry", "5-hello.png")
+shot(Image.open(SRC / "downloads.png").convert("RGB"), "Paste a link, get the video", "Download from YouTube and most sites, or convert a file to MP3, MP4 or GIF", "3-downloads.png")
+shot(Image.open(SRC / "search.png").convert("RGB"), "A launcher on Alt+Space", "Math, units, commands, apps and files as you type", "4-search.png")
+shot(Image.open(SRC / "home.png").convert("RGB"), "Your home, at the top of the screen", "Lights, scenes, climate and locks from Home Assistant, a click away", "5-home.png")
+shot(Image.open(SRC / "notes.png").convert("RGB"), "Notes and to-dos, always at hand", "Weather, a file shelf, your clipboard and a timer are a scroll away", "6-notes.png")
+shot(Image.open(SRC / "hello.png").convert("RGB"), "Isola", "A small, fast island for Windows: about 30 MB of memory, no telemetry", "7-hello.png")

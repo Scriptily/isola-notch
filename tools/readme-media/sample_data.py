@@ -29,9 +29,9 @@ def write(style="notch", hello=False, media=False):
         "Notifications": False, "Calls": False, "HideWindowsBanners": False, "Sounds": False,
         "AutoUpdate": False, "Clipboard": False, "Shelf": True,
         # recordings with music use ShowcaseMedia (tracks.json): shown, never played
-        "Media": media, "MediaWaveform": True,
+        "Media": media, "MediaWaveform": True, "SpotifyVolume": False,
         # downloads go to a scratch folder here, never the real Downloads
-        "Downloads": True, "DownloadTo": "folder", "DownloadFolder": str(WORK / "downloads"),
+        "Downloads": True, "DownloadTo": "folder", "DownloadFolder": str(WORK / "Downloads"),
         "WeatherSource": "homeassistant", "WeatherEntity": "weather.home",
         "HaBaseUrl": f"http://127.0.0.1:{PORT}", "HaToken": "sample",
         "HaEntities": ["light.living_room", "light.desk_lamp", "light.kitchen", "scene.movie_night",
@@ -75,7 +75,7 @@ def write(style="notch", hello=False, media=False):
         {"Kind": "text", "Text": "Flight AB 123 lands 18:40, terminal 2", "Added": (now - timedelta(hours=3)).isoformat()},
     ]
     (HOME / "shelf.json").write_text(json.dumps(shelf, indent=1), encoding="utf-8")
-    (WORK / "downloads").mkdir(exist_ok=True)
+    (WORK / "Downloads").mkdir(exist_ok=True)
     for f in ("downloads.json",):
         try: (HOME / f).unlink()
         except FileNotFoundError: pass

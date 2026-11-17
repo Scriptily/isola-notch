@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hello-dark.gif">
-    <img src="assets/readme/hello-light.gif" alt="Isola's notch saying hello as it starts" width="640">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hello-dark.webp">
+    <img src="assets/readme/hello-light.webp" alt="Isola's notch saying hello as it starts" width="640">
   </picture>
 </p>
 
@@ -32,7 +32,7 @@ happening as it happens (a notification, a call, a song, your AirPods
 connecting) and opens into a dashboard when you click it. Press `Alt+Space`
 and it turns into a launcher.
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/open-dark.gif"><img src="assets/readme/open-light.gif" alt="The island opening into the Home dashboard" width="651"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/open-dark.webp"><img src="assets/readme/open-light.webp" alt="The island opening into the Home dashboard" width="651"></picture></p>
 
 ## Light on your computer
 
@@ -46,7 +46,7 @@ rights.
 | CPU, nothing moving | under 0.1% |
 | CPU, music playing (the waveform moves) | about 0.4% |
 | Download | 8 MB installer |
-| On disk | 19 MB |
+| On disk | 19 MB, plus 130 MB for the download tools once you use them |
 
 It draws frames only while something moves, paced to your display, on the
 power-saving GPU. The drifting glow and the waveform are what keep it drawing;
@@ -58,7 +58,7 @@ back if Isola ever stops (more on that [below](#what-it-changes-in-windows)).
 
 ### Popups
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/popups-dark.gif"><img src="assets/readme/popups-light.gif" alt="A message, an incoming call, a song, AirPods and a timer, one after another" width="484"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/popups-dark.webp"><img src="assets/readme/popups-light.webp" alt="A message, an incoming call, a song, AirPods and a timer, one after another" width="484"></picture></p>
 
 Notifications with the sending app's icon, calls from your phone through Phone
 Link (answer or decline right on the island), track changes, Bluetooth devices
@@ -72,6 +72,43 @@ Isola has its own sounds, made in code: chimes for notifications, ringtones
 for calls, alarms for the timer, and soft clicks and tones for devices, the
 charger and low battery. Each has four to six to pick from, all matched in
 loudness so none is jarringly louder than another, or you can turn them off.
+They play the moment something happens, and one volume setting (50% to 150%)
+sets them all.
+
+### Music
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/music-dark.webp"><img src="assets/readme/music-light.webp" alt="A song playing in the pill with a waveform, then the Now Playing tab and the next track" width="680"></picture></p>
+
+Whatever is playing (Spotify, a browser, any media app) sits in the pill with
+its cover and a waveform. Open it for the cover, seek, skip, shuffle and
+repeat. The glow along the bottom takes its colors from the cover and changes
+with every track.
+
+### Downloads and conversion
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/downloads-dark.webp"><img src="assets/readme/downloads-light.webp" alt="A YouTube link pasted into the Shelf, its progress in the pill, then Downloaded" width="690"></picture></p>
+
+Paste a link into the bar on the Shelf tab, pick Video or Audio, and press
+Enter. It works with YouTube and most other video and music sites. Its
+progress shows in the pill while you do something else, and the file lands in
+your Downloads folder, a folder you choose, or on the Shelf. Videos come as
+MP4 up to 1080p (or the best there is), audio as MP3 or M4A.
+
+Any video or song on the Shelf converts to MP4, MP3, GIF, M4A, WAV or WebM, or
+to a smaller MP4, from the button on its tile. The launcher does both too:
+`download` or `audio` followed by a link, `convert mp3`, and `downloads` for
+the history.
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/shelf-dark.png"><img src="assets/readme/shelf-light.png" alt="The Downloads panel: one download finding its audio, one finished" width="560"></picture></p>
+
+The work is done by [yt-dlp](https://github.com/yt-dlp/yt-dlp),
+[FFmpeg](https://ffmpeg.org/) (the "essentials" build by
+[Gyan](https://www.gyan.dev/ffmpeg/builds/)) and
+[QuickJS](https://github.com/quickjs-ng/quickjs). They aren't in the installer:
+Isola fetches them from each project's GitHub releases the first time you
+download (about 130 MB), checks every file against the checksum GitHub
+publishes, and updates them once a day. They sit in Isola's own folder and go
+when you uninstall it. Download only what you have the right to keep.
 
 ### Dashboard
 
@@ -79,6 +116,7 @@ loudness so none is jarringly louder than another, or you can turn them off.
 |---|---|
 | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/home-dark.png"><img src="assets/readme/home-light.png" alt="Home Assistant tiles" width="420"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/weather-dark.png"><img src="assets/readme/weather-light.png" alt="Weather" width="420"></picture> |
 | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/notes-dark.png"><img src="assets/readme/notes-light.png" alt="Notes and to-dos" width="420"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/timer-dark.png"><img src="assets/readme/timer-light.png" alt="Timer" width="420"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/media-dark.png"><img src="assets/readme/media-light.png" alt="Now Playing with the song's cover" width="420"></picture> | |
 
 Click the island and scroll sideways through the tabs:
 
@@ -91,7 +129,8 @@ Click the island and scroll sideways through the tabs:
 * **Weather** from Home Assistant or [Open-Meteo](https://open-meteo.com/)
 * **Notes** and to-dos
 * **Shelf**: drop files, text, links or images on the island to park them,
-  then drag them back out anywhere
+  then drag them back out anywhere. Its bar downloads from a link (see
+  [Downloads and conversion](#downloads-and-conversion))
 * **Clipboard**: your Windows clipboard history (Win+V)
 * **Timer**: tap a length or type one (`7m`, `1:30`, `1h 20m`). It counts down
   in the pill and keeps running through a restart
@@ -99,7 +138,7 @@ Click the island and scroll sideways through the tabs:
 
 ### Search and commands
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/search-dark.gif"><img src="assets/readme/search-light.gif" alt="Typing 15% of 80 into the launcher" width="734"></picture></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/search-dark.webp"><img src="assets/readme/search-light.webp" alt="Typing 15% of 80 into the launcher" width="734"></picture></p>
 
 `Alt+Space` (or pull the island down) opens a launcher that answers as you
 type: math (`15% of 80`), units (`10 km to mi`), colors (`#ff8800`), the time

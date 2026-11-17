@@ -44,6 +44,9 @@ public sealed class ShowcaseMedia : IMediaSourceEx
         tracks = JsonSerializer.Deserialize(File.ReadAllText(listFile), ShowcaseJson.Default.ListTrack) ?? new();
         if (tracks.Count == 0) tracks.Add(new Track { Title = "Track", Artist = "Artist" });
         Load(0);
+        // announced once the island is listening, as the real player is when it first reads the
+        // session: the island takes the glow's colors from the cover then (it stayed on the defaults)
+        Ui.After(0.3, () => Changed?.Invoke());
     }
 
     void Load(int i)
