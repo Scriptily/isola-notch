@@ -40,14 +40,14 @@ public static partial class Scenarios
 
     const string Url = "https://relay.example/feedback";
 
-    [Scenario("the feedback ID is always 20 digits, the same for the same machine in every app, different for another, and never the machine's ID")]
+    [Scenario("the feedback ID is always 16 digits, shown as @User and the digits, the same for the same machine in every app, different for another, and never the machine's ID")]
     public static void FeedbackUserId()
     {
         string a = Feedback.UserIdFrom(TestMachine);
         True(Feedback.ValidUserId(a), "format: " + a);
-        Eq(20, a.Length, "always 20 digits: " + a);
+        Eq(16, a.Length, "always 16 digits: " + a);
         // the key is shared by every app (the template keeps it as is), so this value is what every app derives on this machine
-        Eq("72073953124684870734", a, "the same ID in every app");
+        Eq("1953124684870734", a, "the same ID in every app");
         Eq(a, Feedback.UserIdFrom(" 4C4C4544-0042-3510-8051-B4C04F4E4D32 "), "same computer, however the GUID is written");
         True(a != Feedback.UserIdFrom("4c4c4544-0042-3510-8051-b4c04f4e4d33"), "another computer gets another number");
         True(!a.Contains("4c4c"), "the hardware ID itself isn't in it");
@@ -55,9 +55,10 @@ public static partial class Scenarios
         True(v.Length == 32 && v.All(Uri.IsHexDigit), "the verifier is 32 hex digits: " + v);
         True(!a.Contains(v[..8]) && v != Feedback.VerifierFrom("other"), "an independent hash");
         var many = Enumerable.Range(0, 20000).Select(i => Feedback.UserIdFrom(Guid.NewGuid().ToString())).ToList();
-        True(many.All(id => id.Length == 20 && Feedback.ValidUserId(id)), "always exactly 20 digits");
+        True(many.All(id => id.Length == 16 && Feedback.ValidUserId(id)), "always exactly 16 digits");
         Eq(20000, many.Distinct().Count(), "no collisions among 20,000 machines");
-        True(!Feedback.ValidUserId("User16409431318738264986") && !Feedback.ValidUserId("1640943131873826498") && !Feedback.ValidUserId("06409431318738264986"), "nothing but 20 digits");
+        True(!Feedback.ValidUserId("User1640943131873826") && !Feedback.ValidUserId("164094313187382") && !Feedback.ValidUserId("0640943131873826") && !Feedback.ValidUserId("16409431318738264986"), "nothing but 16 digits");
+        Eq("@User1640943131873826", Feedback.Handle("1640943131873826"), "shown and copied as @User and the digits");
     }
 
     [Scenario("feedback: one a day, the same text never twice (whatever the case or spacing), both remembered across restarts")]
@@ -108,7 +109,7 @@ public static partial class Scenarios
             Eq("isola", (string)b["app"], "and the app");
             Eq("store", (string)b["source"], "Store or GitHub");
             Eq(null, (string)b["logs"], "no logs unless attached");
-            var withLogs = JsonNode.Parse(Feedback.Payload("16409431318738264986", new string('a', 32), FeedbackKind.Bug, "s", "t", "1", "w", false, "log text"))!;
+            var withLogs = JsonNode.Parse(Feedback.Payload("1640943131873826", new string('a', 32), FeedbackKind.Bug, "s", "t", "1", "w", false, "log text"))!;
             Eq("log text", (string)withLogs["logs"], "attached logs go along");
         }
         finally { File.Delete(file); }
@@ -122,12 +123,12 @@ public static partial class Scenarios
         {
             string derived = Feedback.UserIdFrom(TestMachine);
             Eq(derived, fb.UserId, "before any answer, the derived ID");
-            relay.User = "27182818284590452353";   // another machine already had it: the hub gave this one another
+            relay.User = "2718281828459045";   // another machine already had it: the hub gave this one another
             var r = fb.SendAsync(Url, FeedbackKind.Bug, "Crash", "It crashed when I opened the shelf.", "1.4.0", "w", false, null).Result;
             Eq(41L, r.Report, "the report's number");
-            Eq("27182818284590452353", fb.UserId, "the ID the hub assigned");
+            Eq("2718281828459045", fb.UserId, "the ID the hub assigned");
             var (fb2, relay2, _, advance2, _) = NewFeedback(file);
-            Eq("27182818284590452353", fb2.UserId, "kept across restarts");
+            Eq("2718281828459045", fb2.UserId, "kept across restarts");
             Eq(41L, fb2.Reports.Single(), "and so is the report number");
             advance2(25);
             relay2.User = null;

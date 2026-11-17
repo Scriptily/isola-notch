@@ -50,13 +50,16 @@ public sealed partial class Feedback
     // told apart from two people's.
     static ReadOnlySpan<byte> IdKey => "Scriptily device id v1"u8;
     static ReadOnlySpan<byte> VerifierKey => "Scriptily device verifier v1"u8;
-    static readonly UInt128 IdLow = UInt128.Parse("10000000000000000000"), IdSpan = UInt128.Parse("90000000000000000000");   // 20-digit numbers: 10^19 .. 10^20 - 1
+    static readonly UInt128 IdLow = UInt128.Parse("1000000000000000"), IdSpan = UInt128.Parse("9000000000000000");   // 16-digit numbers: 10^15 .. 10^16 - 1
+
+    /// <summary>How an ID is shown and copied: "@User" and its digits.</summary>
+    public static string Handle(string id) => "@User" + id;
 
     /// <summary>
-    /// Always 20 digits, the same every time on this machine and in every app:
+    /// Always 16 digits, the same every time on this machine and in every app:
     /// a one-way hash of Windows' machine GUID. The GUID never leaves the computer and
-    /// the number can't be turned back into it (there is no decrypt). 9 x 10^19
-    /// possible IDs is about 11 billion for every person alive; the feedback
+    /// the number can't be turned back into it (there is no decrypt). 9 x 10^15
+    /// possible IDs is over a million for every person alive; the feedback
     /// hub makes "no two machines share one" certain (see <see cref="VerifierFrom"/>).
     /// </summary>
     public static string UserIdFrom(string hardwareId)
@@ -69,7 +72,7 @@ public sealed partial class Feedback
     /// <summary>
     /// A second, independent hash of the same GUID. The hub knows each machine
     /// by it, so if another machine ever derived the same ID, it's given another
-    /// free 20-digit one instead of sharing, and an ID once given is never given
+    /// free 16-digit one instead of sharing, and an ID once given is never given
     /// to anyone else.
     /// </summary>
     public static string VerifierFrom(string hardwareId) =>
@@ -78,7 +81,7 @@ public sealed partial class Feedback
     static byte[] Norm(string hardwareId) => Encoding.UTF8.GetBytes((hardwareId ?? "").Trim().ToLowerInvariant());
 
     public static bool ValidUserId(string id) => id != null && UserIdRx().IsMatch(id);
-    [GeneratedRegex(@"^[1-9]\d{19}$")] private static partial Regex UserIdRx();
+    [GeneratedRegex(@"^[1-9]\d{15}$")] private static partial Regex UserIdRx();
 
     /// <summary>The sender's UTC offset right now, "+03:00": the hub shows each report in its reader's time and its sender's.</summary>
     public static string Offset(DateTime utcNow, TimeZoneInfo zone = null)
