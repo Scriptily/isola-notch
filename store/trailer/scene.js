@@ -417,13 +417,28 @@ window.still = spec => {
     renderer.toneMappingExposure = 1.05 * 0.45;
     stillCap.style.display = 'none'; shade.style.opacity = 0;
   } else {
-    // the whole laptop, three-quarters on, on the right; the words on the left
-    const cp = spec.cam ?? [-28, 27, 62], cl = spec.look ?? [-18.5, 2, 0];
-    camera.position.set(mid.x + cp[0], mid.y + cp[1], mid.z + cp[2]); camera.lookAt(mid.x + cl[0], mid.y + cl[1], mid.z + cl[2]);
+    // close on the island, from this shot's own angle: az (around), el (above), d (away) from the
+    // island's middle as it sits on the turned laptop; it lands on the side away from the words
+    laptop.updateMatrixWorld(true);
+    const sc = screenOverride.scale, target = onScreen(0.5, Math.min(0.45, im.height * sc / 2 / SH));
+    const az = spec.az * Math.PI / 180, el = spec.el * Math.PI / 180;
+    // far enough that the island fills its share of the frame (about half), whatever its size
+    const islandW = im.width * sc / SW * SPW;
+    spec = { ...spec, d: spec.d ?? islandW / (1.02 * (spec.fill ?? 0.46)) };
+    camera.up.set(0, 1, 0);
+    camera.position.set(target.x + spec.d * Math.sin(az) * Math.cos(el), target.y + spec.d * Math.sin(el), target.z + spec.d * Math.cos(az) * Math.cos(el));
+    camera.lookAt(target);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion), up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+    const textRight = spec.textSide === 'right';
+    camera.lookAt(target.clone().addScaledVector(right, (textRight ? 1 : -1) * 0.21 * 1.02 * spec.d).addScaledVector(up, -(spec.lift ?? 0.04) * spec.d));
+    camera.rotateZ((spec.roll ?? 0) * Math.PI / 180);
     logo.style.opacity = 0;
     renderer.toneMappingExposure = 1.05;
-    stillCap.style.left = '150px'; stillCap.style.top = (spec.y ?? 470) + "px"; stillCap.style.display = 'block';
-    stillCap.innerHTML = `<span class="line lead" style="font-size:70px">${spec.lead}</span><span class="line" style="font-size:70px">${spec.line}</span><span class="sub" style="font-size:28px;max-width:640px;white-space:normal">${spec.sub}</span>`;
+    const textRight2 = spec.textSide === 'right';
+    stillCap.style.left = textRight2 ? 'auto' : '150px'; stillCap.style.right = textRight2 ? '150px' : 'auto'; stillCap.style.textAlign = textRight2 ? 'right' : 'left';
+    stillCap.style.top = (spec.y ?? 470) + "px"; stillCap.style.display = 'block';
+    shade.style.background = `linear-gradient(${textRight2 ? 270 : 90}deg in oklch, rgba(3,4,8,0.78) 0%, rgba(3,4,8,0.5) 32%, rgba(3,4,8,0) 58%)`;
+    stillCap.innerHTML = `<span class="line lead" style="font-size:70px">${spec.lead}</span><span class="line" style="font-size:70px">${spec.line}</span><span class="sub" style="font-size:28px;max-width:640px;white-space:normal;${textRight2 ? 'margin-left:auto' : ''}">${spec.sub}</span>`;
     shade.style.opacity = 1;
   }
   bloom.strength = 0.5;
