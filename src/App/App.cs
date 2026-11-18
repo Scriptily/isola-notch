@@ -339,7 +339,7 @@ public sealed unsafe partial class App
     {
         if (n.IsCall && cfg.Calls)
         {
-            island.Alert(Alerts.Call(n.Id.ToString(), n.Title, n.Icon, () => CallButton(false), () => CallButton(true), () => Win32.ShellExecute("ms-phone:")));
+            island.Alert(Alerts.Call(n.Id.ToString(), n.Caller.Length > 0 ? n.Caller : n.Title, n.Icon, () => CallButton(false), () => CallButton(true), () => Win32.ShellExecute("ms-phone:")));
             return;
         }
         if (!cfg.Notifications) return;

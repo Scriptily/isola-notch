@@ -17,7 +17,14 @@ public static partial class Scenarios
     [Scenario("only Phone Link's own call notification rings: a message that says \"calling\" never does")]
     public static void OnlyRealCallsRing()
     {
-        True(NotificationFeed.IsPhoneCall(FromPhoneLink("Incoming call", "Sam")), "Phone Link's call: Incoming call, then the caller");
+        // as a real call arrived: the number first, "Incoming call" under it (1.4.0 missed these)
+        var real = FromPhoneLink("+965 5555 0132", "Incoming call");
+        True(NotificationFeed.IsPhoneCall(real), "a call from a number: the number, then Incoming call");
+        Eq("+965 5555 0132", NotificationFeed.CallerOf(real), "the caller is the number, not the words");
+        Eq("Sam", NotificationFeed.CallerOf(FromPhoneLink("Sam", "Incoming call", "Phone Link")), "a saved contact, with a third line");
+        Eq("Unknown caller", NotificationFeed.CallerOf(FromPhoneLink("Incoming call")), "no caller line: said so");
+        True(NotificationFeed.IsPhoneCall(FromPhoneLink("Incoming call", "Sam")), "Phone Link's call the other way round: Incoming call, then the caller");
+        Eq("Sam", NotificationFeed.CallerOf(FromPhoneLink("Incoming call", "Sam")), "and the caller is still Sam");
         True(NotificationFeed.IsPhoneCall(FromPhoneLink("Calling…", "Sam")), "or Calling…");
         True(NotificationFeed.IsPhoneCall(FromPhoneLink("Incoming video call", "Sam")), "a video call too");
 
@@ -35,6 +42,8 @@ public static partial class Scenarios
         True(!NotificationFeed.IsPhoneCall(FromPhoneLink("Your cart is calling")), "the words inside a sentence");
         True(!NotificationFeed.IsPhoneCall(FromPhoneLink("Mom is calling you about dinner")), "nor a message about a call");
         True(!NotificationFeed.IsPhoneCall(FromPhoneLink("Incoming call from the office was missed")), "nor a longer line that starts the same");
+        True(!NotificationFeed.IsPhoneCall(FromPhoneLink("Sam", "Missed call")), "a missed call doesn't ring");
+        True(!NotificationFeed.IsPhoneCall(FromPhoneLink("Sam", "Are you free? Incoming call at 5")), "nor a message that mentions one");
         var teams = new NotificationItem { App = "Microsoft Teams", AppId = "MSTeams_8wekyb3d8bbwe!MSTeams" };
         NotificationFeed.Shape(teams, new() { "Incoming call", "Sam" }, null);
         True(!NotificationFeed.IsPhoneCall(teams), "another app's call notification isn't the phone ringing");

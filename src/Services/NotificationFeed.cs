@@ -16,6 +16,10 @@ public sealed class NotificationItem
     public byte[] Icon;
     public DateTime At;
     public bool IsCall;
+    /// <summary>The notification's lines as Windows gave them (Title and Body join them).</summary>
+    public List<string> Lines = new();
+    /// <summary>Who's calling, when it's a call: the line that isn't "Incoming call".</summary>
+    public string Caller = "";
 }
 
 /// <summary>
@@ -91,7 +95,8 @@ public sealed partial class NotificationFeed
                     Shape(it, texts, bundle);
                 }
                 catch { }
-                it.IsCall = IsPhoneCall(it);
+                it.Caller = CallerOf(it) ?? "";
+                it.IsCall = it.Caller.Length > 0;
                 // relayed phone apps all share Phone Link's id: their icons are keyed by app
                 string iconKey = it.Bundle != null ? "phone:" + it.Bundle : it.AppId;
                 if (!string.IsNullOrEmpty(iconKey) && !icons.ContainsKey(iconKey))
@@ -114,6 +119,7 @@ public sealed partial class NotificationFeed
     /// </summary>
     internal static void Shape(NotificationItem it, List<string> texts, string phoneBundle)
     {
+        it.Lines = texts.ToList();
         it.Title = texts.Count > 0 ? texts[0] : it.App;
         it.Body = string.Join(" ", texts.Skip(1));
         if (phoneBundle == null || texts.Count < 2) return;
@@ -126,17 +132,31 @@ public sealed partial class NotificationFeed
 
     /// <summary>
     /// Whether a notification is a phone call ringing. Only Phone Link's own
-    /// call notification counts: its first line is exactly "Incoming call" (or
-    /// "Calling…"), the caller under it. Matching "is calling" anywhere made an
-    /// app's message ("Your cart is calling", relayed from the phone) ring like
-    /// a call, so a phone app relayed by Phone Link never counts, and the
-    /// words must be the whole line, not part of a sentence.
+    /// call notification counts: one of its first lines is exactly "Incoming
+    /// call" (or "Calling…"), and the caller is the line beside it. Phone Link
+    /// puts the caller (a name or a number) first and "Incoming call" under it;
+    /// 1.4.0 looked only at the first line and missed every real call. Matching
+    /// "is calling" anywhere made an app's message ("Your cart is calling",
+    /// relayed from the phone) ring like a call, so a phone app relayed by
+    /// Phone Link never counts, and the words must be a whole line, not part of
+    /// a sentence.
     /// </summary>
-    internal static bool IsPhoneCall(NotificationItem it)
+    internal static bool IsPhoneCall(NotificationItem it) => CallerOf(it) != null;
+
+    /// <summary>Who's calling if it's a call (the line that isn't "Incoming call"), else null.</summary>
+    internal static string CallerOf(NotificationItem it)
     {
         bool fromPhoneLink = it.AppId.Contains("YourPhone", StringComparison.OrdinalIgnoreCase) || it.App.Equals("Phone Link", StringComparison.OrdinalIgnoreCase);
-        if (!fromPhoneLink || it.Bundle != null || it.Via.Length > 0) return false;
-        return CallLine.IsMatch(it.Title.Trim());
+        if (!fromPhoneLink || it.Bundle != null || it.Via.Length > 0) return null;
+        var lines = it.Lines.Count > 0 ? it.Lines : new List<string> { it.Title };
+        for (int i = 0; i < Math.Min(3, lines.Count); i++)
+        {
+            if (!CallLine.IsMatch(lines[i].Trim())) continue;
+            // the caller is the first other line with something in it; a call with no name says so
+            string caller = lines.Where((l, j) => j != i && !string.IsNullOrWhiteSpace(l) && !CallLine.IsMatch(l.Trim())).FirstOrDefault()?.Trim();
+            return string.IsNullOrEmpty(caller) ? "Unknown caller" : caller;
+        }
+        return null;
     }
     static readonly System.Text.RegularExpressions.Regex CallLine = new(@"^(incoming (voice |video |audio )?call|calling(…|\.\.\.)?)$",
         System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);

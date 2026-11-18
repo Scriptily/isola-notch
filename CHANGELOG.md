@@ -7,6 +7,17 @@ the number of changes in a release that only fixes and adjusts things, so
 1.4.0 with two fixes is 1.4.2. Each release's section below is also its GitHub
 release notes.
 
+## [Unreleased]
+
+### Fixed
+
+- Real phone calls showed as an ordinary notification and never rang. Phone
+  Link puts the caller first and "Incoming call" under it, and 1.4.0 (while
+  stopping messages that mention "calling" from ringing) only looked at the
+  first line. A call is now recognized when "Incoming call" is a whole line of
+  Phone Link's own notification, wherever it sits, and the caller shown is the
+  name or number beside it.
+
 ## [1.5.0] - 2026-11-18
 
 ### Added
