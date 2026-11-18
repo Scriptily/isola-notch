@@ -430,7 +430,8 @@ window.still = spec => {
     camera.lookAt(target);
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion), up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
     const textRight = spec.textSide === 'right';
-    camera.lookAt(target.clone().addScaledVector(right, (textRight ? 1 : -1) * 0.21 * 1.02 * spec.d).addScaledVector(up, -(spec.lift ?? 0.04) * spec.d));
+    const side = spec.textSide === 'center' ? 0 : (textRight ? 1 : -1) * 0.21 * 1.02;
+    camera.lookAt(target.clone().addScaledVector(right, side * spec.d).addScaledVector(up, -(spec.lift ?? 0.04) * spec.d));
     camera.rotateZ((spec.roll ?? 0) * Math.PI / 180);
     logo.style.opacity = 0;
     renderer.toneMappingExposure = 1.05;
@@ -438,8 +439,9 @@ window.still = spec => {
     stillCap.style.left = textRight2 ? 'auto' : '150px'; stillCap.style.right = textRight2 ? '150px' : 'auto'; stillCap.style.textAlign = textRight2 ? 'right' : 'left';
     stillCap.style.top = (spec.y ?? 470) + "px"; stillCap.style.display = 'block';
     shade.style.background = `linear-gradient(${textRight2 ? 270 : 90}deg in oklch, rgba(3,4,8,0.78) 0%, rgba(3,4,8,0.5) 32%, rgba(3,4,8,0) 58%)`;
+    if (spec.art) { stillCap.style.display = 'none'; }
     stillCap.innerHTML = `<span class="line lead" style="font-size:70px">${spec.lead}</span><span class="line" style="font-size:70px">${spec.line}</span><span class="sub" style="font-size:28px;max-width:640px;white-space:normal;${textRight2 ? 'margin-left:auto' : ''}">${spec.sub}</span>`;
-    shade.style.opacity = 1;
+    shade.style.opacity = spec.art ? 0 : 1;
   }
   bloom.strength = 0.5;
   fade.style.opacity = 0;
