@@ -18,6 +18,14 @@ release notes.
   Phone Link's own notification, wherever it sits, and the caller shown is the
   name or number beside it.
 
+### VirusTotal
+
+1 of 66 security vendors flagged `IsolaSetup.exe` on 2026-11-18. [Full report](https://www.virustotal.com/gui/file/867c1d2f6c6dc6bfaba2bdaa55c64cc89dace594c913a4de7ff4baf93d40828c)
+
+- Bkav: W32.Malware.220C3002
+
+The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
+
 ## [1.5.0] - 2026-11-18
 
 ### Added
