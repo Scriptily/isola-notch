@@ -40,6 +40,13 @@ setup and this package from the same source, and submits the package to
 Partner Center. Certification takes up to three business days, and the Store
 updates installed copies itself.
 
+To submit a package yourself instead (with a listing update, say), set the
+repository variable `STORE_SUBMIT` to `manual` before tagging: the run still
+builds the package and keeps it as the artifact `Isola-<version>-msix`
+(`gh run download <run> -n Isola-<version>-msix`). Delete the variable to go
+back to automatic submission. A release must never run while a submission is
+open in Partner Center: the Store tool deletes a pending one it finds.
+
 ## One-time setup
 
 1. **Partner Center account.** Register as an individual developer at

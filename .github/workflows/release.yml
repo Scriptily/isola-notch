@@ -130,10 +130,14 @@ jobs:
           path: ${{ steps.msix.outputs.path }}
           if-no-files-found: error
 
+      # The repo variable STORE_SUBMIT=manual skips the Store steps for a while:
+      # the package is still built and kept as this run's artifact, to upload
+      # by hand with a listing update (a release while that submission is open
+      # would delete it, or fail against one in certification).
       # Signs in first, so an expired secret fails here with the renewal steps
       # (and an issue) instead of somewhere inside msstore.
       - name: Check Partner Center access
-        if: steps.msix.outcome == 'success' && vars.STORE_PRODUCT_ID != ''
+        if: steps.msix.outcome == 'success' && vars.STORE_PRODUCT_ID != '' && vars.STORE_SUBMIT != 'manual'
         shell: pwsh
         working-directory: src
         env:
@@ -145,11 +149,11 @@ jobs:
         run: .\store\check-store-access.ps1
 
       - name: Set up the Microsoft Store CLI
-        if: steps.msix.outcome == 'success' && vars.STORE_PRODUCT_ID != ''
+        if: steps.msix.outcome == 'success' && vars.STORE_PRODUCT_ID != '' && vars.STORE_SUBMIT != 'manual'
         uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
 
       - name: Submit to the Microsoft Store
-        if: steps.msix.outcome == 'success' && vars.STORE_PRODUCT_ID != ''
+        if: steps.msix.outcome == 'success' && vars.STORE_PRODUCT_ID != '' && vars.STORE_SUBMIT != 'manual'
         shell: pwsh
         working-directory: src
         env:
