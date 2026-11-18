@@ -26,3 +26,11 @@ ffmpeg -framerate 60 -i out\%05d.png -i music.wav -c:v libx264 -preset slow -crf
 
 `node capture.mjs still 5 12.5 ...` renders single frames to `stills\` for checking.
 The output (frames, video, lib) stays out of git.
+
+The Store screenshots come from the same scene: one composed frame each, the
+island on the laptop's screen with the trailer's captions (`shots.json` lists
+them):
+
+```powershell
+node capture.mjs shots shots.json ..\screenshots
+```

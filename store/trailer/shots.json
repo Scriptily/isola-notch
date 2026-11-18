@@ -1,0 +1,65 @@
+[
+ {
+  "name": "1-music",
+  "clip": "music",
+  "frame": 165,
+  "d": 23.8,
+  "down": 4.6,
+  "lead": "Your music,",
+  "line": "alive at the top.",
+  "sub": "The cover, a waveform, and a glow in its colors."
+ },
+ {
+  "name": "2-notifications",
+  "clip": "popups",
+  "frame": 72,
+  "d": 19,
+  "down": 1.6,
+  "side": -0.28,
+  "lead": "Notifications",
+  "line": "that stay out of the way.",
+  "sub": "Messages, calls from your phone, songs and devices."
+ },
+ {
+  "name": "3-downloads",
+  "still": "shelf",
+  "d": 26.4,
+  "down": 5.2,
+  "lead": "Paste a link.",
+  "line": "Get the video.",
+  "sub": "From YouTube and most sites. Or convert to MP3, MP4 or GIF."
+ },
+ {
+  "name": "4-home",
+  "clip": "open",
+  "frame": 100,
+  "d": 25.5,
+  "down": 5.6,
+  "lead": "Your home,",
+  "line": "one click away.",
+  "sub": "Lights, scenes, climate and locks from Home Assistant."
+ },
+ {
+  "name": "5-search",
+  "clip": "search",
+  "frame": 90,
+  "d": 28.2,
+  "down": 5.6,
+  "lead": "Everything,",
+  "line": "one keystroke away.",
+  "sub": "Math, apps, files and commands on Alt+Space."
+ },
+ {
+  "name": "6-weather",
+  "still": "weather",
+  "d": 24.6,
+  "down": 5.2,
+  "lead": "Weather and notes,",
+  "line": "always at hand.",
+  "sub": "A timer, a shelf for files, and your clipboard history too."
+ },
+ {
+  "name": "7-isola",
+  "logo": true
+ }
+]

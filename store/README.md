@@ -118,9 +118,9 @@ Certification Kit (as administrator):
 >
 > It's light on your computer (about 30 MB of memory, under 0.1% CPU at rest), has no account and no telemetry, and is free and open source under GPL-3.0.
 
-**Screenshots:** `store/screenshots/1-music.png` to `7-hello.png` (1920x1080):
-`record_sources.py` records the stills from sample data, then
-`make_screenshots.py` frames them.
+**Screenshots:** `store/screenshots/1-music.png` to `7-isola.png` (1920x1080),
+in the trailer's look: the island on the 3D laptop with the trailer's
+captions, rendered from the trailer scene (see store/trailer/README.md).
 
 **Privacy policy URL:** `https://github.com/Scriptily/isola-notch/blob/main/PRIVACY.md`
 

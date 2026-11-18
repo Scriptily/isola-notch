@@ -185,7 +185,7 @@ for (const name of ['hello', 'music', 'popups', 'downloads', 'search', 'open']) 
   clips[name] = await Promise.all(Array.from({ length: n }, (_, i) => load(`frames/${name}/${String(i).padStart(4, '0')}.png`)));
 }
 const stills = {};
-for (const name of ['home', 'weather', 'notes', 'timer']) stills[name] = await load(`frames/${name}.png`);
+for (const name of ['home', 'weather', 'notes', 'timer', 'shelf', 'media', 'commands']) stills[name] = await load(`frames/${name}.png`);
 const wallpaper = await (async () => {
   const c = document.createElement('canvas'); c.width = SW; c.height = SH;
   const g = c.getContext('2d');
@@ -248,9 +248,16 @@ function drawCursor(t) {
 }
 
 const ISL = 1.62;   // the island's recordings at a 1600-pixel-wide screen's size
+let screenOverride = null;   // { im, cursor: [x, y] } for a still
 function drawScreen(t) {
   sg.drawImage(wallpaper, 0, 0);
-  const at = islandAt(t);
+  const at = screenOverride ? null : islandAt(t);
+  if (screenOverride) {
+    const sc = screenOverride.scale ?? ISL, im = screenOverride.im, w = im.width * sc, h = im.height * sc;
+    sg.drawImage(im, (SW - w) / 2, 0, w, h);
+    screenTex.needsUpdate = true;
+    return;
+  }
   if (at) {
     const im = clips[at[0]][Math.min(at[1], clips[at[0]].length - 1)];
     const w = im.width * ISL, h = im.height * ISL;
@@ -384,6 +391,43 @@ window.render = t => {
   logo.style.filter = `blur(${10 * (1 - lg)}px)`;
   renderer.toneMappingExposure = 1.05 * (1 - 0.55 * ease.inOut(span(t, 24.2, 25.4)));   // the laptop dims behind the logo
   fade.style.opacity = Math.max(1 - span(t, 0, 0.9), span(t, 29.4, 30));
+  composer.render();
+  return true;
+};
+
+// ---- the Store screenshots: one composed frame each, in the trailer's look -----------------------------
+const stillCap = document.createElement('div'); stillCap.className = 'caption'; stillCap.style.display = 'none';
+captionsEl.appendChild(stillCap);
+window.still = spec => {
+  const im = spec.clip ? clips[spec.clip][spec.frame] : stills[spec.still];
+  // a little larger than life on the screen, so it reads when the Store shows the shot small
+  screenOverride = spec.logo ? { im: clips.music[60] } : { im, scale: spec.scale ?? 2.55 };
+  for (const c of CAPS) c.el.style.display = 'none';
+  laptop.rotation.y = spec.rot ?? 0.3;
+  laptop.position.y = 0;
+  drawScreen(0);
+  for (const cap of [alt, space]) cap.visible = false;
+  cards.forEach(m => { m.visible = false; });
+  const p = motes.p.geometry.attributes.position;
+  for (let i = 0; i < p.count; i++) p.array[i * 3 + 1] = ((motes.base[i * 3 + 1] + 7 * motes.speed[i] + 10) % 80) - 10;
+  p.needsUpdate = true;
+  if (spec.logo) {
+    camera.position.set(mid.x, mid.y + 34, mid.z + 112); camera.lookAt(mid.x, mid.y + 17, mid.z);
+    logo.style.opacity = 1; logo.style.transform = 'none'; logo.style.filter = 'none';
+    renderer.toneMappingExposure = 1.05 * 0.45;
+    stillCap.style.display = 'none'; shade.style.opacity = 0;
+  } else {
+    // the whole laptop, three-quarters on, on the right; the words on the left
+    const cp = spec.cam ?? [-28, 27, 62], cl = spec.look ?? [-18.5, 2, 0];
+    camera.position.set(mid.x + cp[0], mid.y + cp[1], mid.z + cp[2]); camera.lookAt(mid.x + cl[0], mid.y + cl[1], mid.z + cl[2]);
+    logo.style.opacity = 0;
+    renderer.toneMappingExposure = 1.05;
+    stillCap.style.left = '150px'; stillCap.style.top = (spec.y ?? 470) + "px"; stillCap.style.display = 'block';
+    stillCap.innerHTML = `<span class="line lead" style="font-size:70px">${spec.lead}</span><span class="line" style="font-size:70px">${spec.line}</span><span class="sub" style="font-size:28px;max-width:640px;white-space:normal">${spec.sub}</span>`;
+    shade.style.opacity = 1;
+  }
+  bloom.strength = 0.5;
+  fade.style.opacity = 0;
   composer.render();
   return true;
 };

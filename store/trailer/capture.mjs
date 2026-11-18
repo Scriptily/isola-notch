@@ -15,7 +15,8 @@ const server = http.createServer(async (req, res) => {
 
 const args = process.argv.slice(2);
 const stills = args[0] === 'still' ? args.slice(1).map(Number) : null;
-const fps = stills ? 0 : Number(args[0] || 60), from = Number(args[1] || 0), to = Number(args[2] || 30);
+const shotsMode = args[0] === 'shots';
+const fps = stills || shotsMode ? 0 : Number(args[0] || 60), from = Number(args[1] || 0), to = Number(args[2] || 30);
 const edge = spawn('C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', ['--headless=new', '--remote-debugging-port=9341', `--user-data-dir=${join(ROOT, 'edge-profile')}`,
   '--hide-scrollbars', '--force-device-scale-factor=1', '--ignore-gpu-blocklist', '--enable-gpu-rasterization', '--window-size=1920,1080', 'about:blank'], { stdio: 'ignore' });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -31,6 +32,18 @@ await send('Page.navigate', { url: 'http://127.0.0.1:8931/index.html' });
 for (let i = 0; i < 400; i++) { await sleep(250); const r = await send('Runtime.evaluate', { expression: 'window.ready === true', returnByValue: true }); if (r.result?.value) break; if (i === 399) { console.log('never ready'); process.exit(1); } }
 const gl = await send('Runtime.evaluate', { expression: `(() => { const g = document.getElementById('gl').getContext('webgl2'); const d = g && g.getExtension('WEBGL_debug_renderer_info'); return d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : 'unknown'; })()`, returnByValue: true });
 console.log('renderer:', gl.result?.value);
+// node capture.mjs shots <shots.json> <folder>: the Store screenshots, one composed frame each
+if (args[0] === 'shots') {
+  const list = JSON.parse(await readFile(args[1], 'utf8'));
+  await mkdir(args[2], { recursive: true });
+  for (const spec of list) {
+    await send('Runtime.evaluate', { expression: `window.still(${JSON.stringify(spec)})`, returnByValue: true });
+    const shot = await send('Page.captureScreenshot', { format: 'png' });
+    await writeFile(join(args[2], spec.name + '.png'), Buffer.from(shot.data, 'base64'));
+    console.log('shot', spec.name);
+  }
+  ws.close(); edge.kill(); server.close(); process.exit(0);
+}
 const out = join(ROOT, stills ? 'stills' : 'out');
 await mkdir(out, { recursive: true });
 const times = stills ?? Array.from({ length: Math.round((to - from) * fps) }, (_, i) => from + i / fps);
