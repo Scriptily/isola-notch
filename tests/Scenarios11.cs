@@ -267,7 +267,15 @@ public static partial class Scenarios
         var names = Isola.App.SettingsWindow.Sections.Select(x => x.name).ToList();
         True(names.Contains("Notifications & Sounds") && !names.Contains("Notifications"), "Notifications & Sounds: " + string.Join(", ", names));
         Eq(names.Count, names.Distinct().Count(), "no two tabs share a name");
-        // the sidebar gives a name its row less the icon: the longest has to fit (13 px Segoe UI, about 7 px a character)
-        True(names.Max(n => n.Length) * 7 <= 220 - 24 - 50, $"the longest name fits ({names.OrderByDescending(n => n.Length).First()})");
+        // measured as drawn: 13 px, semibold when selected, in the 144 px the sidebar row leaves beside the icon
+        using var o = new Offscreen(400, 60);
+        o.Draw(c =>
+        {
+            foreach (var n in names)
+            {
+                float w = c.Measure(n, 13, Vortice.DirectWrite.FontWeight.SemiBold).w;
+                True(w <= 194 - 50, $"{n} fits ({w:0} of 144 px)");
+            }
+        });
     }
 }
