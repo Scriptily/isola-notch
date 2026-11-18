@@ -7,7 +7,7 @@ the number of changes in a release that only fixes and adjusts things, so
 1.4.0 with two fixes is 1.4.2. Each release's section below is also its GitHub
 release notes.
 
-## [Unreleased]
+## [1.5.0] - 2026-11-18
 
 ### Added
 
@@ -31,7 +31,8 @@ release notes.
   aren't in the installer: Isola fetches them from each project's GitHub
   releases the first time you download (about 130 MB), checks each file
   against the checksum GitHub publishes, and updates them once a day. They're
-  kept across Isola's updates and removed when you uninstall it.
+  kept across Isola's updates and removed when you uninstall it. If Node.js is
+  installed, YouTube downloads start about twice as fast.
 - A sound volume setting, from 50% to 150%, with 100% in the middle. Letting go
   of the slider plays a chime at the new level. Your earlier volume carries
   over.
