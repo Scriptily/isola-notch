@@ -7,7 +7,7 @@ the number of changes in a release that only fixes and adjusts things, so
 1.4.0 with two fixes is 1.4.2. Each release's section below is also its GitHub
 release notes.
 
-## [Unreleased]
+## [1.5.1] - 2026-11-18
 
 ### Fixed
 
