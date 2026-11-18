@@ -56,6 +56,10 @@ release notes.
 - Three command icons in search were emoji (YouTube, UUID and Shut down). They
   use Isola's own icons now, like everything else.
 
+### VirusTotal
+
+No security vendor flagged `IsolaSetup.exe`: 0 of 71 on 2026-11-18. [Full report](https://www.virustotal.com/gui/file/e99fcd41007564a82cbdf56b80c23ac99bd89b5cb6f56f02ff30c9bf1fa8a1d8)
+
 ## [1.4.0] - 2026-11-17
 
 ### Added
