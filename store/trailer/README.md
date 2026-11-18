@@ -39,5 +39,5 @@ The 16:9 Super hero art (artwork only, no text: the Store needs it for the
 trailer to play at the top of the listing, and shows it after the trailer):
 
 ```powershell
-node capture.mjs shots art.json ..\screenshotsrt
+node capture.mjs shots art.json ..\screenshots\art
 ```
