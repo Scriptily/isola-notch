@@ -14,6 +14,10 @@ release notes.
 - Settings: the Notifications tab is now Notifications & Sounds, since the
   island's sounds and their volume are set there too.
 
+### VirusTotal
+
+No security vendor flagged `IsolaSetup.exe`: 0 of 70 on 2026-11-18. [Full report](https://www.virustotal.com/gui/file/8fbfc0f3ae3bf0bd3812107b3947260b9ea4b04e07c6f0c9a6dda0bd565e889f)
+
 ## [1.5.1] - 2026-11-18
 
 ### Fixed
