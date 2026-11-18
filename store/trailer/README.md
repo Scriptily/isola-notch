@@ -41,3 +41,15 @@ trailer to play at the top of the listing, and shows it after the trailer):
 ```powershell
 node capture.mjs shots art.json ..\screenshots\art
 ```
+
+The banner loop (the first trailer, which the Store plays muted behind the
+listing's title): five scenes with no captions, the island kept right of
+center in the middle of the frame, where the Store's wide banner crops it.
+It is 20 s, ten bars of the music, and its last frame leads back into its
+first. A stopped render picks up from the frames it already wrote.
+
+```powershell
+node capture.mjs banner banner.json bannerframes 60 4.8
+python banner_encode.py
+```
+

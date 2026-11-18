@@ -409,7 +409,9 @@ window.still = spec => {
   for (const cap of [alt, space]) cap.visible = false;
   cards.forEach(m => { m.visible = false; });
   const p = motes.p.geometry.attributes.position;
-  for (let i = 0; i < p.count; i++) p.array[i * 3 + 1] = ((motes.base[i * 3 + 1] + 7 * motes.speed[i] + 10) % 80) - 10;
+  // the motes drift on through a banner scene (spec.motes is its time), still in a screenshot
+  const mt = spec.motes ?? 7;
+  for (let i = 0; i < p.count; i++) p.array[i * 3 + 1] = ((motes.base[i * 3 + 1] + mt * motes.speed[i] + 10) % 80) - 10;
   p.needsUpdate = true;
   if (spec.logo) {
     camera.position.set(mid.x, mid.y + 34, mid.z + 112); camera.lookAt(mid.x, mid.y + 17, mid.z);
