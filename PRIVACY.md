@@ -59,13 +59,13 @@ While Isola shows notifications itself, it turns off Windows' own banner and
 chime for each app, so each notification appears once. It saves the original
 settings first and puts them back when it stops showing notifications, when it
 quits, when you sign out, if it crashes, and when you uninstall it. You can turn
-this off in Settings -> Notifications -> Hide Windows' own popups and chime.
+this off in Settings -> Notifications & Sounds -> Hide Windows' own popups and chime.
 
 With "Start with Windows" on, it adds a sign-in task and a startup entry for
 your account. The uninstaller removes them, and can remove your data too.
 
 The Microsoft Store version (Isola Notch) changes none of these: it can't
-change Windows' notification settings, so Settings -> Notifications links to
+change Windows' notification settings, so Settings -> Notifications & Sounds links to
 Windows' own page where you can turn banners off yourself. It starts with
 Windows through its package's startup task, which you can also turn off in
 Windows' Startup apps, and keeps its data in its own package folder, which

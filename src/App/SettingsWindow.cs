@@ -46,9 +46,9 @@ public sealed unsafe partial class SettingsWindow
     static readonly Dictionary<nint, SettingsWindow> byHwnd = new();
     public bool Alive => hwnd != 0 && Win32.IsWindow(hwnd);
 
-    static readonly (string name, char glyph)[] Sections =
+    internal static readonly (string name, char glyph)[] Sections =
     {
-        ("Appearance", ''), ("Behavior", ''), ("Live Activities", ''), ("Notifications", Glyph.Bell),
+        ("Appearance", ''), ("Behavior", ''), ("Live Activities", ''), ("Notifications & Sounds", Glyph.Bell),
         ("Widgets", ''), ("Downloads", Glyph.Download), ("Search & Keys", Glyph.Keyboard), ("Home Assistant", Glyph.Home), ("Spotify", Glyph.Music), ("About & Logs", ''), ("Feedback", Glyph.Message),
     };
 
@@ -282,7 +282,7 @@ public sealed unsafe partial class SettingsWindow
             float h = ux.HoverT("sec:" + i);
             if (i != section && h > 0.01f) c.Fill(b, Col.White.A(0.05f * h), 8);
             c.Icon(Sections[i].glyph, b.X + 22, b.CY, 14, Col.White.A(i == section ? 1 : 0.7f));
-            c.Text(Sections[i].name, new Box(b.X + 42, b.Y, 150, b.H), 13, Col.White.A(i == section ? 1 : 0.75f), i == section ? FontWeight.SemiBold : FontWeight.Medium);
+            c.Text(Sections[i].name, new Box(b.X + 42, b.Y, b.W - 50, b.H), 13, Col.White.A(i == section ? 1 : 0.75f), i == section ? FontWeight.SemiBold : FontWeight.Medium);
             sy += 40;
         }
         // Quit, at the foot of the sidebar: Isola stops for now, and starts again
@@ -310,7 +310,7 @@ public sealed unsafe partial class SettingsWindow
             case "Appearance": Appearance(L); break;
             case "Behavior": Behavior(L); break;
             case "Live Activities": Activities(L); break;
-            case "Notifications": Notifications(L); break;
+            case "Notifications & Sounds": Notifications(L); break;
             case "Widgets": Widgets(L); break;
             case "Downloads": DownloadsSection(L); break;
             case "Search & Keys": Keys(L); break;

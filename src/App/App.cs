@@ -737,7 +737,7 @@ public sealed unsafe partial class App
             ended: null));
     }
 
-    /// <summary>Settings -> Notifications -> Preview popups: one of each kind, in turn.</summary>
+    /// <summary>Settings -> Notifications & Sounds -> Preview popups: one of each kind, in turn.</summary>
     public void PreviewPopups()
     {
         var m = svc.Media?.Current;

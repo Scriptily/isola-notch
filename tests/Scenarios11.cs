@@ -260,4 +260,14 @@ public static partial class Scenarios
         True(Math.Abs(Isola.App.App.SoundVolumeOf(new Config { SoundLevel = 0.5 }) - mid * 0.5f) < 1e-6, "50% is half the middle");
         True(Math.Abs(Isola.App.App.SoundVolumeOf(new Config { SoundLevel = 1.5 }) - mid * 1.5f) < 1e-6, "150% is one and a half times it");
     }
+
+    [Scenario("Settings names the tab with the sounds Notifications & Sounds, and every tab's name fits beside its icon")]
+    public static void SettingsTabNames()
+    {
+        var names = Isola.App.SettingsWindow.Sections.Select(x => x.name).ToList();
+        True(names.Contains("Notifications & Sounds") && !names.Contains("Notifications"), "Notifications & Sounds: " + string.Join(", ", names));
+        Eq(names.Count, names.Distinct().Count(), "no two tabs share a name");
+        // the sidebar gives a name its row less the icon: the longest has to fit (13 px Segoe UI, about 7 px a character)
+        True(names.Max(n => n.Length) * 7 <= 220 - 24 - 50, $"the longest name fits ({names.OrderByDescending(n => n.Length).First()})");
+    }
 }
