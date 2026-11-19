@@ -654,7 +654,7 @@ public sealed unsafe partial class SettingsWindow
         Toggle(L, "calls", "Phone calls", "Incoming calls from Phone Link, with answer and decline", work.Calls, v => work.Calls = v);
         L.End();
         L.Header("While you're focused");
-        Seg(L, "focussnd", "Sounds while media plays", "For notifications, calls and notices while music or a video plays",
+        Seg(L, "focussnd", "Sounds while media plays", "For notifications, calls and notices",
             new[] { "Full", "Quieter", "Muted" }, new[] { "full", "quiet", "mute" }, work.SoundsWhilePlaying, v => work.SoundsWhilePlaying = v);
         Toggle(L, "focushold", "Hold notifications until you're done", "While media plays or a game or video is fullscreen on any screen, they wait and show as one summary when it stops, or when you use the island",
             work.HoldWhileFocused, v => work.HoldWhileFocused = v);
