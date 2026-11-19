@@ -221,7 +221,8 @@ public static partial class Scenarios
         Eq("Spotify", MediaService.Pick(spotify, all, null, "Chrome", none, 100, i => i == spotify).pick.AppName, "Spotify up, the video muted: Spotify");
         Eq("Chrome", MediaService.Pick(chrome, all, null, "Spotify.exe", none, 100, _ => false).pick.AppName, "both quiet for a moment: no flip");
         chrome.Playing = false;
-        Eq("Spotify", MediaService.Pick(chrome, all, null, "Spotify.exe", none, 100, heard).pick.AppName, "pause the video: Spotify, silent or not, is what's playing");
+        Eq("Chrome", MediaService.Pick(chrome, all, null, "Spotify.exe", none, 100, heard).pick.AppName, "pause the video: it stays (Spotify is silent, so it doesn't take over)");
+        Eq("Spotify", MediaService.Pick(chrome, all, null, "Spotify.exe", none, 100, i => i == spotify ? true : null).pick.AppName, "but a Spotify you can hear does");
         chrome.Playing = true;
         Eq("Spotify", MediaService.Pick(chrome, all, "Spotify.exe", "Chrome", none, 100, heard).pick.AppName, "picking one by hand still wins");
     }
@@ -559,5 +560,41 @@ public static partial class Scenarios
         chrome.Playing = true; chrome.PlayingSince = 25;
         True(MediaService.PinReleased("Spotify.exe", 20, all), "the video resumes at 25 s: the pick lets go");
         True(!MediaService.PinReleased("Spotify.exe", 30, all), "picked again after that: it holds");
+    }
+
+    [Scenario("three players at once: the one you can hear wins; of two you can hear, the one started last; pausing keeps it over a silent one")]
+    public static void ThreePlayersPickSmartly()
+    {
+        var spotify = Playing("Spotify", "Spotify.exe", since: 10);                      // playing at 0% in its own app
+        var mp = Playing("Media Player", "Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic", since: 50);
+        var yt = Playing("Chrome", "Chrome", since: 80);
+        var all = new List<MediaInfo> { spotify, mp, yt };
+        Func<MediaInfo, bool> none = _ => false;
+        Func<MediaInfo, bool?> heard = i => i != spotify && i.Playing;
+        string Show(MediaInfo current, string windows = "Spotify.exe") => MediaService.Pick(current, all, null, windows, none, 100, heard).pick.AppName;
+
+        Eq("Chrome", Show(mp), "both heard: the video, started last, takes over");
+        Eq("Chrome", Show(yt), "and keeps the island while both play");
+        Eq("Chrome", Show(yt, "Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic"), "Windows calling Media Player current (a track change there) doesn't move it");
+        yt.Playing = false; yt.PlayingSince = double.NaN;
+        Eq("Media Player", Show(yt), "pause the video: Media Player, still heard, shows");
+        mp.Playing = false; mp.PlayingSince = double.NaN;
+        Eq("Media Player", Show(mp), "pause that too: it stays, paused; the silent Spotify doesn't take over");
+        yt.Playing = true; yt.PlayingSince = 95;
+        Eq("Chrome", Show(mp), "resume the video: it takes over again");
+        yt.Playing = false; yt.PlayingSince = double.NaN;
+        Eq("Chrome", Show(yt), "and pausing it keeps it");
+    }
+
+    [Scenario("play/pause holds what was asked against the app's late or repeated reports, then believes the app")]
+    public static void PlayPauseHoldsItsIntent()
+    {
+        double until = 10 + MediaService.PlayHold;
+        Eq(false, MediaService.Hold<bool>(true, false, 10.2, ref until) ?? true, "paused by the button; the app still says playing a moment later: paused");
+        until = 10 + MediaService.PlayHold;
+        Eq(false, MediaService.Hold<bool>(false, false, 10.3, ref until) ?? true, "the app agrees");
+        Eq(true, MediaService.Hold<bool>(true, false, 10.4, ref until) ?? false, "agreed once, the hold is over: a later \"playing\" is real");
+        until = 10 + MediaService.PlayHold;
+        Eq(true, MediaService.Hold<bool>(true, false, 10 + MediaService.PlayHold + 0.1, ref until) ?? false, "after the hold, the app is believed (it may have refused)");
     }
 }

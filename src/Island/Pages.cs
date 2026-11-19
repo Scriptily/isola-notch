@@ -493,6 +493,25 @@ public sealed class CompactPage : Page
         }
         var m = isl.Svc.Media.Current;
         if (m == null) return;
+        // another app's media crossfades in: the old row drifts up and out as the new one rises in
+        if (m.SessionId != rowFor) { if (rowFor != null && rowLast != null) { rowOld = rowLast; ux.Forget("compact:swap"); } rowFor = m.SessionId; }
+        rowLast = m;
+        float sw = rowOld == null ? 1 : ux.AnimFrom("compact:swap", 0, 1, SpringSpec.Content);
+        if (rowOld != null && sw < 0.985f)
+        {
+            c.Push(null, (1 - sw) * t);
+            MediaRow(isl, c, ux, a.Offset(0, -6 * sw), 1, rowOld, now, false);
+            c.Pop();
+        }
+        else rowOld = null;
+        if (sw < 0.985f) c.Push(null, sw);
+        MediaRow(isl, c, ux, a.Offset(0, 6 * (1 - sw)), t, m, now, true);
+        if (sw < 0.985f) c.Pop();
+    }
+    string rowFor; MediaInfo rowLast, rowOld;
+
+    void MediaRow(Island isl, Canvas c, Ux ux, Box a, float t, MediaInfo m, double now, bool live)
+    {
         // a track change gives the artwork a little hop
         float bump = isl.Ux.Anim("trackbump", 0, SpringSpec.Wobbly);
         var art = Box.Centered(a.X + 19, a.CY, 22, 22).Scale(1 + 0.25f * bump);
@@ -500,8 +519,8 @@ public sealed class CompactPage : Page
         var accent = m.Palette is { Length: > 0 } ? Col.Legible(m.Palette[0]) : Col.Hex(0x7aa2ff);
         c.Marquee(m.Title, new Box(a.X + 38, a.Y, a.W - 38 - 48, a.H), 12.5f, Col.White.A(0.78f * t), FontWeight.Medium, now);
         var md = isl.Svc.Media;
-        float lvl = md.Level;   // read first: it notes whether sound is flowing
-        float alive = ux.Anim("wave:compact", m.Playing && md.Sounding ? 1 : 0, SpringSpec.Smooth);
+        float lvl = live ? md.Level : 0;   // read first: it notes whether sound is flowing
+        float alive = live ? ux.Anim("wave:compact", m.Playing && md.Sounding ? 1 : 0, SpringSpec.Smooth) : 0;
         Paint.Waveform(c, new Box(a.Right - 38, a.CY - 8, 22, 16), lvl, alive, now, accent.A(t));
     }
 }
@@ -584,10 +603,10 @@ public sealed class PeekPage : Page
     }
 
     /// <summary>The media card, shared by Peek and the dashboard's Now Playing tab.</summary>
-    public static void MediaCard(Island isl, Canvas c, Ux ux, Box a, float t, bool large)
+    public static void MediaCard(Island isl, Canvas c, Ux ux, Box a, float t, bool large, MediaInfo show = null)
     {
         var media = isl.Svc.Media;
-        var m = media.Current;
+        var m = show ?? media.Current;
         double now = isl.Clock.Now;
         var accent = m.Palette is { Length: > 0 } ? Col.Legible(m.Palette[0]) : Col.Hex(0x7aa2ff);
         float pad = 24;   // the same on every side

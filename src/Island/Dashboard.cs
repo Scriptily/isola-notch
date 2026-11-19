@@ -302,6 +302,7 @@ public sealed partial class DashboardPage : Page
     }
 
     // ==== Now Playing ======================================================
+    string cardFor; MediaInfo cardLast, cardOld;
     void Media(Canvas c, Ux ux, Box p, float t)
     {
         var media = isl.Svc?.Media;
@@ -309,7 +310,23 @@ public sealed partial class DashboardPage : Page
         var sessions = media.Sessions.Where(s => !string.IsNullOrEmpty(s.Title)).ToList();
         float rowH = SpotifyRow() ? SpotifyRowH : 0, pillsH = sessions.Count > 1 ? 34 : 0;
         var card = new Box(p.X - 22, p.Y - 14, p.W + 44, p.H + 14 - rowH - pillsH);
+        // another app's media crossfades in: the old card fades out (drawn, not live) as the new one fades in
+        var curM = media.Current;
+        if (curM.SessionId != cardFor) { if (cardFor != null && cardLast != null) { cardOld = cardLast; ux.Forget("np:swap"); } cardFor = curM.SessionId; }
+        cardLast = curM;
+        float sw = cardOld == null ? 1 : ux.AnimFrom("np:swap", 0, 1, SpringSpec.Content);
+        if (cardOld != null && sw < 0.985f)
+        {
+            var g = Ghost(c);
+            c.Push(null, 1 - sw);
+            PeekPage.MediaCard(isl, c, g, card, t, true, cardOld);
+            c.Pop();
+            ghost.EndFrame();
+        }
+        else cardOld = null;
+        if (sw < 0.985f) c.Push(null, sw);
         PeekPage.MediaCard(isl, c, ux, card, t, true);
+        if (sw < 0.985f) c.Pop();
         if (rowH > 0) SpotifyVolumeRow(c, ux, new Box(p.X, card.Bottom - 10, p.W, rowH), t);
         if (sessions.Count > 1)
         {

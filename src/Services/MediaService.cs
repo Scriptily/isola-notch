@@ -83,6 +83,7 @@ public sealed partial class MediaService : IMediaSourceEx
 
     // ---- which playing apps can be heard: one playing at 0% mustn't take the island from one you're listening to ----
     readonly Dictionary<string, double> heardAt = new();
+    readonly HashSet<string> retrying = new();
     double levelLogAt = double.NegativeInfinity;
     string heardSet = "";
     long heardTimer;
@@ -242,8 +243,15 @@ public sealed partial class MediaService : IMediaSourceEx
         try
         {
             var pi = s.GetPlaybackInfo();
+            if (pi == null)   // the app was mid-change: ask again in a moment, once
+            {
+                if (retrying.Add(id)) Ui.After(0.3, () => { RefreshPlayback(id); Choose(); });
+                return;
+            }
+            retrying.Remove(id);
             bool was = m.Playing;
-            m.Playing = pi.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            bool reported = pi.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            m.Playing = id == heldPlayingFor ? Hold<bool>(reported, heldPlaying, clock.Now, ref playingHoldUntil) ?? reported : reported;
             if (m.Playing && !was) m.PlayingSince = clock.Now;
             else if (!m.Playing) m.PlayingSince = double.NaN;
             m.CanNext = pi.Controls.IsNextEnabled; m.CanPrev = pi.Controls.IsPreviousEnabled;
@@ -338,25 +346,46 @@ public sealed partial class MediaService : IMediaSourceEx
         string windowsCurrent, Func<MediaInfo, bool> ignored, double now, Func<MediaInfo, bool?> heard = null)
     {
         heard ??= _ => null;
-        MediaInfo want = null;
-        if (pinned != null) want = all.FirstOrDefault(i => i.SessionId == pinned);
-        bool Plays(MediaInfo i) => i.Playing && !ignored(i) && !string.IsNullOrEmpty(i.Title);
-        foreach (bool? rank in new bool?[] { true, null, false })   // heard, can't tell, silent
+        if (pinned != null && all.FirstOrDefault(i => i.SessionId == pinned) is { } pin) return (pin, double.NaN);
+        var cand = all.Where(i => !ignored(i) && !string.IsNullOrEmpty(i.Title)).ToList();
+        bool currentAlive = current != null && cand.Contains(current);
+        // 4 playing and heard, 3 playing where Isola can't measure it (counted as heard, as before),
+        // 2 the one on screen whatever it's doing (pausing it mustn't swap it for something silent),
+        // 1 playing but silent (Spotify at 0% in its own app), 0 the rest
+        int Rank(MediaInfo i)
         {
-            want ??= all.FirstOrDefault(i => Plays(i) && heard(i) == rank && i.SessionId == windowsCurrent);
-            want ??= all.FirstOrDefault(i => Plays(i) && heard(i) == rank);
+            if (i.Playing) { var h = heard(i); if (h == true) return 4; if (h == null) return 3; }
+            if (ReferenceEquals(i, current)) return 2;
+            return i.Playing ? 1 : 0;
+        }
+        // ties: among those playing aloud, the one started last (starting something is a choice);
+        // otherwise the one on screen, then the one Windows calls current
+        bool Before(MediaInfo a, MediaInfo b, int r)
+        {
+            if (r >= 3)
+            {
+                double sa = double.IsNaN(a.PlayingSince) ? double.NegativeInfinity : a.PlayingSince;
+                double sb = double.IsNaN(b.PlayingSince) ? double.NegativeInfinity : b.PlayingSince;
+                if (sa != sb) return sa > sb;
+            }
+            if (ReferenceEquals(a, current)) return true;
+            if (ReferenceEquals(b, current)) return false;
+            return a.SessionId == windowsCurrent && b.SessionId != windowsCurrent;
+        }
+        MediaInfo want = null; int best = -1;
+        foreach (var i in cand)
+        {
+            int r = Rank(i);
+            if (r > best || (r == best && Before(i, want, r))) { want = i; best = r; }
         }
         if (want == null)
         {
             var c = all.FirstOrDefault(i => i.SessionId == windowsCurrent);
             if (c != null && !ignored(c)) want = c;
         }
-        want ??= all.FirstOrDefault(i => !ignored(i) && !string.IsNullOrEmpty(i.Title));
-        bool currentAlive = current != null && all.Contains(current) && !ignored(current);
-        // two apps both silent for a moment (a quiet scene): no reason to flip between them
-        if (currentAlive && Plays(current) && want != null && !ReferenceEquals(want, current) && want.SessionId != pinned && heard(want) == false && heard(current) == false)
-            return (current, double.NaN);
-        if (currentAlive && want != null && !ReferenceEquals(want, current) && want.SessionId != pinned && want.Playing)
+        // something that has only just started playing waits a moment before it takes over (a site's previews
+        // open and close sessions every few hundred ms; without the wait the island flickered between them)
+        if (currentAlive && want != null && !ReferenceEquals(want, current) && want.Playing)
         {
             double settle = want.IsPlaceholder && !current.IsPlaceholder ? PlaceholderSettle : Settle;
             double since = double.IsNaN(want.PlayingSince) ? now : want.PlayingSince;
@@ -410,15 +439,39 @@ public sealed partial class MediaService : IMediaSourceEx
         return held;
     }
 
+    // what play/pause asked for, held a moment against the app's late or repeated reports
+    bool? heldPlaying; string heldPlayingFor; double playingHoldUntil;
+    internal const double PlayHold = 1.5;
+
+    /// <summary>
+    /// Play or pause the shown session. The button answers at once; what was asked is sent as "play" or
+    /// "pause", not "toggle" (a toggle sent while the app's report lagged flipped it the wrong way), held
+    /// against stale reports for a moment, then read back from the app in case it never says.
+    /// </summary>
     public void PlayPause()
     {
-        if (Current != null)
-        {
-            // optimistic: flip now so the button answers on the same frame
-            Current.Position = Current.LivePosition(clock.Now); Current.PositionStamp = clock.Now;
-            Current.Playing = !Current.Playing; Changed?.Invoke();
-        }
-        Do("play/pause", s => s.TryTogglePlayPauseAsync());
+        var m = Current;
+        if (m == null) return;
+        bool play = !m.Playing;
+        m.Position = m.LivePosition(clock.Now); m.PositionStamp = clock.Now;
+        m.Playing = play; m.PlayingSince = play ? clock.Now : double.NaN;
+        heldPlaying = play; heldPlayingFor = m.SessionId; playingHoldUntil = clock.Now + PlayHold;
+        Changed?.Invoke();
+        var s = Target();
+        if (s != null)
+            queue = queue.ContinueWith(async _ =>
+            {
+                try
+                {
+                    bool ok = await (play ? s.TryPlayAsync() : s.TryPauseAsync()).AsTask().ConfigureAwait(false);
+                    if (!ok) ok = await s.TryTogglePlayPauseAsync().AsTask().ConfigureAwait(false);   // apps that only know "toggle"
+                    Log.D("media", $"{(play ? "play" : "pause")} -> {(ok ? "ok" : "refused by app")}");
+                }
+                catch (Exception ex) { Log.W("media", $"play/pause failed: {ex.Message}"); }
+            }, TaskScheduler.Default).Unwrap();
+        string id = m.SessionId;
+        Ui.After(0.4, () => { RefreshPlayback(id); Choose(); });
+        Ui.After(PlayHold + 0.2, () => { RefreshPlayback(id); Choose(); });
     }
     public void Next() => Do("next", s => s.TrySkipNextAsync());
     public void Previous() => Do("previous", s => s.TrySkipPreviousAsync());
