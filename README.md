@@ -66,7 +66,10 @@ with battery levels, AirPods per bud and case, screens and chargers, the timer,
 and volume and Caps Lock changes. A burst of notifications queues up, and
 anything past the newest four folds into one summary. A call always goes first.
 A notification with a sign-in or verification code gets a Copy button and stays
-a little longer, as Windows' own banners do.
+a little longer, as Windows' own banners do. While you watch, listen or play,
+their sounds can go quieter or silent, and they can wait until you're done:
+notifications, calls and notices that arrive while media plays or a game or
+video is fullscreen come back as one summary when it stops.
 
 Isola has its own sounds, made in code: chimes for notifications, ringtones
 for calls, alarms for the timer, and soft clicks and tones for devices, the

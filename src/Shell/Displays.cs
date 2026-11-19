@@ -121,6 +121,7 @@ public sealed class DisplayWatcher
     readonly IDisplaySource src;
     public Monitor Laptop { get; private set; }
     public IReadOnlyList<DisplayPath> Paths { get; private set; } = Array.Empty<DisplayPath>();
+    public IReadOnlyList<Monitor> Monitors { get; private set; } = Array.Empty<Monitor>();
     public event Action LaptopChanged;
     public event Action<DisplayPath, bool> DisplayChanged;   // path, connected
     Dictionary<string, DisplayPath> known;
@@ -133,7 +134,9 @@ public sealed class DisplayWatcher
     {
         var paths = src.ActivePaths();
         Paths = paths;
-        var mon = Pick(paths, src.Monitors());
+        var mons = src.Monitors();
+        Monitors = mons;
+        var mon = Pick(paths, mons);
         bool changed = !Equals(mon, Laptop);
         Laptop = mon;
         if (changed)

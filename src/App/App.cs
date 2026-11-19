@@ -251,7 +251,12 @@ public sealed unsafe partial class App
         island.PreviewPopups = PreviewPopups;
         // the chosen sounds, built in the background now so the first one plays without a wait
         { var c0 = cfg; Task.Run(() => { foreach (var k in Sounds.All) Sounds.Warm(k, ToneFor(c0, k)); }); }
-        island.SoundOn = a => { if (SoundAllowed(cfg, a)) Sounds.Play(a.Sound, SoundVolumeOf(cfg), ToneFor(cfg, a.Sound)); };
+        island.SoundOn = a =>
+        {
+            if (!SoundAllowed(cfg, a)) return;
+            float v = SoundVolumeOf(cfg) * WhilePlayingScale(cfg, a.Sound, svc.Media?.Current is { Playing: true });
+            if (v > 0) Sounds.Play(a.Sound, v, ToneFor(cfg, a.Sound));
+        };
         island.SoundOff = a => { if (a.Sound != null && Sounds.Loops(a.Sound)) Sounds.Stop(); };
         if (FeedWanted(cfg)) _ = svc.Notifications.StartAsync();
     }
@@ -470,6 +475,8 @@ public sealed unsafe partial class App
             string what = on ? $"{Win32.ClassName(fs)} '{Trim(Win32.WindowText(fs))}' (pid {Pid(fs)})" : why;
             island.SetFullscreen(on, what);
         }
+        // a game or a video fullscreen on any screen counts as being focused (notices can wait for it)
+        island.SetAnyFullscreen(on || displays.Monitors.Any(m => fullscreen.FullscreenOn(m.Bounds) != 0));
         // a slow safety net for transitions no event announces (F11 in some apps)
         Ui.Cancel(ref fsPoll);
         fsPoll = Ui.After(on ? 1.5 : 2.5, () => EvaluateFullscreen("poll"));
@@ -776,6 +783,13 @@ public sealed unsafe partial class App
     /// </summary>
     internal const double BaseSoundVolume = 0.6;
     internal static float SoundVolumeOf(Config c) => (float)(BaseSoundVolume * c.SoundLevel);
+
+    /// <summary>
+    /// How loud a sound plays while media does (Settings -> Notifications & Sounds -> While you're focused): full,
+    /// quieter (about 9 dB down) or not at all. A timer you set always rings at full.
+    /// </summary>
+    internal static float WhilePlayingScale(Config c, string sound, bool playing) =>
+        !playing || sound == Sounds.Timer ? 1 : c.SoundsWhilePlaying switch { "quiet" => 0.35f, "mute" => 0, _ => 1 };
 
     /// <summary>Whether an alert's sound plays, by the settings for its kind.</summary>
     internal static bool SoundAllowed(Config c, Alert a) => c.Sounds && a?.Sound != null && a.Sound switch

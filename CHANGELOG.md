@@ -11,6 +11,12 @@ release notes.
 
 ### Added
 
+- While you're focused (Settings -> Notifications & Sounds): notification,
+  call and notice sounds can play at full volume, quieter or not at all while
+  media plays. Another setting holds notifications, calls and notices while
+  media plays or a game or video is fullscreen on any screen. They come back
+  as one summary when it stops, when fullscreen ends, or when you use the
+  island. Timers and low battery always come through.
 - "Stay while media plays" (Settings -> Behavior, on by default): music or a
   video keeps the island on screen, and the inactivity timer starts when it
   stops. Turned off, the island hides after inactivity as before.

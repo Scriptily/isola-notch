@@ -174,6 +174,7 @@ public sealed partial class Island : ITouchTarget
         Ux.ReduceMotion = c.ReduceMotion;
         ScheduleAutoHide();
         Retarget();
+        CheckHeld();   // the setting turned off: what waited comes back
     }
 
     // ====================================================================
@@ -202,7 +203,7 @@ public sealed partial class Island : ITouchTarget
         Mode = m;
         if (m == Mode.Off) { Host.SetHitArea(default, 0); }
         else Host.SetShown(true);
-        if (m == Mode.Expanded || m == Mode.Peek) MarkActive();
+        if (m == Mode.Expanded || m == Mode.Peek) { MarkActive(); if (held.Count > 0) Ui.Post(() => ReleaseHeld("the island was used")); }
         Retarget();
         ScheduleAutoHide();
     }
@@ -378,6 +379,7 @@ public sealed partial class Island : ITouchTarget
     /// </summary>
     public void ActivityChanged()
     {
+        CheckHeld();
         if (Mode is Mode.Rest or Mode.Peek or Mode.Expanded) Retarget();
         else Host.RequestFrame();
     }
@@ -581,6 +583,7 @@ public sealed partial class Island : ITouchTarget
         a.Created = Clock.Now;
         // notifications and calls carry people's names and words: the log keeps only what kind and from which app
         Log.I("alert", a.Kind is "notification" or "call" or "summary" ? $"{a.Kind} from {a.Subtitle}" : $"{a.Kind}: {a.Title} | {a.Subtitle}");
+        if (Hold(a)) return;
         if (!CanShowAlerts && a.Priority < 2) { Log.D("alert", "suppressed (island off)"); return; }
         Remember(a);
         alertQueue.RemoveAll(q => q.Key == a.Key && a.Key != "");
@@ -592,6 +595,87 @@ public sealed partial class Island : ITouchTarget
         Fold();
         PumpAlerts();
         Hurry();
+    }
+
+    // ---- held while you're focused ----------------------------------------
+    // With the setting on, while media plays or a game or video is fullscreen on any screen, notifications,
+    // calls and notices wait (in Recent at once) and come back as one summary when it stops, when fullscreen
+    // ends, or when the island is used. A timer you set and low battery never wait.
+
+    /// <summary>A game or video fullscreen on any screen (the app looks); with <see cref="Fullscreen"/> only the island's.</summary>
+    public bool AnyFullscreen { get; private set; }
+    readonly List<Alert> held = new();
+    readonly HashSet<Alert> heldOver = new();   // held calls that ended while waiting: missed
+    long releaseTimer;
+    public IReadOnlyList<Alert> HeldAlerts => held;
+
+    public bool Focused => Cfg.HoldWhileFocused && (Svc?.Media?.Current is { Playing: true } || AnyFullscreen);
+
+    static bool Holdable(Alert a) => a.Kind == "call" || (a.Priority < 2 && a.Kind is not ("track" or "hud") && a.Sound != Services.Sounds.Low);
+
+    bool Hold(Alert a)
+    {
+        // the island being used isn't being focused elsewhere: shown as usual
+        if (!Focused || !Holdable(a) || Mode is Mode.Peek or Mode.Expanded or Mode.Search) return false;
+        Remember(a);
+        held.RemoveAll(h => h.Key == a.Key && a.Key != "");
+        held.Add(a);
+        Log.D("alert", $"held while focused ({held.Count} waiting)");
+        return true;
+    }
+
+    public void SetAnyFullscreen(bool on)
+    {
+        if (AnyFullscreen == on) return;
+        AnyFullscreen = on;
+        Log.D("island", on ? "something is fullscreen on a screen" : "nothing fullscreen on any screen");
+        CheckHeld();
+    }
+
+    /// <summary>Focus over (media stopped, fullscreen ended, the setting off): what waited comes back, a beat later.</summary>
+    void CheckHeld()
+    {
+        if (held.Count == 0 || Focused) { Ui.Cancel(ref releaseTimer); return; }
+        if (releaseTimer != 0) return;
+        // a skip or a seek reports paused for a moment: that isn't the media stopping
+        releaseTimer = Ui.After(1.5, () => { releaseTimer = 0; if (!Focused) ReleaseHeld("focus ended"); });
+    }
+
+    public void ReleaseHeld(string why)
+    {
+        Ui.Cancel(ref releaseTimer);
+        if (held.Count == 0) return;
+        var all = held.ToList(); held.Clear();
+        // a call still ringing comes in as itself; everything else is one summary (or itself, when it's alone)
+        var live = all.Where(a => a.Sticky && !heldOver.Contains(a)).ToList();
+        var rest = all.Except(live).ToList();
+        bool missed(Alert a) => a.Kind == "call";
+        heldOver.Clear();
+        Log.I("alert", $"focus over ({why}): {rest.Count} waited, {live.Count} still live");
+        foreach (var a in live) { a.Created = Clock.Now; Enqueue(a); }
+        if (rest.Count == 1 && !missed(rest[0])) { rest[0].Created = Clock.Now; Enqueue(rest[0]); }
+        else if (rest.Count > 0)
+        {
+            foreach (var a in rest) if (a.Ended != null) Ui.Guard("alert ended", a.Ended);
+            Enqueue(FocusSummary(rest));
+        }
+        PumpAlerts();
+    }
+
+    Alert FocusSummary(List<Alert> rest)
+    {
+        static string From(Alert a) => a.Kind switch { "notification" => a.Subtitle, "call" => "Missed call", _ => a.Title };
+        var sum = new Alert
+        {
+            Key = "focus:summary", Kind = "summary", Glyph = Glyph.Bell, Accent = Col.Hex(0x0a84ff), Seconds = 6, Created = Clock.Now,
+            Sound = Services.Sounds.Notice, Folded = rest.Count, Clicked = () => Expand(P.Dashboard.TabIndex("recent")),
+        };
+        sum.FoldedFrom.AddRange(rest.Select(From).Where(s => !string.IsNullOrEmpty(s)));
+        var from = sum.FoldedFrom.Distinct().ToList();
+        sum.Title = $"{rest.Count} while you were focused";
+        sum.Subtitle = string.Join(", ", from.Take(3)) + (from.Count > 3 ? $" +{from.Count - 3}" : "");
+        sum.Detail = "All of them are in Recent";
+        return sum;
     }
 
     /// <summary>Highest priority first; equal priorities keep their order of arrival.</summary>
@@ -611,7 +695,7 @@ public sealed partial class Island : ITouchTarget
         if (fold.Count == 0) return;
         int at = alertQueue.IndexOf(fold.OrderBy(alertQueue.IndexOf).First());
         foreach (var f in fold) alertQueue.Remove(f);
-        var sum = alertQueue.FirstOrDefault(q => q.Kind == "summary");
+        var sum = alertQueue.FirstOrDefault(q => q.Key == "notif:summary");
         if (sum == null)
         {
             sum = new Alert { Key = "notif:summary", Kind = "summary", Glyph = Glyph.Bell, Accent = Col.Hex(0x0a84ff), Seconds = 4, Created = Clock.Now, Sound = Services.Sounds.Notification };
@@ -639,6 +723,7 @@ public sealed partial class Island : ITouchTarget
     public void DismissAlert(string key)
     {
         alertQueue.RemoveAll(q => q.Key == key);
+        foreach (var h in held) if (h.Key == key) heldOver.Add(h);
         // also when the island was opened over it: the call ended, so it's gone
         if (CurrentAlert?.Key == key && Mode != Mode.Hud) EndTransient("dismissed");
     }

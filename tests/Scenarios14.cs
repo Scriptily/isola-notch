@@ -918,4 +918,79 @@ public static partial class Scenarios
         True(peak - target < 6, $"it overshoots its height by {peak - target:0.0} px (looked too big, then shrank)");
         True(Math.Abs(isl.Shape.H - target) < 0.5, "and settles at it");
     }
+
+    static FakeMedia Music(FakeClock clock) => new(clock) { Current = new MediaInfo { AppName = "Spotify", SessionId = "Spotify.exe", Title = "A song", Playing = true } };
+
+    [Scenario("while media plays, notifications, calls and notices wait, then come back as one summary when it stops")]
+    public static void HeldWhileFocused()
+    {
+        var (isl, host, clock) = NewIsland(new Config { HoldWhileFocused = true });
+        var media = Music(clock); isl.Svc.Media = media;
+        isl.Alert(new Alert { Key = "n1", Kind = "notification", Title = "Sam", Subtitle = "WhatsApp", Detail = "hi", Sound = Services.Sounds.Notification });
+        isl.Alert(new Alert { Key = "full", Kind = "battery", Title = "Fully charged", Sound = Services.Sounds.Notice });
+        isl.Alert(new Alert { Key = "call", Kind = "call", Title = "Mom", Priority = 3, Sticky = true, MaxSeconds = 30 });
+        clock.Advance(1, isl);
+        Eq(Mode.Rest, isl.Mode, "nothing pops up over the music");
+        Eq(3, isl.HeldAlerts.Count, "three waiting");
+        Eq(3, isl.History.Count, "and in Recent at once");
+        isl.DismissAlert("call");   // the call ended unanswered while it waited
+        // a timer you set and low battery never wait
+        isl.Alert(new Alert { Key = "timer", Kind = "timer", Title = "Timer done", Priority = 2, Seconds = 2 });
+        clock.Advance(0.2, isl);
+        Eq("timer", isl.CurrentAlert?.Kind, "the timer comes through");
+        clock.Advance(3, isl);
+
+        media.Current.Playing = false; isl.ActivityChanged();
+        clock.Advance(0.5, isl);
+        Eq(3, isl.HeldAlerts.Count, "a moment's pause (a skip, a seek) isn't the end");
+        clock.Advance(1.3, isl);
+        Eq(0, isl.HeldAlerts.Count, "stopped: they come back");
+        Eq("focus:summary", isl.CurrentAlert?.Key, "as one summary");
+        Eq("3 while you were focused", isl.CurrentAlert.Title, "how many");
+        Eq("WhatsApp, Fully charged, Missed call", isl.CurrentAlert.Subtitle, "and what");
+    }
+
+    [Scenario("held notices come back when fullscreen ends on every screen, or as soon as the island is used; one alone comes back as itself")]
+    public static void HeldUntilFullscreenEndsOrUsed()
+    {
+        var (isl, host, clock) = NewIsland(new Config { HoldWhileFocused = true });
+        isl.SetAnyFullscreen(true);
+        isl.Alert(new Alert { Key = "n1", Kind = "notification", Title = "Sam", Subtitle = "WhatsApp", Detail = "hi" });
+        clock.Advance(1, isl);
+        Eq(1, isl.HeldAlerts.Count, "a game fullscreen on the TV holds it");
+        isl.SetAnyFullscreen(false); clock.Advance(1.8, isl);
+        Eq("n1", isl.CurrentAlert?.Key, "fullscreen over: one alone shows as itself");
+        clock.Advance(10, isl);
+
+        isl.SetAnyFullscreen(true);
+        isl.Alert(new Alert { Key = "n2", Kind = "notification", Title = "Ana", Subtitle = "Discord", Detail = "gg" });
+        isl.Alert(new Alert { Key = "n3", Kind = "notification", Title = "Ana", Subtitle = "Discord", Detail = "again" });
+        clock.Advance(1, isl);
+        Eq(2, isl.HeldAlerts.Count, "two waiting");
+        isl.Expand(); clock.Advance(0.6, isl);
+        Eq(0, isl.HeldAlerts.Count, "opening the island brings them back, though the game is still fullscreen");
+        isl.Alert(new Alert { Key = "n4", Kind = "notification", Title = "Ana", Subtitle = "Discord", Detail = "hey" });
+        Eq(0, isl.HeldAlerts.Count, "and while it's open, nothing waits");
+
+        var (isl2, _, clock2) = NewIsland(new Config { HoldWhileFocused = false });
+        isl2.Svc.Media = Music(clock2);
+        isl2.Alert(new Alert { Key = "n1", Kind = "notification", Title = "Sam", Subtitle = "WhatsApp", Detail = "hi" });
+        clock2.Advance(0.3, isl2);
+        Eq("n1", isl2.CurrentAlert?.Key, "with the setting off it shows over the music as before");
+    }
+
+    [Scenario("sounds while media plays: full, quieter or muted; a timer always rings at full")]
+    public static void SoundsWhilePlaying()
+    {
+        var c = new Config { SoundsWhilePlaying = "quiet" };
+        Eq(1f, Isola.App.App.WhilePlayingScale(c, Services.Sounds.Notification, false), "no media: full");
+        True(Isola.App.App.WhilePlayingScale(c, Services.Sounds.Notification, true) is > 0.2f and < 0.5f, "quieter while media plays");
+        c.SoundsWhilePlaying = "mute";
+        Eq(0f, Isola.App.App.WhilePlayingScale(c, Services.Sounds.Call, true), "muted");
+        Eq(1f, Isola.App.App.WhilePlayingScale(c, Services.Sounds.Timer, true), "the timer still rings");
+        c.SoundsWhilePlaying = "full";
+        Eq(1f, Isola.App.App.WhilePlayingScale(c, Services.Sounds.Notice, true), "full");
+        var bad = new Config { SoundsWhilePlaying = "loud" }; bad.Normalize();
+        Eq("full", bad.SoundsWhilePlaying, "an unknown choice is full");
+    }
 }

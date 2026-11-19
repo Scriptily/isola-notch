@@ -57,6 +57,8 @@
   "LowTone": "sink",
   "NoticeSound": true,
   "NoticeTone": "drop",
+  "SoundsWhilePlaying": "full",
+  "HoldWhileFocused": false,
   "Downloads": true,
   "DownloadTo": "downloads",
   "DownloadFolder": "",

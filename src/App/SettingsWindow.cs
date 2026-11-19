@@ -653,6 +653,13 @@ public sealed unsafe partial class SettingsWindow
         L.Header("Calls");
         Toggle(L, "calls", "Phone calls", "Incoming calls from Phone Link, with answer and decline", work.Calls, v => work.Calls = v);
         L.End();
+        L.Header("While you're focused");
+        Seg(L, "focussnd", "Sounds while media plays", "For notifications, calls and notices while music or a video plays",
+            new[] { "Full", "Quieter", "Muted" }, new[] { "full", "quiet", "mute" }, work.SoundsWhilePlaying, v => work.SoundsWhilePlaying = v);
+        Toggle(L, "focushold", "Hold notifications until you're done", "While media plays or a game or video is fullscreen on any screen, they wait and show as one summary when it stops, or when you use the island",
+            work.HoldWhileFocused, v => work.HoldWhileFocused = v);
+        L.End();
+        L.Note("Timers and low battery always come through. Held ones are in Recent right away.");
         L.Header("Sounds");
         Toggle(L, "snd", "Island sounds", Packaging.IsStore ? "Its own chimes and ringtone" : "Its own chimes and ringtone; Windows' chime is off while the island shows notifications", work.Sounds, v => work.Sounds = v);
         Slider(L, "sndvol", "Sound volume", "100% is the level they were tuned at; Windows' volume applies too", work.SoundLevel, 0.5, 1.5, v => $"{v * 100:0}%", v => work.SoundLevel = v, 0.05);

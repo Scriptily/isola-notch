@@ -85,6 +85,8 @@ public sealed class Config
     /// <summary>A soft sound for notices: fully charged, a display or sound output change, updates, the download tools.</summary>
     public bool NoticeSound { get; set; } = true;
     public string NoticeTone { get; set; } = "drop";
+    public string SoundsWhilePlaying { get; set; } = "full";   // "full", "quiet" or "mute": the island's sounds while media plays
+    public bool HoldWhileFocused { get; set; } = false;        // notices wait while media plays or something is fullscreen, then one summary
     /// <summary>Downloading and converting (yt-dlp and FFmpeg, fetched and kept up to date by Isola).</summary>
     public bool Downloads { get; set; } = true;
     /// <summary>Where finished files go: downloads (the Downloads folder), shelf, or folder (DownloadFolder).</summary>
@@ -189,6 +191,7 @@ public sealed class Config
         }
         Style = Style is "notch" ? "notch" : "pill";
         IdleFace = IdleFace is "clock" or "none" ? IdleFace : "eyes";
+        SoundsWhilePlaying = SoundsWhilePlaying is "quiet" or "mute" ? SoundsWhilePlaying : "full";
         GlowIntensity = Math.Clamp(double.IsFinite(GlowIntensity) ? GlowIntensity : 0.75, 0, 1);
         Scale = Math.Clamp(double.IsFinite(Scale) ? Scale : 1, 0.7, 1.6);
         AutoHideMinutes = Math.Clamp(double.IsFinite(AutoHideMinutes) ? AutoHideMinutes : 2, 0, 120);
