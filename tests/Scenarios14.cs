@@ -709,4 +709,28 @@ public static partial class Scenarios
         Eq(2, isl.History.Count, "both are in the session history");
         Eq("Mom", isl.History[^1].alert.Title, "newest last (shown first in the tab)");
     }
+
+    [Scenario("the pill names the main artist only: featured artists are left out, band names kept whole")]
+    public static void MainArtistOnly()
+    {
+        Eq("mgk", MediaInfo.MainArtist("mgk, Avril Lavigne"), "a list");
+        Eq("Drake", MediaInfo.MainArtist("Drake feat. Rihanna"), "feat.");
+        Eq("Travis Scott", MediaInfo.MainArtist("Travis Scott ft. Drake"), "ft.");
+        Eq("Kygo", MediaInfo.MainArtist("Kygo x Selena Gomez"), "x");
+        Eq("Simon & Garfunkel", MediaInfo.MainArtist("Simon & Garfunkel"), "a band with &");
+        Eq("Lil Nas X", MediaInfo.MainArtist("Lil Nas X"), "a name ending in X");
+        Eq("", MediaInfo.MainArtist(null), "none");
+    }
+
+    [Scenario("a sliding title glides without snapping, and rests on whole pixels at either end")]
+    public static void MarqueeGlidesSmoothly()
+    {
+        using var o = new Offscreen(300, 40);
+        string title = "A title long enough that it cannot possibly fit in this pill";
+        bool gliding = false, resting = false;
+        o.Draw(c => { c.Marquee(title, new Box(10, 10, 150, 20), 13, Col.White, Vortice.DirectWrite.FontWeight.Medium, 50); resting = c.MarqueeMoved && !c.MarqueeGliding; });
+        o.Draw(c => { c.Marquee(title, new Box(10, 10, 150, 20), 13, Col.White, Vortice.DirectWrite.FontWeight.Medium, 50 + Canvas.MarqueeHoldStart + 1); gliding = c.MarqueeGliding; });
+        True(resting, "resting at the start: drawn, not gliding (a few frames a second)");
+        True(gliding, "mid-slide: gliding (every frame)");
+    }
 }

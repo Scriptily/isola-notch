@@ -1126,8 +1126,8 @@ public sealed partial class Island : ITouchTarget
             if (Cfg.Glow && Cfg.GlowDrift && !Cfg.ReduceMotion && glowAmt.Value > 0.01) a = a > 0 ? Math.Min(a, 1 / 15.0) : 1 / 15.0;
             // a spinner or skeleton on screen turns at 30 frames a second
             if (loaderShown) a = a > 0 ? Math.Min(a, 1 / 30.0) : 1 / 30.0;
-            // a long title sliding to show the rest of itself
-            if (marqueeShown) a = a > 0 ? Math.Min(a, 1 / 30.0) : 1 / 30.0;
+            // a long title: every frame while it glides (smooth at the display's rate), a few a second while it rests
+            if (marqueeShown) { double m = marqueeGliding ? 1 / 240.0 : 1 / 30.0; a = a > 0 ? Math.Min(a, m) : m; }
             return a;
         }
     }
@@ -1154,11 +1154,11 @@ public sealed partial class Island : ITouchTarget
 
     bool loaderShown;
 
-    bool marqueeShown;
+    bool marqueeShown, marqueeGliding;
 
     public void Render(Canvas c)
     {
-        try { RenderFrame(c); } finally { loaderShown = c.LoaderDrawn; marqueeShown = c.MarqueeMoved; }
+        try { RenderFrame(c); } finally { loaderShown = c.LoaderDrawn; marqueeShown = c.MarqueeMoved; marqueeGliding = c.MarqueeGliding; }
     }
 
     void RenderFrame(Canvas c)

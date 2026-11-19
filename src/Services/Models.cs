@@ -26,6 +26,22 @@ public sealed class MediaInfo
 
     public string TrackKey => $"{SessionId}|{Title}|{Artist}";
 
+    /// <summary>
+    /// The main artist, without the ones featured: "mgk, Avril Lavigne" and "mgk feat. X" are "mgk". Not cut at
+    /// "&amp;", which is part of many band names (Simon &amp; Garfunkel).
+    /// </summary>
+    public static string MainArtist(string artist)
+    {
+        if (string.IsNullOrWhiteSpace(artist)) return "";
+        string a = artist.Trim();
+        foreach (var sep in new[] { ", ", "; ", " / ", " feat. ", " feat ", " ft. ", " ft ", " featuring ", " with ", " x " })
+        {
+            int i = a.IndexOf(sep, StringComparison.OrdinalIgnoreCase);
+            if (i > 0) a = a[..i];
+        }
+        return a.Trim();
+    }
+
     /// <summary>A session with nothing to show but the app: Chrome's "A site is playing media", an empty title, or the app's own name.</summary>
     public bool IsPlaceholder =>
         string.IsNullOrWhiteSpace(Title) || Title.Contains("is playing media", StringComparison.OrdinalIgnoreCase)

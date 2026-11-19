@@ -40,7 +40,9 @@ public static class Paint
     public static void ScrollBar(Canvas c, Ux ux, string id, Box view, float scroll, float target, float content, float t)
     {
         if (!Scrolls(content, view.H)) return;
-        bool awake = ux.PointerIn(view) || Math.Abs(scroll - target) > 0.5f;
+        bool scrolling = Math.Abs(scroll - target) > 0.5f;
+        c.MovingText = scrolling;   // its text glides with it (unsnapped) until the list is drawn
+        bool awake = ux.PointerIn(view) || scrolling;
         float wake = ux.Anim("sbar:" + id, awake ? 1 : 0, awake ? SpringSpec.Snappy : SpringSpec.Slow);
         float w = 3 + 1.5f * wake, track = view.H - 8;
         float len = Math.Max(24, track * view.H / content);
@@ -542,7 +544,9 @@ public sealed class CompactPage : Page
         var art = Box.Centered(a.X + 19, a.CY, 22, 22).Scale(1 + 0.25f * bump);
         Paint.Art(c, m, art, 6, t);
         var accent = m.Palette is { Length: > 0 } ? Col.Legible(m.Palette[0]) : Col.Hex(0x7aa2ff);
-        c.Marquee(m.Title, new Box(a.X + 38, a.Y, a.W - 38 - 48, a.H), 12.5f, Col.White.A(0.78f * t), FontWeight.Medium, now);
+        string artist = MediaInfo.MainArtist(m.Artist);
+        c.Marquee(m.Title, new Box(a.X + 38, a.Y, a.W - 38 - 48, a.H), 12.5f, Col.White.A(0.9f * t), FontWeight.Medium, now,
+            tail: string.IsNullOrEmpty(artist) ? null : " - " + artist, tailColor: Col.White.A(0.48f * t));
         var md = isl.Svc.Media;
         float lvl = live ? md.Level : 0;   // read first: it notes whether sound is flowing
         float alive = live ? ux.Anim("wave:compact", m.Playing && md.Sounding ? 1 : 0, SpringSpec.Smooth) : 0;

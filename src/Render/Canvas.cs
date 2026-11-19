@@ -89,6 +89,9 @@ public sealed class Canvas
     /// <summary>A title slid this frame (<see cref="Marquee"/>): the window keeps drawing so it keeps moving.</summary>
     public bool MarqueeMoved => marqueeFrame == Frame;
     int marqueeFrame = -1;
+    /// <summary>A title was mid-glide this frame: the window draws every frame until it rests (at 30 a second it stuttered).</summary>
+    public bool MarqueeGliding => glideFrame == Frame;
+    int glideFrame = -1;
     ID2D1SolidColorBrush brush;
     int brushGen;
     readonly Dictionary<string, IDWriteTextFormat> formats = new();
@@ -111,6 +114,7 @@ public sealed class Canvas
     public void Begin(ID2D1DeviceContext ctx)
     {
         Frame++;
+        MovingText = false;
         if (C != ctx || brushGen != Gfx.Generation)
         {
             brush?.Dispose(); DropEffects();
@@ -313,15 +317,22 @@ public sealed class Canvas
     /// it can be read, instead of ending in "...": its edges fade where more of it lies beyond, and each fade
     /// clears as the text reaches that end.
     /// </summary>
-    public void Marquee(string text, Box b, float size, Color4 color, FontWeight weight, double now, VAlign va = VAlign.Middle)
+    /// <param name="tail">more text after it in another color (the pill's " - artist" in grey), sliding as one line</param>
+    public void Marquee(string text, Box b, float size, Color4 color, FontWeight weight, double now, VAlign va = VAlign.Middle, string tail = null, Color4 tailColor = default)
     {
         if (string.IsNullOrEmpty(text)) return;
-        float tw = Measure(text, size, weight).w;
-        if (tw <= b.W + 0.5f) { Text(text, b, size, color, weight, HAlign.Left, va); return; }
+        float headW = Measure(text, size, weight).w, tailW = string.IsNullOrEmpty(tail) ? 0 : Measure(tail, size, weight).w;
+        float tw = headW + tailW;
+        if (tw <= b.W + 0.5f)
+        {
+            Text(text, b, size, color, weight, HAlign.Left, va);
+            if (tailW > 0) Text(tail, new Box(b.X + headW, b.Y, b.W - headW, b.H), size, tailColor, weight, HAlign.Left, va);
+            return;
+        }
         // keyed by its width too: while the island grows or shrinks around it, the box changes every frame, and
         // sliding by a share of a changing distance jumped back and forth. A new width starts again from rest.
         // and by its size: the Now Playing card switches its title between two sizes as it grows
-        string key = text + "|" + MathF.Round(b.W) + "|" + size + "|" + (int)weight;
+        string key = text + "|" + tail + "|" + MathF.Round(b.W) + "|" + size + "|" + (int)weight;
         if (!marqueeStart.TryGetValue(key, out double start))
         {
             if (marqueeStart.Count > 64) marqueeStart.Clear();
@@ -329,14 +340,22 @@ public sealed class Canvas
         }
         float over = tw - b.W, off = MarqueeOffset(over, now - start);
         marqueeFrame = Frame;
+        bool gliding = off > 0.01f && off < over - 0.01f;
+        if (gliding) glideFrame = Frame;
+        else off = MathF.Round(off);   // resting at an end: on whole pixels, crisp
         // the edges fade only where there's more to read, and ease off as it arrives
         FadeClipX(new Box(b.X, b.Y - 4, b.W, b.H + 8), Math.Clamp(off / 10, 0, 1), Math.Clamp((over - off) / 10, 0, 1));
-        Text(text, new Box(b.X - off, b.Y, tw + 6, b.H), size, color, weight, HAlign.Left, va);
+        Text(text, new Box(b.X - off, b.Y, headW + 6, b.H), size, color, weight, HAlign.Left, va, moving: gliding);
+        if (tailW > 0) Text(tail, new Box(b.X - off + headW, b.Y, tailW + 6, b.H), size, tailColor, weight, HAlign.Left, va, moving: gliding);
         Unfade();
     }
 
+    /// <summary>A list is gliding to a new scroll position: its text is drawn unsnapped until the list's fade ends.</summary>
+    public bool MovingText;
+
     public void Unfade()
     {
+        MovingText = false;
         var brush = fades.Pop();
         if (brush != null) { Pop(); brush.Dispose(); }
         C.PopAxisAlignedClip();
@@ -551,14 +570,16 @@ public sealed class Canvas
 
     /// <summary>Draws text inside a box; returns the laid-out width.</summary>
     public float Text(string text, Box b, float size, Color4 color, FontWeight weight = FontWeight.Normal, HAlign align = HAlign.Left,
-                      VAlign valign = VAlign.Middle, bool wrap = false, string family = null, bool italic = false)
+                      VAlign valign = VAlign.Middle, bool wrap = false, string family = null, bool italic = false, bool moving = false)
     {
         if (string.IsNullOrEmpty(text) || color.A <= 0.003f || b.W <= 1) return 0;
         var fmt = Format(size, weight, family, italic, align, wrap);
         var l = Layout(text, fmt, b.W, wrap ? b.H : 1000);
         var m = l.Metrics;
         float y = valign switch { VAlign.Top => b.Y, VAlign.Bottom => b.Bottom - m.Height, _ => b.Y + (b.H - m.Height) / 2 };
-        C.DrawTextLayout(new Vector2(b.X, y), l, Brush(color), DrawTextOptions.EnableColorFont | DrawTextOptions.Clip);
+        // moving text isn't snapped to whole pixels: snapped, it hopped a pixel at a time and looked choppy
+        moving |= MovingText;
+        C.DrawTextLayout(new Vector2(b.X, y), l, Brush(color), DrawTextOptions.EnableColorFont | DrawTextOptions.Clip | (moving ? DrawTextOptions.NoSnap : 0));
         return m.WidthIncludingTrailingWhitespace;
     }
 
