@@ -56,6 +56,21 @@ public static class Alerts
         a.Glyph = Glyph.Headphones;
     }
 
+    /// <summary>
+    /// A caller's initials for their picture: "Sam Moore" is SM, "Mom" is M, "Dr. Ana Lee" is AL; null for a
+    /// number or nothing (the phone glyph then).
+    /// </summary>
+    public static string Initials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        var words = name.Split(new[] { ' ', '-', '_', '.', ',' }, StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => char.IsLetter(w[0]) && !(w.Length <= 3 && name.Contains(w + ".") && w is "Dr" or "Mr" or "Mrs" or "Ms" or "Mx"))
+            .ToList();
+        if (words.Count == 0) return null;
+        string first = char.ToUpperInvariant(words[0][0]).ToString();
+        return words.Count == 1 ? first : first + char.ToUpperInvariant(words[^1][0]);
+    }
+
     public static Alert Call(string id, string caller, byte[] icon, Action decline, Action answer, Action open) => new()
     {
         Key = "call:" + id, Kind = "call", Title = caller, Subtitle = "Incoming call · iPhone", Glyph = Glyph.Phone, Image = icon,

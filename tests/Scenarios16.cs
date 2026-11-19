@@ -261,4 +261,16 @@ public static partial class Scenarios
         Eq("subsidies|ar", WebAnswers.Intent("translate subsidies from english to arabic") is { } i ? i.Text + "|" + i.Lang : "none", "\"from English\" is the source, not part of the phrase");
         Eq("good night|es", WebAnswers.Intent("good night in spanish") is { } j ? j.Text + "|" + j.Lang : "none", "a short phrase in a language still is");
     }
+
+    [Scenario("a caller without a picture shows their initials, as the phone does; a number shows the phone")]
+    public static void CallerInitials()
+    {
+        Eq("SM", Isola.App.Alerts.Initials("Sam Moore"), "first and last");
+        Eq("M", Isola.App.Alerts.Initials("Mom"), "one name");
+        Eq("AL", Isola.App.Alerts.Initials("Dr. Ana Lee"), "titles skipped");
+        Eq("JS", Isola.App.Alerts.Initials("john michael smith"), "first and last, capitalized");
+        Eq("أح", Isola.App.Alerts.Initials("أحمد حسن") is { } ar ? ar[0] + "" + ar[1] : null, "any alphabet");
+        Eq(null, Isola.App.Alerts.Initials("+1 415 555 0132"), "a number: the phone glyph");
+        Eq(null, Isola.App.Alerts.Initials("  "), "nothing");
+    }
 }

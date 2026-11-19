@@ -803,7 +803,10 @@ public sealed class AlertPage : Page
             var la = Col.Legible(al.Accent, 0.22f);
             using var br = c.Linear(new Vector2(ib.X, ib.Y), new Vector2(ib.Right, ib.Bottom), (0, la.A(t)), (1, la.A(0.7f * t)));
             c.Fill(ib, br, al.Kind == "call" ? ib.H / 2 : 11);
-            c.Icon(al.Glyph == '\0' ? Glyph.Bell : al.Glyph, ib.CX, ib.CY, iconS * 0.45f, Col.White.A(t));
+            // a caller without a picture: their initials, as the phone shows them
+            if (al.Kind == "call" && App.Alerts.Initials(al.Title) is { } ini)
+                c.Text(ini, ib, ini.Length > 1 ? 17 : 19, Col.White.A(t), FontWeight.SemiBold, HAlign.Center);
+            else c.Icon(al.Glyph == '\0' ? Glyph.Bell : al.Glyph, ib.CX, ib.CY, iconS * 0.45f, Col.White.A(t));
         }
         float tx = ib.Right + 12;
         float right = a.Right - 14;

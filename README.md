@@ -76,7 +76,8 @@ for calls, alarms for the timer, and soft clicks and tones for devices, the
 charger and low battery. Each has four to six to pick from, all matched in
 loudness so none is jarringly louder than another, or you can turn them off.
 They play the moment something happens, and one volume setting (50% to 150%)
-sets them all.
+sets them all. Over music or a video, the playing app dips for a moment
+while the sound plays and comes back up after, the way a phone does.
 
 ### Music
 

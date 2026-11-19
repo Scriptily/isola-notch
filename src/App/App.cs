@@ -352,7 +352,10 @@ public sealed unsafe partial class App
     {
         if (n.IsCall && cfg.Calls)
         {
-            island.Alert(Alerts.Call(n.Id.ToString(), n.Caller.Length > 0 ? n.Caller : n.Title, n.Icon, () => CallButton(false), () => CallButton(true), () => Win32.ShellExecute("ms-phone:")));
+            // Phone Link's own icon says nothing about who's calling (and only showed when its lookup worked,
+            // the phone glyph otherwise): a call shows the caller's initials, as the iPhone does, unless a phone
+            // app relayed it (a WhatsApp call keeps WhatsApp's icon)
+            island.Alert(Alerts.Call(n.Id.ToString(), n.Caller.Length > 0 ? n.Caller : n.Title, n.Bundle != null ? n.Icon : null, () => CallButton(false), () => CallButton(true), () => Win32.ShellExecute("ms-phone:")));
             return;
         }
         if (!cfg.Notifications) return;

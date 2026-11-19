@@ -89,6 +89,10 @@ release notes.
 
 ### Fixed
 
+- A phone call shows the caller's initials, as the iPhone does, instead of
+  Phone Link's app icon (which only showed when looking it up worked, and
+  said nothing about who was calling). A call relayed from a phone app, like
+  WhatsApp, keeps that app's icon.
 - A player turned to 0% in its own app (Spotify, for one) still moved the
   waveform and could take the island from what you were listening to.
   Isola now measures each app's own sound, for any player: Store apps like
