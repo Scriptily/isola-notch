@@ -441,27 +441,24 @@ public sealed unsafe partial class SettingsWindow
         if (open) { helpAnchor = b; helpTitle = title; helpBody = body; }
     }
 
-    // ---- tooltips: the first waits 600 ms, the next ones along a row appear at once (see Ux.Tip) ----
-    string tipFor;
+    // ---- tooltips: the first waits 400 ms, the next ones along a row appear at once (see Ux.Tip) ----
     readonly string forcedTip = Environment.GetEnvironmentVariable("ISOLA_SETTINGS_TIP");   // screenshots
 
     void TooltipLayer(float W, float H)
     {
-        Ux.Zone z; bool animate;
-        if (forcedTip != null && ux.Find(forcedTip) is { Tooltip: { Length: > 0 } } f) { z = f; animate = false; }
-        else if (ux.Tip(Ui.Clock.Now) is { } t) (z, animate) = t;
-        else { tipFor = null; return; }
-        if (z.Id != tipFor) { tipFor = z.Id; ux.Forget("tip:in"); }
-        // the first one after a pause comes in from 97%; the rest just appear, as moving along a row does often
-        float appear = animate ? ux.AnimFrom("tip:in", 0, 1, SpringSpec.Content) : 1;
-        float w = canvas.Measure(z.Tooltip, 12, FontWeight.Medium).w + 18, h = 26;
-        float x = Math.Clamp(z.Box.CX - w / 2, 8, W - w - 8), y = z.Box.Bottom + 8;
-        if (y + h > H - 8) y = z.Box.Y - h - 8;
+        string text; Box anchor; float appear;
+        if (forcedTip != null && ux.Find(forcedTip) is { Tooltip: { Length: > 0 } } f) (text, anchor, appear) = (f.Tooltip, f.Box, 1);
+        // the first one after a pause comes in from 97%, the rest along a row just appear; leaving, it fades out
+        else if (ux.TipFrame(Ui.Clock.Now) is { } t) (text, anchor, appear) = t;
+        else return;
+        float w = canvas.Measure(text, 12, FontWeight.Medium).w + 18, h = 26;
+        float x = Math.Clamp(anchor.CX - w / 2, 8, W - w - 8), y = anchor.Bottom + 8;
+        if (y + h > H - 8) y = anchor.Y - h - 8;
         var b = new Box(x, y, w, h).Scale(0.97f + 0.03f * appear);
         // a tooltip floats above the help popover, so it's a step lighter (depth in the dark comes from lightness)
         canvas.Fill(b, Col.Hex(0x3a3a42, 0.98f * appear), 8);
         canvas.Stroke(b, Col.White.A(0.12f * appear), 8, 1);
-        canvas.Text(z.Tooltip, b, 12, Col.White.A(0.92f * appear), FontWeight.Medium, HAlign.Center);
+        canvas.Text(text, b, 12, Col.White.A(0.92f * appear), FontWeight.Medium, HAlign.Center);
     }
 
     string helpShown;   // the popover still on screen: the open one, or the one fading out

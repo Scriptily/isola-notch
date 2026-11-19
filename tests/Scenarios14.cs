@@ -147,7 +147,7 @@ public static partial class Scenarios
         True(v == 0 && to == 240, "stopped before lifting: it stays");
     }
 
-    [Scenario("tooltips: the first waits 600 ms, the next ones along a row appear at once, and after a pause they wait again")]
+    [Scenario("tooltips: the first waits 400 ms, the next ones along a row appear at once, and after a pause they wait again")]
     public static void TooltipsWarmUp()
     {
         var u = new Ux();
@@ -173,6 +173,22 @@ public static partial class Scenarios
         True(u.Tip(1.5) == null && u.Tip(1.8) == null && u.Tip(1.91) != null, "after a pause, the wait again");
         u.Down(20, 20);
         True(u.Tip(1.7) == null, "never while pressing");
+        u.Up(20, 20);
+
+        // leaving: the tooltip fades back out over a few frames instead of vanishing at once
+        var v = new Ux();
+        v.BeginFrame(null); v.Add("q", new Box(0, 0, 40, 40), () => { }).Tooltip = "Quit"; v.EndFrame();
+        v.Move(20, 20); v.TipFrame(0);
+        double now = 0.5; float shown = 0;
+        for (int f = 0; f < 30; f++) { now += 1 / 60.0; v.Step(1 / 60.0); shown = v.TipFrame(now)?.appear ?? 0; }
+        True(shown > 0.98f, $"shown ({shown:0.00})");
+        v.Move(500, 500);
+        now += 1 / 60.0; v.Step(1 / 60.0);
+        var leaving = v.TipFrame(now);
+        True(leaving is { text: "Quit" } && leaving.Value.appear > 0.5f, $"the frame after leaving it's still there, fading ({leaving?.appear:0.00})");
+        int frames = 1;
+        while (v.TipFrame(now) != null && frames < 60) { now += 1 / 60.0; v.Step(1 / 60.0); frames++; }
+        True(frames > 3 && frames < 30, $"and gone after a short fade ({frames} frames)");
     }
 
     [Scenario("the setup wizard slides forward pages in from the right and back pages in from the left")]

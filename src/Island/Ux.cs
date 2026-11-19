@@ -217,6 +217,24 @@ public sealed class Ux
         tipShown = true;
         return (z, !tipInstant);
     }
+    string fadeId, fadeText; Box fadeAnchor;
+    /// <summary>
+    /// The tooltip to draw this frame and how far it has appeared: it comes in from 97% (or at once along a row),
+    /// and when the pointer leaves it fades back out the same way (it vanished in one frame, unlike the popovers).
+    /// </summary>
+    public (string text, Box anchor, float appear)? TipFrame(double now)
+    {
+        if (Tip(now) is { } t)
+        {
+            if (t.zone.Id != fadeId) { fadeId = t.zone.Id; Forget("tip:in"); }
+            fadeText = t.zone.Tooltip; fadeAnchor = t.zone.Box;
+            return (fadeText, fadeAnchor, AnimFrom("tip:in", t.animate ? 0 : 1, 1, SpringSpec.Content));
+        }
+        if (fadeId == null) return null;
+        float a = AnimFrom("tip:in", 1, 0, SpringSpec.Snappy);
+        if (a < 0.02f) { fadeId = null; Forget("tip:in"); return null; }
+        return (fadeText, fadeAnchor, a);
+    }
     /// <summary>When a waiting tooltip is due (to wake for it), or never.</summary>
     public double TipDue => tipId != null && !tipShown && !tipInstant ? tipSince + TipDelay : double.PositiveInfinity;
 
