@@ -7,6 +7,45 @@ the number of changes in a release that only fixes and adjusts things, so
 1.4.0 with two fixes is 1.4.2. Each release's section below is also its GitHub
 release notes.
 
+## [Unreleased]
+
+### Added
+
+- The island shows Isola's own updates: when one is found, how far it has
+  downloaded, and when it starts installing.
+- The download tools (yt-dlp, FFmpeg, QuickJS) show their progress on the
+  island, with one notice when they're ready, updated or removed.
+- A title too long for the island slides slowly back and forth so you can
+  read it, its edges fading where there's more.
+
+### Changed
+
+- Choosing which player to show works for any number of them. The one you
+  can hear comes first, and of two you can hear, the one started last.
+  Pausing the one on the island keeps it there, and a player picked by hand
+  stays until another one starts.
+- Switching between apps crossfades, in the pill and in Now Playing, and
+  notices crossfade into each other.
+- The waveform eases between moving and still, and lies still while the app
+  makes no sound.
+- The glow takes the song's colors only while the island shows the song. On
+  the eyes, or the plain island, it goes back to your theme's colors.
+- Tooltips in Settings appear sooner, and the "?" popovers fade away instead
+  of vanishing.
+
+### Fixed
+
+- A player turned to 0% in its own app (Spotify, for one) still moved the
+  waveform and could take the island from what you were listening to.
+  Isola now measures each app's own sound, for any player: Store apps like
+  Apple Music and Media Player, browsers, Plex and the rest.
+- Play and pause could show the wrong state when the app was slow to
+  report, so the next press went the wrong way.
+- Clicking along the progress bar briefly jumped back to the old position.
+- Switching to Spotify with the island open squeezed its volume row against
+  the controls until the island was closed and opened again.
+- Tooltips in Settings waited for the mouse to move before they appeared.
+
 ## [1.6.0] - 2026-11-19
 
 ### Added

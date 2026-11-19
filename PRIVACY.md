@@ -12,6 +12,9 @@ anywhere:
   A one-time code you copy from one is kept out of Windows' clipboard history,
   its cloud clipboard and Isola's own Clipboard tab
 - What's playing in your media apps, and the cover art
+- How loud each playing media app is, so the waveform follows its own sound.
+  Isola listens to the app's audio for that and keeps only its loudness:
+  nothing is recorded, saved or sent
 - Your clipboard history (Win+V), if the Clipboard tab is on
 - Bluetooth devices and battery levels, including AirPods
 - The files you drop on the shelf, your notes and your timer

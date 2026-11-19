@@ -79,15 +79,18 @@ sets them all.
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/music-dark.webp"><img src="assets/readme/music-light.webp" alt="A song playing in the pill with a waveform, then the Now Playing tab and the next track" width="680"></picture></p>
 
-Whatever is playing (Spotify, a browser, any media app) sits in the pill with
-its cover and a waveform. Open it for the cover, seek, skip, shuffle and
-repeat. The glow along the bottom takes its colors from the cover and changes
-with every track.
+Whatever is playing (Spotify, a browser, Apple Music, Plex, any media app)
+sits in the pill with its cover and a waveform. A title too long for the pill
+slides slowly so you can read all of it. Open it for the cover, seek, skip,
+shuffle and repeat. While the song is on the island, the glow along the
+bottom takes its colors from the cover.
 
-The waveform follows that app's own sound, not everything your speakers play.
-When two apps play at once, the island shows the one you can hear, so music
-turned down to nothing in the background won't take over from a video you're
-watching.
+The waveform follows that app's own sound, its volume control included, not
+everything your speakers play. With several apps playing, the island shows
+the one you can hear, and the one you started last if you can hear more than
+one. A player turned down to nothing never takes over, and pausing what's on
+the island keeps it there. Pick another with the buttons under Now Playing; it
+stays until something else starts playing.
 
 ### Downloads and conversion
 
