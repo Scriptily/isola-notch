@@ -11,7 +11,7 @@ namespace Isola.Services;
 /// </summary>
 public sealed partial class AudioService
 {
-    sealed class MeteredSession { public string Exe = "", Name = ""; public IAudioMeterInformation Meter; }
+    sealed class MeteredSession { public string Exe = "", Name = ""; public IAudioMeterInformation Meter; public ISimpleAudioVolume Vol; }
     volatile List<MeteredSession> metered = new();
     int meterBusy;
     double meteredAt = double.NegativeInfinity;
@@ -47,7 +47,7 @@ public sealed partial class AudioService
             s.GetProcessId(out uint pid);
             if (pid == 0 || s is not IAudioMeterInformation meter) continue;
             var (name, exe) = ProcName(pid);
-            list.Add(new MeteredSession { Exe = exe, Name = name, Meter = meter });
+            list.Add(new MeteredSession { Exe = exe, Name = name, Meter = meter, Vol = s as ISimpleAudioVolume });
         }
         return list;
     }
@@ -62,12 +62,19 @@ public sealed partial class AudioService
         foreach (var m in metered)
         {
             if (!AppMatches(aumid, appName, m.Exe, m.Name)) continue;
-            float p = 0;
-            try { m.Meter.GetPeakValue(out p); } catch { continue; }
-            best = Math.Max(best ?? 0, p);
+            float p = 0, v = 1; bool muted = false;
+            try { m.Meter.GetPeakValue(out p); m.Vol?.GetMasterVolume(out v); m.Vol?.GetMute(out muted); } catch { continue; }
+            best = Math.Max(best ?? 0, Audible(p, v, muted));
         }
         return best;
     }
+
+    /// <summary>
+    /// What of a session's sound reaches the speakers. Its meter reads the sound before the app's own
+    /// volume (the Volume mixer scales it before drawing its bar), so Spotify turned to 0% still read as
+    /// full music: it counted as heard and moved the visualizer, with nothing coming out.
+    /// </summary>
+    internal static float Audible(float peak, float volume, bool muted) => muted ? 0 : peak * Math.Clamp(volume, 0, 1);
 
     /// <summary>
     /// Whether an audio session's program is the app a media session belongs to. Media sessions name

@@ -398,12 +398,14 @@ public sealed class CompactPage : Page
         return kind != null;
     }
 
-    static string Pick(Island isl)
+    internal static string Pick(Island isl)
     {
         var s = isl.Svc;
         if (s == null) return null;
         if (s.Timer != null && s.Timer.Running) return "timer";
+        if (s.Updates?.Phase != null) return "update";
         if (isl.Cfg.Downloads && s.Downloads?.ActiveCount > 0) return "download";
+        if (isl.Cfg.Downloads && s.Tools?.Fetching != null) return "tools";
         var m = s.Media?.Current;
         if (isl.Cfg.Media && m != null && !string.IsNullOrEmpty(m.Title) && (m.Playing || isl.Clock.Now - s.Media.LastPlayingAt < 60)) return "media";
         return null;
@@ -412,13 +414,14 @@ public sealed class CompactPage : Page
     public override (float, float, float) Size(Island isl) => kind switch
     {
         "timer" or "download" => (250, 34, 17),
+        "update" or "tools" => (270, 34, 17),
         _ => (318, 34, 17),
     };
     public override bool WantsContinuousFrames(Island isl) => false;
     public override double AmbientInterval(Island isl)
     {
         if (kind == "timer") return 0.5;
-        if (kind == "download") return 1 / 30.0;
+        if (kind is "download" or "update" or "tools") return 1 / 30.0;
         var m = isl.Svc?.Media?.Current;
         return m != null && m.Playing && isl.Cfg.MediaWaveform ? 1 / 30.0 : 0;
     }
@@ -436,6 +439,35 @@ public sealed class CompactPage : Page
             c.Arc(a.X + 19, a.CY, 9, 0, MathF.PI * 2 * Math.Max(0.001f, left), col.A(t), 2.6f);
             c.Text(tm.Paused ? "Paused" : "Timer", new Box(a.X + 36, a.Y, 80, a.H), 12.5f, Col.White.A(0.75f * t), FontWeight.SemiBold);
             c.Text(Paint.Time(tm.Remaining(now)), new Box(a.Right - 92, a.Y, 78, a.H), 14, col.A(t), FontWeight.SemiBold, HAlign.Right);
+            return;
+        }
+        if (kind is "update" or "tools")
+        {
+            // an update or a tool on its way down: a ring that fills, then a spinner while it installs
+            var green = Col.Hex(0x34c759);
+            string label; double prog;
+            if (kind == "update")
+            {
+                var u = isl.Svc.Updates;
+                string v = u.Incoming == null ? "" : " v" + Services.Updater.Short(u.Incoming);
+                label = u.Phase == "installing" ? "Installing" + v : "Updating to" + v;
+                prog = u.Phase == "installing" ? -1 : u.Progress;
+            }
+            else
+            {
+                var tl = isl.Svc.Tools;
+                label = (tl.FetchingUpdate ? "Updating " : "Getting ") + tl.Fetching;
+                prog = tl.Progress;
+            }
+            float pr = isl.Ux.Anim("compact:" + kind, Math.Max(0, prog), SpringSpec.Smooth);
+            if (prog <= 0.001) Paint.Spinner(c, a.X + 19, a.CY, 18, Col.White.A(0.8f), now, t);
+            else
+            {
+                c.Ring(a.X + 19, a.CY, 9, green.A(0.25f * t), 2.6f);
+                c.Arc(a.X + 19, a.CY, 9, 0, MathF.PI * 2 * Math.Max(0.001f, pr), green.A(t), 2.6f);
+            }
+            c.Text(label, new Box(a.X + 36, a.Y, a.W - 36 - 56, a.H), 12.5f, Col.White.A(0.75f * t), FontWeight.SemiBold);
+            if (prog > 0.001) c.Text($"{pr * 100:0}%", new Box(a.Right - 62, a.Y, 48, a.H), 14, green.A(t), FontWeight.SemiBold, HAlign.Right);
             return;
         }
         if (kind == "download")

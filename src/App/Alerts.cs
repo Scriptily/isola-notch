@@ -175,6 +175,18 @@ public static class Alerts
         };
     }
 
+    /// <summary>A newer Isola was found; the island then shows it downloading.</summary>
+    public static Alert UpdateFound(string version) => new()
+    {
+        Key = "update-found", Kind = "info", Title = $"Isola {version} is available", Subtitle = "Downloading it now", Glyph = Glyph.Download, Accent = Col.Hex(0x34c759), Seconds = 3,
+    };
+
+    /// <summary>yt-dlp, FFmpeg or QuickJS finished downloading: the first time, downloads can start; later, it's an update.</summary>
+    public static Alert ToolFetched(string name, string version, bool update) => new()
+    {
+        Key = "tool:" + name, Kind = "info", Title = update ? $"{name} updated" : $"{name} is ready", Subtitle = Cap(version, 28), Glyph = Glyph.Check, Accent = Col.Hex(0x34c759), Seconds = 3,
+    };
+
     public static Alert Updated(string version) => new()
     {
         Key = "updated", Kind = "info", Title = $"Updated to v{version}", Subtitle = "Isola", Glyph = Glyph.Check, Accent = Col.Hex(0x34c759), Seconds = 3.5,

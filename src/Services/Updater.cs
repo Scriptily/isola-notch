@@ -44,11 +44,21 @@ public sealed class Updater
     public Version Available { get; private set; }
     public event Action Changed;
     public event Action<Version> Installing;
+    /// <summary>A newer version was found and is about to download (the island says so).</summary>
+    public event Action<Version> Found;
+    /// <summary>"downloading" or "installing" while an update is under way (the island shows it), else null.</summary>
+    public string Phase { get; private set; }
+    /// <summary>How much of the update has downloaded, 0 to 1; -1 when the size isn't known.</summary>
+    public double Progress { get; private set; } = -1;
+    /// <summary>The version being downloaded or installed.</summary>
+    public Version Incoming { get; private set; }
     long timer;
     bool busy;
     const string Tag = "v", Asset = "IsolaSetup.exe";
     /// <summary>Where releases come from. Fixed here, not a setting: an edited config can't point updates elsewhere.</summary>
     public const string Repo = "Scriptily/isola-notch";
+    /// <summary>How long the island shows "Installing" before it closes for the setup.</summary>
+    public const double ShowInstallingFor = 1.4;
 
     public Updater(IClock c, HttpMessageHandler handler = null)
     {
@@ -105,6 +115,8 @@ public sealed class Updater
             Available = ver;
             if (ver <= Current) { Set($"Up to date (v{Short(Current)})"); return; }
             Log.I("update", $"v{Short(ver)} is available (running v{Short(Current)})");
+            Incoming = ver; Phase = "downloading"; Progress = 0;
+            Ui.Post(() => Found?.Invoke(ver));
             Set($"Downloading v{Short(ver)}…");
             string file = Path.Combine(Path.GetTempPath(), $"IsolaSetup-{Short(ver)}.exe");
             var dl = new HttpRequestMessage(HttpMethod.Get, assetUrl);
@@ -112,8 +124,19 @@ public sealed class Updater
             using (var r = await http.SendAsync(dl, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false))
             {
                 r.EnsureSuccessStatusCode();
+                long total = r.Content.Headers.ContentLength ?? -1;
                 await using var fs = File.Create(file);
-                await r.Content.CopyToAsync(fs).ConfigureAwait(false);
+                await using var src = await r.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                var buf = new byte[1 << 16];
+                long done = 0; double shown = 0; int n;
+                // copied by hand to show how far it's got (the island's ring, Settings' status)
+                while ((n = await src.ReadAsync(buf).ConfigureAwait(false)) > 0)
+                {
+                    await fs.WriteAsync(buf.AsMemory(0, n)).ConfigureAwait(false);
+                    done += n;
+                    if (total > 0 && (double)done / total - shown >= 0.02) { shown = Progress = (double)done / total; Set($"Downloading v{Short(ver)}… {shown * 100:0}%"); }
+                }
+                if (total <= 0) Progress = -1;
             }
             string got = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file))).ToLowerInvariant();
             if (string.IsNullOrEmpty(sha) || !string.Equals(got, sha, StringComparison.OrdinalIgnoreCase))
@@ -133,11 +156,16 @@ public sealed class Updater
             try { started = StartInstaller(file, $"/update /wait {Environment.ProcessId}"); }
             catch (Exception ex) { Log.W("update", "couldn't start the installer: " + ex.Message); started = false; }
             if (!started) { Set("Couldn't start the installer; will retry later"); return; }
+            Phase = "installing"; Progress = 1;
             Set($"Installing v{Short(ver)}…");
             Ui.Post(() => Installing?.Invoke(ver));
         }
         catch (Exception ex) { Log.W("update", "check failed: " + ex.Message); Set("Couldn't reach GitHub; will retry later"); }
-        finally { busy = false; }
+        finally
+        {
+            busy = false;
+            if (Phase != "installing") { Phase = null; Progress = -1; Ui.Post(() => Changed?.Invoke()); }   // didn't get as far as installing: nothing to show
+        }
     }
 
     /// <summary>Newest release with our tag prefix and a setup asset. Public for tests.</summary>

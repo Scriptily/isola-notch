@@ -350,4 +350,44 @@ public static partial class Scenarios
         (dx, dy, vy) = d.Up(180, 104, 2.05);
         True(dx > MouseDrag.SideSwipe, "far enough to change track");
     }
+
+    [Scenario("an app turned to 0% or muted in the Volume mixer is silent to the island, though its meter still reads the music")]
+    public static void AppVolumeCountsTowardHeard()
+    {
+        Eq(0f, AudioService.Audible(0.7f, 0f, false), "at 0% nothing reaches the speakers");
+        Eq(0f, AudioService.Audible(0.7f, 1f, true), "muted, nothing either");
+        True(Math.Abs(AudioService.Audible(0.8f, 0.5f, false) - 0.4f) < 1e-6, "at half volume, half the level");
+        Eq(0.8f, AudioService.Audible(0.8f, 1f, false), "full volume: the meter as it reads");
+    }
+
+    [Scenario("an update shows on the island: found, downloading with its progress, then installing; one that can't install shows nothing")]
+    public static void UpdatesShowOnTheIsland()
+    {
+        byte[] setup = System.Text.Encoding.ASCII.GetBytes("pretend installer " + Guid.NewGuid());
+        string sha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(setup)).ToLowerInvariant();
+        var (upd, gh, clock, events) = NewUpdater(setup, sha);
+        var found = new List<string>();
+        upd.Found += v => found.Add(v.ToString(3));
+        double during = -2; string phaseDuring = null;
+        upd.StartInstaller = (file, args) => { during = upd.Progress; phaseDuring = upd.Phase; return true; };
+        upd.CheckAsync(true).Wait(); clock.Advance(0.1);
+        Eq("1.1.0", string.Join(",", found), "the island hears an update was found");
+        Eq("downloading", phaseDuring, "while it downloads, the island shows it");
+        True(during > 0.99, $"the download's progress reached the end ({during:0.00})");
+        Eq("installing", upd.Phase, "then that it's installing");
+        Eq("1.1.0", upd.Incoming.ToString(3), "which version");
+        True(Updater.ShowInstallingFor >= 1, "long enough to read before the island closes for the setup");
+
+        (upd, gh, clock, events) = NewUpdater(setup, sha);
+        upd.StartInstaller = (file, args) => false;
+        upd.CheckAsync(true).Wait(); clock.Advance(0.1);
+        True(upd.Phase == null, "a setup that wouldn't start leaves nothing on the island");
+
+        var (isl, host, _) = NewIsland();
+        (upd, gh, clock, events) = NewUpdater(setup, sha);
+        upd.StartInstaller = (file, args) => true;
+        upd.CheckAsync(true).Wait();
+        isl.Svc.Updates = upd;
+        Eq("update", CompactPage.Pick(isl), "the island's live activity is the update");
+    }
 }

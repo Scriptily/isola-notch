@@ -224,7 +224,11 @@ public sealed unsafe partial class App
             ? Alerts.DownloadDone(job, () => Win32.ShellExecute(job.Output), () => Services.Shell.RevealInExplorer(job.Output))
             : Alerts.DownloadFailed(job, () => { try { svc.Downloads.Retry(job); } catch (Exception ex) { Log.W("downloads", ex.Message); } }));
         svc.Tools.Start();
-        svc.Updates.Installing += v => { Log.I("update", "handing over to the installer"); Log.Flush(); quit = true; };
+        svc.Updates.Found += v => island.Alert(Alerts.UpdateFound(Updater.Short(v)));
+        svc.Updates.Changed += () => island.Host.RequestFrame();
+        svc.Tools.Fetched += (name, ver, update) => { if (cfg.Downloads) island.Alert(Alerts.ToolFetched(name, ver, update)); };
+        // a moment of "Installing v..." on the island first (the setup waits for Isola to close anyway)
+        svc.Updates.Installing += v => { Log.I("update", "handing over to the installer"); island.Host.RequestFrame(); Ui.After(Updater.ShowInstallingFor, () => { Log.Flush(); quit = true; }); };
         svc.Updates.Start();
 
         // a previous run that never put Windows' banners back (power loss, both

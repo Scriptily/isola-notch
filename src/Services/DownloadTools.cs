@@ -58,6 +58,12 @@ public sealed class DownloadTools
     /// <summary>0..1 while fetching, else -1.</summary>
     public double Progress { get; private set; } = -1;
     public bool Busy { get; private set; }
+    /// <summary>The tool downloading right now (the island shows its progress), else null.</summary>
+    public string Fetching { get; private set; }
+    /// <summary>Whether <see cref="Fetching"/> replaces an older copy (an update) rather than getting it the first time.</summary>
+    public bool FetchingUpdate { get; private set; }
+    /// <summary>A tool finished downloading: its name, version, and whether it replaced an older one.</summary>
+    public event Action<string, string, bool> Fetched;
     public DateTime LastCheck { get; private set; }
     long timer;
 
@@ -113,7 +119,12 @@ public sealed class DownloadTools
                 if (Has(t) && installed.TryGetValue(t.Id, out var have) && have.Version == ver) continue;
                 if (Has(t) && InUse()) { Log.I("tools", $"{t.Name} {ver} waits: a download is using it"); continue; }
                 Log.I("tools", $"{t.Name}: {(Has(t) ? "updating to" : "getting")} {ver} ({size / 1_000_000} MB)");
-                await FetchAsync(t, ver, url, sha, size, (double)i / All.Length, 1.0 / All.Length, fresh, ct).ConfigureAwait(false);
+                bool update = Has(t);
+                Fetching = t.Name; FetchingUpdate = update;
+                try { await FetchAsync(t, ver, url, sha, size, (double)i / All.Length, 1.0 / All.Length, true, ct).ConfigureAwait(false); }
+                finally { Fetching = null; }
+                string name = t.Name, v = ver;
+                Ui.Post(() => Fetched?.Invoke(name, v, update));
             }
             LastCheck = DateTime.Now;
             Set(Ready ? Summary() : "Not installed yet");
@@ -175,7 +186,7 @@ public sealed class DownloadTools
                     await dst.WriteAsync(buf.AsMemory(0, n), ct).ConfigureAwait(false);
                     got += n;
                     double f = total > 0 ? (double)got / total : 0;
-                    if (showProgress && f - shown > 0.01) { shown = f; Set($"Getting {t.Name}… {got / 1_000_000} of {total / 1_000_000} MB", from + span * f); }
+                    if (showProgress && f - shown > 0.01) { shown = f; Set($"{(FetchingUpdate ? "Updating" : "Getting")} {t.Name}… {got / 1_000_000} of {total / 1_000_000} MB", FetchingUpdate ? f : from + span * f); }
                 }
             }
             string have;

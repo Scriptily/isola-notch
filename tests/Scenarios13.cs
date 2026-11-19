@@ -74,8 +74,13 @@ public static partial class Scenarios
         try
         {
             var tools = new DownloadTools(dir, clock, gh);
+            var fetched = new List<string>();
+            tools.Fetched += (name, ver, update) => fetched.Add($"{name} {ver} {(update ? "updated" : "new")}");
             True(!tools.Ready, "nothing at first");
             True(Wait(tools.CheckAsync(true)), $"all fetched ({tools.Status})");
+            clock.Advance(0.05);
+            Eq(3, fetched.Count(f => f.EndsWith(" new")), "the island hears each tool arrive: " + string.Join(", ", fetched));
+            True(tools.Fetching == null, "and that nothing is downloading any more");
             Eq("yt-dlp v1", File.ReadAllText(Path.Combine(dir, "yt-dlp.exe")), "yt-dlp as published");
             Eq("v9:ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe", File.ReadAllText(Path.Combine(dir, "ffmpeg.exe")), "ffmpeg.exe out of the zip");
             True(!File.Exists(Path.Combine(dir, "ffprobe.exe")) && !File.Exists(Path.Combine(dir, "ffplay.exe")), "and nothing else from it (100 MB each)");
@@ -91,6 +96,8 @@ public static partial class Scenarios
             gh.Put("yt-dlp/yt-dlp", "2026.11.20", "yt-dlp.exe", Encoding.UTF8.GetBytes("yt-dlp v2"));
             Wait(tools.CheckAsync(false));
             Eq("yt-dlp v2", File.ReadAllText(Path.Combine(dir, "yt-dlp.exe")), "updated");
+            clock.Advance(0.05);
+            Eq("yt-dlp 2026.11.20 updated", fetched.Last(), "and is told it was an update");
             Eq("2026.11.20", new DownloadTools(dir, clock, gh).VersionOf("yt-dlp"), "and remembered across restarts");
             // not while a download is using it
             tools.InUse = () => true;
