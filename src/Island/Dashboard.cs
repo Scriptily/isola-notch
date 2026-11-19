@@ -789,11 +789,13 @@ public sealed partial class DashboardPage : Page
         c.Text(string.Join("  ·  ", extra), new Box(p.X + 230, p.Y + 50, p.W - 230, 18), 11.5f, Col.White.A(0.45f * t), FontWeight.Medium);
         // the forecast: hours or days, each opening into its details
         var list = wxDays ? w.Daily : w.Hourly;
-        float y0 = p.Y + 92;
+        // its own row under the details: what the card shows, and the switch between hours and days
+        float y0 = p.Y + 120;
+        c.Text(wxDays ? "Next 7 days" : "Next hours", new Box(p.X + 2, p.Y + 84, 200, 18), 11, Col.White.A(0.45f * t), FontWeight.SemiBold);
         if (w.Hourly.Count > 0 && w.Daily.Count > 0)
         {
-            ux.Pill("wx:hours", new Box(p.Right - 128, p.Y + 62, 60, 22), "Hours", () => { wxDays = false; wxDetail = -1; isl.Retarget(); }, Col.White, '\0', !wxDays, 11);
-            ux.Pill("wx:days", new Box(p.Right - 64, p.Y + 62, 60, 22), "Days", () => { wxDays = true; wxDetail = -1; isl.Retarget(); }, Col.White, '\0', wxDays, 11);
+            ux.Pill("wx:hours", new Box(p.Right - 124, p.Y + 82, 60, 22), "Hours", () => { wxDays = false; wxDetail = -1; isl.Retarget(); }, Col.White, '\0', !wxDays, 11);
+            ux.Pill("wx:days", new Box(p.Right - 60, p.Y + 82, 60, 22), "Days", () => { wxDays = true; wxDetail = -1; isl.Retarget(); }, Col.White, '\0', wxDays, 11);
         }
         if (wxDetail >= list.Count) wxDetail = -1;
         if (list.Count > 0)
