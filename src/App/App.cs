@@ -881,7 +881,9 @@ public sealed unsafe partial class App
             bool ambientDue = host.Shown && amb > 0 && now >= nextAmbient;
             if (moving || ambientDue)
             {
-                if (req) fReq++; if (cont) fCont++; if (anim) fAnim++; if (ambientDue && !moving) fAmb++;
+                // counted only while it rests: a window that began with the island open (dragging a slider in it)
+                // was reported as animating at rest once it closed
+                if (island.Mode is Mode.Rest or Mode.Hidden) { if (req) fReq++; if (cont) fCont++; if (anim) fAnim++; if (ambientDue && !moving) fAmb++; }
                 // Only report the failure this counter exists for: something still
                 // animating for most of ten seconds while the island sits at rest
                 // (a spring that never settles burns a core). Normal use is silent.

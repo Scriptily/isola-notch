@@ -597,4 +597,32 @@ public static partial class Scenarios
         until = 10 + MediaService.PlayHold;
         Eq(true, MediaService.Hold<bool>(true, false, 10 + MediaService.PlayHold + 0.1, ref until) ?? false, "after the hold, the app is believed (it may have refused)");
     }
+
+    [Scenario("a report from before a seek landed doesn't move the bar back; one at the new spot, or a late one after the hold, is believed")]
+    public static void SeekHoldsAgainstStaleReports()
+    {
+        True(MediaService.StaleAfterSeek(90, 34, 10.2, 10 + MediaService.SeekHold), "sent to 1:30, the app still says 0:34: ignored (no flicker)");
+        True(!MediaService.StaleAfterSeek(90, 90.4, 10.3, 10 + MediaService.SeekHold), "it says 1:30: believed");
+        True(!MediaService.StaleAfterSeek(90, 34, 10 + MediaService.SeekHold + 0.1, 10 + MediaService.SeekHold), "still 0:34 after the hold: the app refused, believed");
+    }
+
+    [Scenario("the glow takes the song's colors only while the island shows it; resting on the eyes it's the theme's")]
+    public static void GlowFollowsWhatsShown()
+    {
+        var (isl, host, clock) = NewIsland(new Config { GlowColors = "auto" });
+        var theme = Island.Island.PaletteFor("aurora")[0];
+        var red = new Vortice.Mathematics.Color4(0.9f, 0.1f, 0.1f, 1);
+        var media = new FakeMedia(clock) { Current = new MediaInfo { AppName = "Spotify", SessionId = "Spotify.exe", Title = "A song", Playing = true, Palette = new[] { red, red, red } } };
+        isl.Svc.Media = media; isl.ActivityChanged(); isl.UpdateGlowColors(); clock.Advance(0.5, isl);
+        Eq(red, isl.GlowTarget0, "playing in the pill: the song's colors");
+        media.Current.Playing = false; media.LastPlayingAt = clock.Now; isl.ActivityChanged(); isl.UpdateGlowColors();
+        clock.Advance(70, isl);   // paused a while: the island rests on its eyes
+        isl.ActivityChanged(); clock.Advance(0.5, isl);
+        True(!isl.ShowsMedia(), "resting on the eyes");
+        Eq(theme, isl.GlowTarget0, "the eyes: back to the theme's colors");
+        isl.Expand(); clock.Advance(0.5, isl);
+        Eq(red, isl.GlowTarget0, "opened: the song's colors again");
+        isl.CloseToRest("test"); clock.Advance(0.5, isl);
+        Eq(theme, isl.GlowTarget0, "closed onto the eyes: the theme's");
+    }
 }

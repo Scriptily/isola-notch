@@ -392,6 +392,8 @@ public sealed class CompactPage : Page
 {
     public override string Key => "compact:" + kind;
     string kind = "media";
+    /// <summary>What the pill is showing: media, timer, download, update or tools.</summary>
+    public string Kind => kind;
 
     public bool HasActivity(Island isl)
     {

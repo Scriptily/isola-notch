@@ -238,6 +238,8 @@ public sealed partial class Island : ITouchTarget
     }
 
     /// <summary>Recompute targets: which page, what size, where.</summary>
+    string glowKeyFor;
+
     public void Retarget()
     {
         // Hidden/Off keep whatever was showing, so it slides away with the body
@@ -264,6 +266,7 @@ public sealed partial class Island : ITouchTarget
                 if (page.WantsKeyboard) TakeKeyboard(); else if (KeyboardTaken && Mode != Mode.Search) ReleaseKeyboard();
             }
         }
+        if (page?.Key != glowKeyFor) { glowKeyFor = page?.Key; UpdateGlowColors(); }
         bool shown = Mode is not (Mode.Hidden or Mode.Off);
         var spec = SpringSpec.Expand;
         if (page != null && shown)
@@ -415,10 +418,23 @@ public sealed partial class Island : ITouchTarget
         // when it goes, the glow returns to the music (whatever is playing by then)
         var alertPalette = Mode == Mode.Alert ? CurrentAlert?.Palette : null;
         if (Cfg.GlowColors == "auto" && alertPalette is { Length: > 0 }) t = Three(alertPalette);
-        else if (Cfg.GlowColors == "auto" && Mode != Mode.Hello && mediaRecent && m.Palette is { Length: > 0 }) t = Three(m.Palette);
+        else if (Cfg.GlowColors == "auto" && Mode != Mode.Hello && mediaRecent && ShowsMedia() && m.Palette is { Length: > 0 }) t = Three(m.Palette);
         glowTarget = t;
         Host.RequestFrame();
     }
+
+    /// <summary>
+    /// The island is showing the media: the pill with the song, the card on hover, or the island opened. Resting
+    /// on its eyes (or the plain island) it isn't, and the glow returns to the theme's colors: a paused song's
+    /// colors stayed on the eyes.
+    /// </summary>
+    internal bool ShowsMedia() => Mode switch
+    {
+        Mode.Peek or Mode.Expanded or Mode.Search => true,
+        // a volume HUD or a notice over the rest keeps what the rest would have (a notice without an icon leaves the glow alone)
+        Mode.Rest or Mode.Hud or Mode.Alert => P.Compact.HasActivity(this) && P.Compact.Kind == "media",
+        _ => false,
+    };
 
     static Color4[] Three(Color4[] p) => new[] { p[0], p.Length > 1 ? p[1] : p[0], p.Length > 2 ? p[2] : (p.Length > 1 ? p[1] : p[0]) };
 
@@ -1007,7 +1023,7 @@ public sealed partial class Island : ITouchTarget
         var l = new List<string>();
         void C(string n, Spring sp) { if (!sp.Settled) l.Add($"{n}={sp}"); }
         C("W", W); C("H", H); C("R", R); C("Y", Y); C("style", styleT); C("presence", presence); C("indicator", indicator);
-        C("glow", glowAmt); C("squish", squish); C("lean", lean); C("pull", pull); C("xfade", xfade); C("prevFade", prevFade);
+        C("glow", glowAmt); C("squish", squish); C("lean", lean); C("pull", pull); C("xfade", xfade); C("prevFade", prevFade); C("reactive", reactive);
         if (Ux.Step(0)) l.Add("ux:" + Ux.MovingKeys());
         for (int i = 0; i < 3; i++) if (Math.Abs(glow[i].R - glowTarget[i].R) + Math.Abs(glow[i].G - glowTarget[i].G) + Math.Abs(glow[i].B - glowTarget[i].B) > 0.004f) l.Add("glowcolor" + i);
         return string.Join(" ", l);

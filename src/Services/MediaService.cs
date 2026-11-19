@@ -288,6 +288,12 @@ public sealed partial class MediaService : IMediaSourceEx
             // Apps report the position as of LastUpdatedTime; move it to "now".
             double age = (DateTimeOffset.Now - tl.LastUpdatedTime).TotalSeconds;
             if (age < 0 || age > 86400 || tl.LastUpdatedTime.Year < 2000) age = 0;
+            if (id == seekFor)
+            {
+                double target = seekTo + (m.Playing ? clock.Now - seekAt : 0), reported = pos + (m.Playing ? age : 0);
+                if (StaleAfterSeek(target, reported, clock.Now, seekHoldUntil)) return false;   // from before the seek: keep the bar where it was sent
+                seekFor = null;   // it arrived (or the hold ran out): reports are believed again
+            }
             m.Position = Math.Max(0, pos);
             m.PositionStamp = clock.Now - (m.Playing ? age : 0);
             return TimelineMoved(predicted, m.LivePosition(clock.Now), oldDuration, m.Duration);
@@ -475,10 +481,22 @@ public sealed partial class MediaService : IMediaSourceEx
     }
     public void Next() => Do("next", s => s.TrySkipNextAsync());
     public void Previous() => Do("previous", s => s.TrySkipPreviousAsync());
+    // where a seek went, held a moment against reports from before the app applied it
+    double seekTo, seekAt, seekHoldUntil; string seekFor;
+    internal const double SeekHold = 1.5;
+
+    /// <summary>
+    /// A report after a seek that's still far from where it was sent: the app hasn't applied it yet. Held
+    /// against for <see cref="SeekHold"/>, it would move the bar back for a moment (the flicker).
+    /// </summary>
+    internal static bool StaleAfterSeek(double target, double reported, double now, double holdUntil) => now < holdUntil && Math.Abs(reported - target) > 1.5;
+
     public void Seek(double seconds)
     {
         var m = Current; if (m == null) return;
-        m.Position = seconds; m.PositionStamp = clock.Now; Changed?.Invoke();
+        m.Position = seconds; m.PositionStamp = clock.Now;
+        seekTo = seconds; seekAt = clock.Now; seekFor = m.SessionId; seekHoldUntil = clock.Now + SeekHold;
+        Changed?.Invoke();
         Do($"seek {seconds:0.0}s", s =>
         {
             var tl = s.GetTimelineProperties();
