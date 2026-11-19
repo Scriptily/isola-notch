@@ -206,7 +206,10 @@ public sealed partial class Island : ITouchTarget
         Mode = m;
         if (m == Mode.Off) { Host.SetHitArea(default, 0); }
         else Host.SetShown(true);
-        if (m == Mode.Expanded || m == Mode.Peek) { MarkActive(); if (held.Count > 0) Ui.Post(() => ReleaseHeld("the island was used")); }
+        // opening the island brings them back, as its banner; hovering doesn't (released then, they popped up over
+        // the hover view, and the click that followed to open it landed on the popup and dismissed it unseen)
+        if (m == Mode.Expanded || m == Mode.Peek) MarkActive();
+        if (m == Mode.Expanded && held.Count > 0) Ui.Post(() => ReleaseHeld("the island was opened"));
         Retarget();
         ScheduleAutoHide();
     }
@@ -613,6 +616,7 @@ public sealed partial class Island : ITouchTarget
     long releaseTimer;
     public IReadOnlyList<Alert> HeldAlerts => held;
 
+    // focused until both are over: the media stopped and nothing fullscreen (a paused video left fullscreen still holds)
     public bool Focused => Cfg.HoldWhileFocused && (Svc?.Media?.Current is { Playing: true } || AnyFullscreen);
 
     static bool Holdable(Alert a) => a.Kind == "call" || (a.Priority < 2 && a.Kind is not ("track" or "hud") && a.Sound != Services.Sounds.Low);

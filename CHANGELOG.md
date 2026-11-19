@@ -25,7 +25,7 @@ release notes.
   volume, even after a crash, and a volume you change meanwhile stays yours).
   Another setting holds notifications, calls and notices while
   media plays or a game or video is fullscreen on any screen. They come back
-  as one summary when it stops, when fullscreen ends, or when you use the
+  as one summary when it stops, when fullscreen ends, or when you open the
   island. Timers and low battery always come through.
 - "Stay while media plays" (Settings -> Behavior, on by default): music or a
   video keeps the island on screen, and the inactivity timer starts when it

@@ -993,4 +993,35 @@ public static partial class Scenarios
         var bad = new Config { SoundsWhilePlaying = "loud" }; bad.Normalize();
         Eq("full", bad.SoundsWhilePlaying, "an unknown choice is full");
     }
+
+    [Scenario("a video paused but still fullscreen keeps holding; they show once it's paused and fullscreen is closed")]
+    public static void PausedFullscreenVideoStillHolds()
+    {
+        var (isl, host, clock) = NewIsland(new Config { HoldWhileFocused = true });
+        var media = new FakeMedia(clock) { Current = new MediaInfo { AppName = "Chrome", SessionId = "Chrome", Title = "A video", Playing = true } };
+        isl.Svc.Media = media;
+        isl.SetAnyFullscreen(true);
+        isl.Alert(new Alert { Key = "n1", Kind = "notification", Title = "Sam", Subtitle = "WhatsApp", Detail = "hi" });
+        media.Current.Playing = false; isl.ActivityChanged();
+        clock.Advance(3, isl);
+        Eq(1, isl.HeldAlerts.Count, "paused, still fullscreen: still held");
+        isl.SetAnyFullscreen(false); clock.Advance(1.8, isl);
+        Eq("n1", isl.CurrentAlert?.Key, "fullscreen closed too: it shows");
+    }
+
+    [Scenario("hovering doesn't release held notices; opening the island shows them as its banner, so the click can't dismiss them unseen")]
+    public static void HoverKeepsHeldOpenShowsBanner()
+    {
+        var (isl, host, clock) = NewIsland(new Config { HoldWhileFocused = true });
+        isl.Svc.Media = Music(clock);
+        isl.Alert(new Alert { Key = "n1", Kind = "notification", Title = "Sam", Subtitle = "WhatsApp", Detail = "hi" });
+        clock.Advance(1, isl);
+        isl.MouseMove(450, 20); clock.Advance(1.2, isl);
+        Eq(Mode.Peek, isl.Mode, "hovering shows the hover view");
+        Eq(1, isl.HeldAlerts.Count, "and leaves it waiting");
+        isl.Expand(); clock.Advance(0.3, isl);
+        Eq(Mode.Expanded, isl.Mode, "the click opens the island");
+        Eq("n1", isl.InlineAlert?.Key, "the notice shows as its banner, there to be seen");
+        Eq(0, isl.HeldAlerts.Count, "nothing left waiting");
+    }
 }
