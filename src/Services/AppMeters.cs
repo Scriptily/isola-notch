@@ -11,7 +11,7 @@ namespace Isola.Services;
 /// </summary>
 public sealed partial class AudioService
 {
-    sealed class MeteredSession { public string Exe = "", Name = ""; public IAudioMeterInformation Meter; public ISimpleAudioVolume Vol; }
+    sealed class MeteredSession { public string Exe = "", Name = "", Id = ""; public uint Pid; public IAudioMeterInformation Meter; public ISimpleAudioVolume Vol; public IChannelAudioVolume Channels; public int State; }
     volatile List<MeteredSession> metered = new();
     int meterBusy;
     double meteredAt = double.NegativeInfinity;
@@ -47,7 +47,8 @@ public sealed partial class AudioService
             s.GetProcessId(out uint pid);
             if (pid == 0 || s is not IAudioMeterInformation meter) continue;
             var (name, exe) = ProcName(pid);
-            list.Add(new MeteredSession { Exe = exe, Name = name, Meter = meter, Vol = s as ISimpleAudioVolume });
+            s.GetSessionInstanceIdentifier(out string sid);
+            list.Add(new MeteredSession { Exe = exe, Name = name, Pid = pid, Meter = meter, Vol = s as ISimpleAudioVolume, Channels = s as IChannelAudioVolume, State = state, Id = sid ?? "" });
         }
         return list;
     }
@@ -67,6 +68,27 @@ public sealed partial class AudioService
             best = Math.Max(best ?? 0, Audible(p, v, muted));
         }
         return best;
+    }
+
+    /// <summary>Every audio session of an app, as numbers, for the verbose log (diagnosing what the meters miss).</summary>
+    public string AppSessionsReport(string aumid, string appName)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var m in metered)
+        {
+            if (!AppMatches(aumid, appName, m.Exe, m.Name)) continue;
+            try
+            {
+                m.Meter.GetPeakValue(out float p); float v = -1; bool mu = false; m.Vol?.GetMasterVolume(out v); m.Vol?.GetMute(out mu);
+                string ch = "";
+                if (m.Channels != null && m.Channels.GetChannelCount(out uint n) >= 0)
+                    for (uint i = 0; i < n; i++) { m.Channels.GetChannelVolume(i, out float cv); ch += (i > 0 ? "/" : "") + cv.ToString("0.00"); }
+                string id = m.Id.Length > 12 ? m.Id[^12..] : m.Id;
+                sb.Append($" [{Path.GetFileName(m.Exe)} state {m.State} peak {p:0.000} vol {v:0.00}{(mu ? " muted" : "")} ch {ch} ..{id}]");
+            }
+            catch (Exception ex) { sb.Append(" [error " + ex.Message + "]"); }
+        }
+        return sb.ToString();
     }
 
     /// <summary>

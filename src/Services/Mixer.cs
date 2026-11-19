@@ -46,6 +46,15 @@ public partial interface IAudioSessionControl2
     [PreserveSig] int IsSystemSoundsSession();
 }
 
+/// <summary>A session's per-channel volumes, which the Volume mixer doesn't show.</summary>
+[GeneratedComInterface, Guid("1C158861-B533-4B30-B1CF-E853E51C59B8")]
+public partial interface IChannelAudioVolume
+{
+    [PreserveSig] int GetChannelCount(out uint n);
+    [PreserveSig] int SetChannelVolume(uint i, float v, in Guid ctx);
+    [PreserveSig] int GetChannelVolume(uint i, out float v);
+}
+
 [GeneratedComInterface, Guid("87CE5498-68D6-44E5-9215-6DA47EF883D8")]
 public partial interface ISimpleAudioVolume
 {

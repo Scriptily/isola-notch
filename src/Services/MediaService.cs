@@ -103,13 +103,16 @@ public sealed partial class MediaService : IMediaSourceEx
         var playing = infos.Values.Where(i => i.Playing).ToList();
         // Spotify's slider is invisible to Windows' meters: while Spotify plays on the island or beside another
         // app, keep reading it, or a volume of 0% set in Spotify goes unnoticed until its panel is opened
-        if (playing.Any(i => i.IsSpotify) && (playing.Count > 1 || Current?.IsSpotify == true)) PollSpotify();
-        if (Current is { Playing: true } c && clock.Now - levelLogAt > 3)
+        // (only where its sound can't be captured: captured, its volume is already in the level)
+        var spotify = playing.FirstOrDefault(i => i.IsSpotify);
+        if (spotify != null && (playing.Count > 1 || Current?.IsSpotify == true) && audio?.CapturedPeak(spotify.SessionId, spotify.AppName, clock.Now) == null) PollSpotify();
+        if (Current is { Playing: true } c && clock.Now - levelLogAt > 5)
         {
             levelLogAt = clock.Now;
             audio?.RefreshAppMeters(clock.Now);
             float? app = AppPeak(c);
-            Log.D("media", $"level of {c.SessionId}: app {(app == null ? "unknown" : app.Value.ToString("0.0000"))}, output {OutputPeak():0.0000}, sounding {Sounding}");
+            float? cap = audio?.CapturedPeak(c.SessionId, c.AppName, clock.Now);
+            Log.D("media", $"level of {c.SessionId}: {(cap != null ? "captured" : "metered")} {(app == null ? "unknown" : app.Value.ToString("0.0000"))}, output {OutputPeak():0.0000}, sounding {Sounding}");
         }
         if (playing.Count < 2) { heardSet = ""; return; }
         audio?.RefreshAppMeters(clock.Now);
@@ -123,7 +126,8 @@ public sealed partial class MediaService : IMediaSourceEx
     public MediaService(IClock c, AudioService a)
     {
         clock = c; audio = a;
-        AppPeak = m => Audible(audio?.AppPeak(m.SessionId, m.AppName), OutputPeak(), m.IsSpotify ? SpotifyVolume() : null);
+        // the app's own sound when Windows can capture it (exact, its volume control included); else its meters
+        AppPeak = m => audio?.CapturedPeak(m.SessionId, m.AppName, clock.Now) ?? Audible(audio?.AppPeak(m.SessionId, m.AppName), OutputPeak(), m.IsSpotify ? SpotifyVolume() : null);
         OutputPeak = () => audio?.PeakNow() ?? 0;
     }
 

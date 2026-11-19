@@ -320,7 +320,8 @@ public sealed class Canvas
         if (tw <= b.W + 0.5f) { Text(text, b, size, color, weight, HAlign.Left, va); return; }
         // keyed by its width too: while the island grows or shrinks around it, the box changes every frame, and
         // sliding by a share of a changing distance jumped back and forth. A new width starts again from rest.
-        string key = text + "|" + MathF.Round(b.W);
+        // and by its size: the Now Playing card switches its title between two sizes as it grows
+        string key = text + "|" + MathF.Round(b.W) + "|" + size + "|" + (int)weight;
         if (!marqueeStart.TryGetValue(key, out double start))
         {
             if (marqueeStart.Count > 64) marqueeStart.Clear();

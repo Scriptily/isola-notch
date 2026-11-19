@@ -494,4 +494,35 @@ public static partial class Scenarios
         var c2 = Row(214, 100 + Canvas.MarqueeHoldStart + 1.7);
         True(c1.SequenceEqual(c2), "at a new width it rests again (no jumping while the island grows)");
     }
+
+    [System.Runtime.InteropServices.DllImport("winmm.dll")] static extern bool PlaySound(nint sound, nint mod, uint flags);
+
+    [Scenario("an app's own sound is measured as it leaves for the speakers (a near-silent tone reads at its level, then silence)")]
+    public static void AppSoundIsCaptured()
+    {
+        // a 440 Hz tone at amplitude 0.002 (about -54 dB: practically inaudible), played by this process
+        int rate = 48000, n = rate;
+        var ms = new MemoryStream(); var w = new BinaryWriter(ms);
+        w.Write("RIFF"u8.ToArray()); w.Write(36 + n * 2); w.Write("WAVEfmt "u8.ToArray()); w.Write(16); w.Write((short)1); w.Write((short)1); w.Write(rate); w.Write(rate * 2); w.Write((short)2); w.Write((short)16);
+        w.Write("data"u8.ToArray()); w.Write(n * 2);
+        for (int i = 0; i < n; i++) w.Write((short)(Math.Sin(2 * Math.PI * 440 * i / rate) * 0.002 * 32767));
+        var bytes = ms.ToArray();
+        var pin = System.Runtime.InteropServices.GCHandle.Alloc(bytes, System.Runtime.InteropServices.GCHandleType.Pinned);
+        var cw = new System.Runtime.InteropServices.Marshalling.StrategyBasedComWrappers();
+        var cap = Services.ProcessCapture.TryStart((uint)Environment.ProcessId, cw);
+        if (cap == null) { Console.WriteLine("        (no audio device here: skipped)"); pin.Free(); return; }
+        try
+        {
+            PlaySound(pin.AddrOfPinnedObject(), 0, 0x0004 /* memory */ | 0x0001 /* async */ | 0x0008 /* loop */);
+            float peak = 0;
+            for (int i = 0; i < 40; i++) { Thread.Sleep(25); peak = Math.Max(peak, cap.Peak); }
+            True(Math.Abs(peak - 0.002f) < 0.0006f, $"the tone's own level, not the meters' guess ({peak:0.0000})");
+            PlaySound(0, 0, 0);
+            Thread.Sleep(400);
+            float after = 0;
+            for (int i = 0; i < 8; i++) { Thread.Sleep(25); after = Math.Max(after, cap.Peak); }
+            True(after < 0.0002f, $"and silence once it stops ({after:0.0000})");
+        }
+        finally { PlaySound(0, 0, 0); cap.Dispose(); pin.Free(); }
+    }
 }
