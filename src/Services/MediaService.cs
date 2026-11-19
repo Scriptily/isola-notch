@@ -64,6 +64,8 @@ public sealed partial class MediaService : IMediaSourceEx
     public Func<float> OutputPeak;
     /// <summary>Spotify's own volume, 0-100, when Isola knows it (connected to Spotify).</summary>
     public Func<int?> SpotifyVolume = () => null;
+    /// <summary>Asks Spotify for its volume again (it throttles itself to one read every few seconds).</summary>
+    public Action PollSpotify = () => { };
 
     /// <summary>
     /// What of an app's sound actually comes out. Its meter can read the music at full level while nothing
@@ -99,6 +101,9 @@ public sealed partial class MediaService : IMediaSourceEx
     {
         heardTimer = Ui.After(0.25, WatchHeard);
         var playing = infos.Values.Where(i => i.Playing).ToList();
+        // Spotify's slider is invisible to Windows' meters: while Spotify plays on the island or beside another
+        // app, keep reading it, or a volume of 0% set in Spotify goes unnoticed until its panel is opened
+        if (playing.Any(i => i.IsSpotify) && (playing.Count > 1 || Current?.IsSpotify == true)) PollSpotify();
         if (Current is { Playing: true } c && clock.Now - levelLogAt > 3)
         {
             levelLogAt = clock.Now;

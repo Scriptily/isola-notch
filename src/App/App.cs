@@ -149,7 +149,7 @@ public sealed unsafe partial class App
         }
         else
         {
-            var media = new MediaService(clock, svc.Audio) { Ignored = () => cfg.MediaIgnoredApps, SpotifyVolume = () => svc.Spotify?.Volume };
+            var media = new MediaService(clock, svc.Audio) { Ignored = () => cfg.MediaIgnoredApps, SpotifyVolume = () => svc.Spotify?.Volume, PollSpotify = () => svc.Spotify?.Poll() };
             svc.Media = media;
             media.Changed += () => { island.ActivityChanged(); island.UpdateGlowColors(); };
             media.TrackChanged += (o, n) => island.TrackChanged(o, n);
@@ -230,6 +230,7 @@ public sealed unsafe partial class App
         svc.Updates.Changed += () => { island.Host.RequestFrame(); if ((svc.Updates.Phase != null) != updating) { updating = !updating; island.ActivityChanged(); } };
         svc.Tools.Changed += () => { if ((svc.Tools.Fetching != null) != fetching) { fetching = !fetching; island.ActivityChanged(); } };
         svc.Tools.Fetched += got => { if (cfg.Downloads) island.Alert(Alerts.ToolsFetched(got)); };
+        svc.Tools.Removed += freed => island.Alert(Alerts.ToolsRemoved(freed));
         // a moment of "Installing v..." on the island first (the setup waits for Isola to close anyway)
         svc.Updates.Installing += v => { Log.I("update", "handing over to the installer"); island.Host.RequestFrame(); Ui.After(Updater.ShowInstallingFor, () => { Log.Flush(); quit = true; }); };
         svc.Updates.Start();

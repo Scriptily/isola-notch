@@ -83,7 +83,8 @@ public sealed partial class DashboardPage : Page
             // four rows fit before the grid scrolls (440 clipped the fourth by 8 DIP)
             h = Math.Clamp(104 + HaRows() * 86, 220, 450);
         }
-        if (t[isl.Tab].Id == "media" && (isl.Svc?.Media?.Sessions.Count ?? 0) > 1) h += 34;
+        // room for the app chips: the same count the layout uses (sessions with something to show)
+        if (t[isl.Tab].Id == "media" && (isl.Svc?.Media?.Sessions.Count(s => !string.IsNullOrEmpty(s.Title)) ?? 0) > 1) h += 34;
         if (t[isl.Tab].Id == "media" && SpotifyRow()) h += SpotifyRowH;
         return (620, h, 40);
     }

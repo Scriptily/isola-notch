@@ -348,11 +348,17 @@ public sealed partial class Island : ITouchTarget
 
     // ---- live activity hooks ------------------------------------------------
 
+    /// <summary>
+    /// What the island shows changed (another app's media, a download starting). At rest that can change the
+    /// page; open, it can change the height: switching to Spotify adds its volume row, and without re-sizing
+    /// the island squeezed the row against the controls until it was closed and opened again.
+    /// </summary>
     public void ActivityChanged()
     {
-        if (Mode == Mode.Rest) Retarget();
+        if (Mode is Mode.Rest or Mode.Peek or Mode.Expanded) Retarget();
         else Host.RequestFrame();
     }
+    internal double TargetHeight => H.Target;
 
     public void TrackChanged(MediaInfo old, MediaInfo now)
     {

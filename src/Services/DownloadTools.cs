@@ -67,6 +67,8 @@ public sealed class DownloadTools
     /// copy. Once per batch: a notice per tool covered the island while the next one downloaded.
     /// </summary>
     public event Action<IReadOnlyList<(string name, string version, bool update)>> Fetched;
+    /// <summary>The tools were removed, freeing this many bytes (the island says so).</summary>
+    public event Action<long> Removed;
     public DateTime LastCheck { get; private set; }
     long timer;
 
@@ -224,7 +226,15 @@ public sealed class DownloadTools
     public bool Remove()
     {
         if (Busy || InUse()) return false;
-        try { if (Directory.Exists(Dir)) Directory.Delete(Dir, true); installed.Clear(); Set("Removed. They come back when you download something."); return true; }
+        try
+        {
+            long freed = Bytes;
+            if (Directory.Exists(Dir)) Directory.Delete(Dir, true);
+            installed.Clear();
+            Set("Removed. They come back when you download something.");
+            Ui.Post(() => Removed?.Invoke(freed));
+            return true;
+        }
         catch (Exception ex) { Log.W("tools", "remove failed: " + ex.Message); Set("Couldn't remove them all (one may be running)."); return false; }
     }
 }

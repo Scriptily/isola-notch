@@ -462,4 +462,36 @@ public static partial class Scenarios
         True(Math.Abs(MediaService.Audible(0.8f, 0.9f, 50).Value - 0.4f) < 1e-6, "Spotify at 50%: half");
         True(MediaService.Audible(null, 0.5f, null) == null, "an app that can't be told apart stays unknown");
     }
+
+    [Scenario("the open island re-sizes when the media it shows changes (Spotify's volume row needs room)")]
+    public static void OpenIslandResizesForNewMedia()
+    {
+        var cfg = new Config { SpotifyVolume = true };
+        var (isl, host, clock) = NewIsland(cfg);
+        var media = new FakeMedia(clock) { Current = new MediaInfo { AppName = "Chrome", SessionId = "Chrome", Title = "A video", Playing = true } };
+        isl.Svc.Media = media; isl.Svc.Spotify = new Services.SpotifyService(clock);
+        isl.Expand(); clock.Advance(0.6, isl);
+        double before = isl.TargetHeight;
+        media.Current = new MediaInfo { AppName = "Spotify", SessionId = "Spotify.exe", Title = "House Of Cards", Playing = true };
+        isl.ActivityChanged(); clock.Advance(0.05, isl);
+        True(isl.TargetHeight >= before + 39, $"room for Spotify's volume row ({before:0} -> {isl.TargetHeight:0})");
+    }
+
+    [Scenario("a sliding title starts again from rest when its box changes width, instead of jumping while the island grows")]
+    public static void MarqueeRestartsOnResize()
+    {
+        using var o = new Offscreen(400, 60);
+        string title = "See U in Hell (from the Netflix Series \"Something Long Enough to Slide\")";
+        byte[] Row(float width, double now)
+        {
+            o.Draw(c => c.Marquee(title, new Box(10, 10, width, 20), 13, Col.White, Vortice.DirectWrite.FontWeight.Medium, now));
+            return o.AlphaRow(20);
+        }
+        var rest = Row(200, 100);
+        var sliding = Row(200, 100 + Canvas.MarqueeHoldStart + 1.5);
+        True(!rest.SequenceEqual(sliding), "at a steady width it slides");
+        var c1 = Row(214, 100 + Canvas.MarqueeHoldStart + 1.6);
+        var c2 = Row(214, 100 + Canvas.MarqueeHoldStart + 1.7);
+        True(c1.SequenceEqual(c2), "at a new width it rests again (no jumping while the island grows)");
+    }
 }

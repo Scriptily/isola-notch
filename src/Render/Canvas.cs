@@ -318,10 +318,13 @@ public sealed class Canvas
         if (string.IsNullOrEmpty(text)) return;
         float tw = Measure(text, size, weight).w;
         if (tw <= b.W + 0.5f) { Text(text, b, size, color, weight, HAlign.Left, va); return; }
-        if (!marqueeStart.TryGetValue(text, out double start))
+        // keyed by its width too: while the island grows or shrinks around it, the box changes every frame, and
+        // sliding by a share of a changing distance jumped back and forth. A new width starts again from rest.
+        string key = text + "|" + MathF.Round(b.W);
+        if (!marqueeStart.TryGetValue(key, out double start))
         {
             if (marqueeStart.Count > 64) marqueeStart.Clear();
-            marqueeStart[text] = start = now;
+            marqueeStart[key] = start = now;
         }
         float over = tw - b.W, off = MarqueeOffset(over, now - start);
         marqueeFrame = Frame;

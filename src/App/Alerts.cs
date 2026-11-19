@@ -194,6 +194,13 @@ public static class Alerts
         return new() { Key = "tools", Kind = "info", Title = title, Subtitle = Cap(sub, 40), Glyph = Glyph.Check, Accent = Col.Hex(0x34c759), Seconds = 3 };
     }
 
+    /// <summary>The download tools were removed from Settings.</summary>
+    public static Alert ToolsRemoved(long bytes) => new()
+    {
+        Key = "tools", Kind = "info", Title = "Download tools removed", Subtitle = bytes > 0 ? $"{bytes / 1_000_000} MB freed" : "They come back when you download something",
+        Glyph = Glyph.Delete, Accent = Col.Gray(0.6f), Seconds = 2.5,
+    };
+
     public static Alert Updated(string version) => new()
     {
         Key = "updated", Kind = "info", Title = $"Updated to v{version}", Subtitle = "Isola", Glyph = Glyph.Check, Accent = Col.Hex(0x34c759), Seconds = 3.5,
