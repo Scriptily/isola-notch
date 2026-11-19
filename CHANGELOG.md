@@ -7,7 +7,7 @@ the number of changes in a release that only fixes and adjusts things, so
 1.4.0 with two fixes is 1.4.2. Each release's section below is also its GitHub
 release notes.
 
-## [Unreleased]
+## [1.7.0] - 2026-11-19
 
 ### Added
 
@@ -84,8 +84,10 @@ release notes.
 - New default sounds: Bloom for notifications, Warm for calls, Triple for the
   timer, Bubble for devices, Energy for the charger and Sink for low battery.
   Sounds you picked yourself stay as they are.
-- Tooltips in Settings appear sooner, and the "?" popovers fade away instead
-  of vanishing.
+- Tooltips in Settings appear sooner, and they and the "?" popovers fade away
+  instead of vanishing.
+- The bell that opens Recent sits beside settings, and the tabs are centered
+  between the buttons, with even space around each label.
 
 ### Fixed
 
@@ -109,6 +111,16 @@ release notes.
 - Sliding titles and scrolling lists moved in visible steps; they glide now.
 - The glow faded to the theme's colors while a song popup slid away into the
   hidden island.
+- Opening onto a tall tab, like Weather, made the island swell past its
+  height and then shrink back.
+- Opening Home with many tiles hitched, and showed a scroll bar for a moment.
+  What the island shows is now laid out once, at the size it's growing to.
+- Opening the island on Home before Home Assistant had connected kept another
+  tab's height.
+- Grabbing a scroll bar's thumb made the list jump to the pointer; it now
+  moves only as you drag.
+- The Weather tab's footer sat against the forecast, and the Shelf's button
+  had more space after its label than before its icon.
 
 ## [1.6.0] - 2026-11-19
 
