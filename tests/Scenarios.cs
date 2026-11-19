@@ -97,6 +97,28 @@ public static partial class Scenarios
         Eq(Mode.Hidden, isl.Mode, "hidden 2 min after the last activity");
     }
 
+    [Scenario("playing media keeps it on screen (a setting): it hides once the media has stopped for the inactivity time")]
+    public static void AutoHideWaitsForMedia()
+    {
+        var (isl, host, clock) = NewIsland(new Config { AutoHideMinutes = 2 });
+        var media = new FakeMedia(clock) { Current = new MediaInfo { AppName = "Spotify", SessionId = "Spotify.exe", Title = "A song", Playing = true } };
+        isl.Svc.Media = media;
+        isl.MarkActive();
+        clock.Advance(600, isl);
+        Eq(Mode.Rest, isl.Mode, "still showing after 10 min of music");
+        media.Current.Playing = false;
+        clock.Advance(100, isl);
+        Eq(Mode.Rest, isl.Mode, "paused 100 s ago: still showing");
+        clock.Advance(30, isl);
+        Eq(Mode.Hidden, isl.Mode, "hidden 2 min after the music stopped");
+
+        var (isl2, _, clock2) = NewIsland(new Config { AutoHideMinutes = 2, StayWhilePlaying = false });
+        isl2.Svc.Media = new FakeMedia(clock2) { Current = new MediaInfo { AppName = "Spotify", SessionId = "Spotify.exe", Title = "A song", Playing = true } };
+        isl2.MarkActive();
+        clock2.Advance(130, isl2);
+        Eq(Mode.Hidden, isl2.Mode, "turned off: it hides after inactivity even while music plays");
+    }
+
     [Scenario("dragging it up hides it, and the pointer still at the top does NOT bring it straight back")]
     public static void DragUpStaysHidden()
     {

@@ -309,13 +309,19 @@ public sealed partial class Island : ITouchTarget
     /// <summary>Something happened that counts as "the island is in use".</summary>
     public void MarkActive() { lastActivity = Clock.Now; ScheduleAutoHide(); }
 
+    bool KeptByMedia() => Cfg.StayWhilePlaying && Svc?.Media?.Current is { Playing: true };
+
     void ScheduleAutoHide()
     {
         Ui.Cancel(ref autoHideTimer);
         if (Cfg.AutoHideMinutes <= 0 || Mode != Mode.Rest) return;
         double due = lastActivity + Cfg.AutoHideMinutes * 60 - Clock.Now;
+        // while media plays it stays (a setting): looked at again every few seconds, so the inactivity counts
+        // from when the media stopped
+        if (KeptByMedia()) due = Math.Min(due, 5);
         autoHideTimer = Ui.After(Math.Max(0.05, due), () =>
         {
+            if (Mode == Mode.Rest && KeptByMedia()) { lastActivity = Clock.Now; ScheduleAutoHide(); return; }
             if (Mode == Mode.Rest && !Hovering && Clock.Now - lastActivity >= Cfg.AutoHideMinutes * 60 - 0.01)
                 SetMode(Mode.Hidden, $"no activity for {Cfg.AutoHideMinutes:0.#} min");
             else ScheduleAutoHide();

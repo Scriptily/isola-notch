@@ -13,6 +13,7 @@
   "HoverDelayMs": 450,
   "CollapseDelayMs": 450,
   "AutoHideMinutes": 2,
+  "StayWhilePlaying": true,
   "ShowIndicatorWhenHidden": true,
   "RevealZoneWidth": 200,
   "RevealZoneHeight": 6,

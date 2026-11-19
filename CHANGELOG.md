@@ -11,6 +11,9 @@ release notes.
 
 ### Added
 
+- "Stay while media plays" (Settings -> Behavior, on by default): music or a
+  video keeps the island on screen, and the inactivity timer starts when it
+  stops. Turned off, the island hides after inactivity as before.
 - The island shows Isola's own updates: when one is found, how far it has
   downloaded, and when it starts installing.
 - The download tools (yt-dlp, FFmpeg, QuickJS) show their progress on the
