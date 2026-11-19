@@ -677,4 +677,36 @@ public static partial class Scenarios
         True(awake > dim * 1.6, $"the pointer inside wakes it ({dim} -> {awake})");
         True(Paint.Scrolls(600, 200) && !Paint.Scrolls(200, 200), "and only scrolling lists give up a lane for it");
     }
+
+    [Scenario("a banner on the open island waits while hovered and goes when clicked; the next one follows")]
+    public static void BannersWaitAndDismiss()
+    {
+        var (isl, host, clock) = NewIsland();
+        isl.Expand(); clock.Advance(0.5, isl);
+        isl.Alert(new Alert { Key = "a", Title = "First", Seconds = 3 });
+        isl.Alert(new Alert { Key = "b", Title = "Second", Seconds = 3 });
+        Eq("a", isl.InlineAlert?.Key, "one banner at a time");
+        clock.Advance(3.2, isl);
+        Eq("b", isl.InlineAlert?.Key, "the first times out, the next follows");
+        isl.EndInline("dismissed"); clock.Advance(0.1, isl);
+        True(isl.InlineAlert == null, "a click dismisses it");
+        Eq(Mode.Expanded, isl.Mode, "without leaving the tab");
+    }
+
+    [Scenario("a click on a notice or a call dismisses it, and everything shown is kept for the Recent tab")]
+    public static void ClickDismissesAndHistoryKeeps()
+    {
+        var (isl, host, clock) = NewIsland();
+        isl.Alert(new Alert { Key = "n1", Kind = "notification", Title = "Hi", Subtitle = "Messages", Seconds = 5 });
+        clock.Advance(0.3, isl);
+        Eq(Mode.Alert, isl.Mode, "shown");
+        isl.MouseDown(450, 30); isl.MouseUp(450, 30); clock.Advance(0.3, isl);
+        True(isl.Mode != Mode.Alert && isl.Mode != Mode.Expanded, $"a click dismissed it, without opening the island ({isl.Mode})");
+        isl.Alert(new Alert { Key = "call", Kind = "call", Title = "Mom", Priority = 3, Sticky = true, MaxSeconds = 30 });
+        clock.Advance(0.3, isl);
+        isl.MouseDown(450, 30); isl.MouseUp(450, 30); clock.Advance(0.3, isl);
+        True(isl.Mode != Mode.Alert, "a call dismissed the same way");
+        Eq(2, isl.History.Count, "both are in the session history");
+        Eq("Mom", isl.History[^1].alert.Title, "newest last (shown first in the tab)");
+    }
 }

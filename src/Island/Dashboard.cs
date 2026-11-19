@@ -26,6 +26,7 @@ public sealed partial class DashboardPage : Page
         new("clipboard", "Clipboard", Glyph.Clipboard, c => c.Clipboard, 320),
         new("timer", "Timer", Glyph.Timer, c => c.Timer, 270),
         new("devices", "Devices", Glyph.Bluetooth, c => c.BluetoothAlerts || c.AirPods, 400),
+        new("recent", "Recent", Glyph.Bell, c => true, 360),
     };
     readonly Island isl;
     List<TabDef> tabs = new();
@@ -291,7 +292,43 @@ public sealed partial class DashboardPage : Page
             case "clipboard": Clipboard(c, ux, p, t); break;
             case "timer": Timer(c, ux, p, t); break;
             case "devices": Devices(c, ux, p, t); break;
+            case "recent": Recent(c, ux, p, t); break;
         }
+    }
+
+    // ==== Recent: every notification, call and notice the island showed since Isola started ==========
+    void Recent(Canvas c, Ux ux, Box p, float t)
+    {
+        var h = isl.History;
+        if (h.Count == 0) { Empty(c, p, Glyph.Bell, "Nothing yet", "Notifications, calls and notices that show on the island are listed here until Isola closes.", t); return; }
+        c.Text($"{h.Count} since Isola started · newest first", new Box(p.X, p.Y - 2, p.W - 90, 16), 11, Col.White.A(0.45f * t), FontWeight.SemiBold);
+        ux.Pill("recent:clear", new Box(p.Right - 70, p.Y - 4, 70, 22), "Clear", () => { h.Clear(); scroll["recent"] = 0; isl.Host.RequestFrame(); }, Col.White, '\0', false, 11);
+        var list = new Box(p.X, p.Y + 26, p.W, p.H - 26);
+        const float rh = 54;
+        float total = h.Count * rh;
+        float sc = ux.Anim("scroll:recent", scroll.GetValueOrDefault("recent"), ScrollSpring, 0.05);
+        var rs = ux.Add("recent:scroll", list, null, 0, CursorKind.Arrow); rs.ScrollPx = rh;
+        rs.Wheel = (d, hz) => { scroll["recent"] = Math.Clamp(scroll.GetValueOrDefault("recent") - d / 120f * rh, 0, Math.Max(0, total - list.H)); isl.Host.RequestFrame(); };
+        Paint.ScrollBar(c, ux, "recent", list, sc, scroll.GetValueOrDefault("recent"), total, t);
+        if (Paint.Scrolls(total, list.H)) list = new Box(list.X, list.Y, list.W - Paint.ScrollLane, list.H);
+        c.FadeClip(list, sc > 0.5f, sc < total - list.H - 0.5f);
+        for (int i = 0; i < h.Count; i++)
+        {
+            var (al, at) = h[h.Count - 1 - i];
+            var row = new Box(list.X, list.Y + i * rh - sc, list.W, rh - 6);
+            if (row.Bottom < list.Y || row.Y > list.Bottom) continue;
+            c.Fill(row, Col.White.A(0.05f * t), 12);
+            var ib = new Box(row.X + 9, row.CY - 15, 30, 30);
+            var img = Paint.Image(c, "recent:" + al.Key + al.Created, al.Image);
+            if (img != null) c.Image(img, ib, t, al.Kind == "call" ? 15 : 8);
+            else { c.Fill(ib, Col.Legible(al.Accent, 0.22f).A(t), al.Kind == "call" ? 15 : 8); c.Icon(al.Glyph == '\0' ? Glyph.Bell : al.Glyph, ib.CX, ib.CY, 13, Col.White.A(t)); }
+            float tx = ib.Right + 11, tw = row.Right - 70 - tx;
+            c.Text(al.Title, new Box(tx, row.Y + 6, tw, 19), 13, Col.White.A(0.92f * t), FontWeight.SemiBold);
+            string sub = string.IsNullOrEmpty(al.Detail) ? al.Subtitle : (string.IsNullOrEmpty(al.Subtitle) ? al.Detail : al.Subtitle + " · " + al.Detail);
+            c.Text((sub ?? "").Replace('\n', ' '), new Box(tx, row.Y + 25, tw, 17), 11.5f, Col.White.A(0.55f * t), FontWeight.Medium);
+            c.Text(at.ToString(isl.Cfg.Use24Hour ? "HH:mm" : "h:mm tt"), new Box(row.Right - 66, row.Y, 56, row.H), 11, Col.White.A(0.45f * t), FontWeight.SemiBold, HAlign.Right);
+        }
+        c.Unfade();
     }
 
     static void Empty(Canvas c, Box p, char glyph, string title, string sub, float t)

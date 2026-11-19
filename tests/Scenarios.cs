@@ -149,18 +149,18 @@ public static partial class Scenarios
         Eq(Mode.Hidden, isl.Mode, "was hidden before fullscreen -> hidden after");
     }
 
-    [Scenario("alerts wait while the user is in the dashboard; a call interrupts anything")]
+    [Scenario("with the island open, a notice drops in as a banner on the tab; a call interrupts anything")]
     public static void AlertQueueing()
     {
         var (isl, host, clock) = NewIsland();
         isl.Expand(); clock.Advance(0.5, isl);
         isl.Alert(new Alert { Key = "bt", Title = "AirPods", Seconds = 3 });
-        Eq(Mode.Expanded, isl.Mode, "normal alert waits");
+        Eq(Mode.Expanded, isl.Mode, "the island stays on its tab");
+        Eq("bt", isl.InlineAlert?.Key, "and the notice drops in as a banner at its top (it used to wait unseen)");
         isl.Alert(new Alert { Key = "call", Kind = "call", Title = "Mom", Priority = 2, Sticky = true });
         Eq(Mode.Alert, isl.Mode, "call interrupts");
         Eq("call", isl.CurrentAlert.Key, "call shown");
-        isl.DismissAlert("call"); clock.Advance(0.3, isl);
-        Eq("bt", isl.CurrentAlert?.Key, "queued alert follows");
+        True(isl.InlineAlert == null, "the banner, already seen, goes");
     }
 
     [Scenario("the album's colors stay on the glow while paused (they used to snap to the default)")]

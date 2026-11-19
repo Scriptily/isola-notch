@@ -183,6 +183,7 @@ public sealed partial class Island : ITouchTarget
     public void SetMode(Mode m, string why)
     {
         var old = Mode;
+        if (InlineAlert != null && m is not (Mode.Expanded or Mode.Search)) EndInline("island closed");   // it was seen
         if (old == m && m != Mode.Alert && m != Mode.Hud) { Retarget(); return; }
         LastModeReason = why;
         Log.D("island", $"mode {old} -> {m} ({why})");
@@ -469,6 +470,82 @@ public sealed partial class Island : ITouchTarget
     public Action PreviewPopups;
     /// <summary>An alert came on screen / left it: the app plays its sound, and stops a looping one.</summary>
     public Action<Alert> SoundOn, SoundOff;
+
+    // ---- a notice while the island is open: a banner at its top -------------------------------
+    public Alert InlineAlert { get; private set; }
+    long inlineTimer;
+    Box inlineBox;
+
+    void ShowInline(Alert a)
+    {
+        InlineAlert = a;
+        PaletteForAlert(a);
+        Ux.Forget("inline:in");
+        Log.D("alert", $"{a.Kind} as a banner (the island is open)");
+        if (SoundOn != null) Ui.Guard("alert sound", () => SoundOn(a));
+        if (a.Shown != null) Ui.Guard("alert shown", a.Shown);
+        ArmInline(Math.Min(a.Seconds, 5));
+        Host.RequestFrame();
+    }
+
+    // it waits while the pointer is on it, as a notice does
+    void ArmInline(double seconds)
+    {
+        Ui.Cancel(ref inlineTimer);
+        inlineTimer = Ui.After(seconds, () => { if (Ux.PointerIn(inlineBox)) ArmInline(1.5); else EndInline("timeout"); });
+    }
+
+    public void EndInline(string why)
+    {
+        var a = InlineAlert;
+        if (a == null) return;
+        InlineAlert = null;
+        Ui.Cancel(ref inlineTimer);
+        Log.D("alert", $"banner {a.Kind} gone ({why})");
+        if (SoundOff != null) Ui.Guard("alert sound", () => SoundOff(a));
+        Host.RequestFrame();
+        Ui.Post(PumpAlerts);   // the next one waiting, if any
+    }
+
+    void DrawInline(Canvas c, Box box)
+    {
+        var al = InlineAlert;
+        if (al == null || Mode is not (Mode.Expanded or Mode.Search)) return;
+        float a = Ux.AnimFrom("inline:in", 0, 1, SpringSpec.Content);
+        var b = new Box(box.X + 12, box.Y + 10 - (1 - a) * 16, box.W - 24, 58);
+        inlineBox = b;
+        c.Push(null, a);
+        c.DropShadow(16, Col.Black.A(0.5f), 6, () => c.Fill(b, Col.Black, 18));
+        c.Fill(b, Col.Hex(0x2c2c31), 18);   // a step lighter than the island: it floats above
+        c.Stroke(b, Col.White.A(0.1f), 18, 1);
+        var ib = new Box(b.X + 11, b.CY - 18, 36, 36);
+        var img = Paint.Image(c, "inline:" + al.Key + al.Created, al.Image);
+        if (img != null) c.Image(img, ib, 1, al.Kind == "call" ? 18 : 9);
+        else
+        {
+            c.Fill(ib, Col.Legible(al.Accent, 0.22f), al.Kind == "call" ? 18 : 9);
+            c.Icon(al.Glyph == '\0' ? Glyph.Bell : al.Glyph, ib.CX, ib.CY, 16, Col.White);
+        }
+        float tx = ib.Right + 12, tw = b.Right - 14 - tx;
+        c.Marquee(al.Title, new Box(tx, b.Y + 9, tw, 20), 13.5f, Col.White, Vortice.DirectWrite.FontWeight.SemiBold, Clock.Now);
+        string sub = string.IsNullOrEmpty(al.Detail) ? al.Subtitle : (string.IsNullOrEmpty(al.Subtitle) ? al.Detail : al.Subtitle + " · " + al.Detail);
+        c.Marquee(sub?.Replace('\n', ' ') ?? "", new Box(tx, b.Y + 30, tw, 18), 12, Col.White.A(0.6f), Vortice.DirectWrite.FontWeight.Medium, Clock.Now);
+        c.Pop();
+        Ux.Add("inline:alert", b, () => EndInline("dismissed"), 18);   // a click dismisses it
+    }
+
+    // ---- what showed this session (the Recent tab) -------------------------------------------
+    public readonly List<(Alert alert, DateTime at)> History = new();
+    internal const int HistoryMax = 300;
+
+    void Remember(Alert a)
+    {
+        if (a.Kind is "hud" || a.Key == "updated") return;
+        // the same notice updated in place (a download's, a count) is one entry
+        if (a.Key != "" && History.Count > 0 && History[^1].alert.Key == a.Key) History[^1] = (a, DateTime.Now);
+        else History.Add((a, DateTime.Now));
+        if (History.Count > HistoryMax) History.RemoveAt(0);
+    }
     public IReadOnlyList<Alert> QueuedAlerts => alertQueue;
     double alertShownAt, transientEndsAt;
 
@@ -479,6 +556,7 @@ public sealed partial class Island : ITouchTarget
         // notifications and calls carry people's names and words: the log keeps only what kind and from which app
         Log.I("alert", a.Kind is "notification" or "call" or "summary" ? $"{a.Kind} from {a.Subtitle}" : $"{a.Kind}: {a.Title} | {a.Subtitle}");
         if (!CanShowAlerts && a.Priority < 2) { Log.D("alert", "suppressed (island off)"); return; }
+        Remember(a);
         alertQueue.RemoveAll(q => q.Key == a.Key && a.Key != "");
         if (CurrentAlert != null && CurrentAlert.Key == a.Key && a.Key != "" && Mode == Mode.Alert)
         {
@@ -544,8 +622,15 @@ public sealed partial class Island : ITouchTarget
         Fold();
         if (alertQueue.Count == 0) return;
         var next = alertQueue[0];
-        bool userBusy = Mode is Mode.Expanded or Mode.Search or Mode.Peek;
-        if (userBusy && next.Priority < 2) return;           // wait until they are done
+        // the island open on a tab or in search: a banner drops in at its top instead of the notice waiting
+        // unseen until it closed; hovering the pill isn't being busy (and hovering a notice pauses it anyway)
+        if (Mode is Mode.Expanded or Mode.Search && next.Priority < 2)
+        {
+            if (InlineAlert != null) return;   // one banner at a time; the next follows it
+            alertQueue.Remove(next);
+            ShowInline(next);
+            return;
+        }
         if (Mode == Mode.Alert && CurrentAlert != null)
         {
             if (next.Priority <= CurrentAlert.Priority) return;  // let the current one finish
@@ -599,7 +684,7 @@ public sealed partial class Island : ITouchTarget
         Ui.Cancel(ref transientTimer);
         transientEndsAt = seconds > 0 ? Clock.Now + seconds : double.PositiveInfinity;
         if (seconds <= 0) return;
-        transientTimer = Ui.After(seconds, () => { if (!Hovering) EndTransient("timeout"); else ArmTransient(1.0); });
+        transientTimer = Ui.After(seconds, () => { if (!Hovering) EndTransient("timeout"); else ArmTransient(1.5); });
     }
 
     public void EndTransient(string why)
@@ -815,9 +900,8 @@ public sealed partial class Island : ITouchTarget
             case Mode.Rest: case Mode.Peek: case Mode.Hidden: Expand(); break;
             case Mode.Hud: Expand(); break;
             case Mode.Alert:
-                var a = CurrentAlert;
-                if (a?.Clicked != null) { Ui.Guard("alert click", a.Clicked); EndTransient("clicked"); }
-                else { EndTransient("clicked"); Expand(); }
+                // a click dismisses it (it used to open the app, or the island); its own buttons still act
+                EndTransient("dismissed");
                 break;
         }
     }
@@ -1141,6 +1225,7 @@ public sealed partial class Island : ITouchTarget
             if (page != null) DrawPage(c, page, area, t, true);
             c.Pop();
         }
+        DrawInline(c, box);
         Ux.EndFrame();
         UpdateHitArea(box, r);
     }
