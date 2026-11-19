@@ -452,4 +452,14 @@ public static partial class Scenarios
             prev = o;
         }
     }
+
+    [Scenario("an app's meter reading full while nothing comes out (Spotify at 0% in its own app) counts as silent")]
+    public static void SilentAppsAreSilent()
+    {
+        Eq(0f, MediaService.Audible(1.0f, 0f, null), "Spotify's meter at full, the speakers silent: silent");
+        Eq(0f, MediaService.Audible(1.0f, 0.8f, 0), "at 0% in Spotify, silent even while a video plays loud");
+        Eq(0.5f, MediaService.Audible(0.5f, 0.8f, null), "an app playing within the mix: its own level");
+        True(Math.Abs(MediaService.Audible(0.8f, 0.9f, 50).Value - 0.4f) < 1e-6, "Spotify at 50%: half");
+        True(MediaService.Audible(null, 0.5f, null) == null, "an app that can't be told apart stays unknown");
+    }
 }

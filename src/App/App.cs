@@ -149,7 +149,7 @@ public sealed unsafe partial class App
         }
         else
         {
-            var media = new MediaService(clock, svc.Audio) { Ignored = () => cfg.MediaIgnoredApps };
+            var media = new MediaService(clock, svc.Audio) { Ignored = () => cfg.MediaIgnoredApps, SpotifyVolume = () => svc.Spotify?.Volume };
             svc.Media = media;
             media.Changed += () => { island.ActivityChanged(); island.UpdateGlowColors(); };
             media.TrackChanged += (o, n) => island.TrackChanged(o, n);

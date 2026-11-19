@@ -62,6 +62,22 @@ public sealed partial class MediaService : IMediaSourceEx
     public Func<MediaInfo, float?> AppPeak;
     /// <summary>The whole output's level right now (tests replace it).</summary>
     public Func<float> OutputPeak;
+    /// <summary>Spotify's own volume, 0-100, when Isola knows it (connected to Spotify).</summary>
+    public Func<int?> SpotifyVolume = () => null;
+
+    /// <summary>
+    /// What of an app's sound actually comes out. Its meter can read the music at full level while nothing
+    /// plays: Spotify's own volume slider turns the sound down after that meter (its level read 1.0 at 0%,
+    /// with the speakers silent). So it's scaled by that slider when Isola knows it, and never counts as
+    /// louder than everything the speakers play.
+    /// </summary>
+    internal static float? Audible(float? app, float output, int? appVolume)
+    {
+        if (app == null) return null;
+        float v = app.Value;
+        if (appVolume is int pct) v *= Math.Clamp(pct, 0, 100) / 100f;
+        return Math.Min(v, output);
+    }
 
     // ---- which playing apps can be heard: one playing at 0% mustn't take the island from one you're listening to ----
     readonly Dictionary<string, double> heardAt = new();
@@ -102,7 +118,7 @@ public sealed partial class MediaService : IMediaSourceEx
     public MediaService(IClock c, AudioService a)
     {
         clock = c; audio = a;
-        AppPeak = m => audio?.AppPeak(m.SessionId, m.AppName);
+        AppPeak = m => Audible(audio?.AppPeak(m.SessionId, m.AppName), OutputPeak(), m.IsSpotify ? SpotifyVolume() : null);
         OutputPeak = () => audio?.PeakNow() ?? 0;
     }
 
