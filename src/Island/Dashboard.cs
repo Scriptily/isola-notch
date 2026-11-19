@@ -74,6 +74,14 @@ public sealed partial class DashboardPage : Page
     public string CurrentTabId => CurrentId;
     string CurrentId => Tabs().ElementAtOrDefault(Math.Clamp(isl.Tab, 0, Math.Max(0, tabs.Count - 1)))?.Id ?? "media";
 
+    /// <summary>
+    /// How far a strip of tabs <paramref name="total"/> wide scrolls in a lane <paramref name="lane"/> wide so the
+    /// chosen tab (starting at <paramref name="selStart"/>, <paramref name="selW"/> wide) sits in the middle where it
+    /// can, without scrolling past either end.
+    /// </summary>
+    internal static float StripOffset(float total, float lane, float selStart, float selW)
+        => total <= lane ? 0 : Math.Clamp(selStart + selW / 2 - lane / 2, 0, total - lane);
+
     public override (float, float, float) Size(Island i)
     {
         var t = Tabs(); if (t.Count == 0) return (420, 120, 36);
@@ -87,7 +95,8 @@ public sealed partial class DashboardPage : Page
         // room for the app chips: the same count the layout uses (sessions with something to show)
         if (t[isl.Tab].Id == "media" && (isl.Svc?.Media?.Sessions.Count(s => !string.IsNullOrEmpty(s.Title)) ?? 0) > 1) h += 34;
         if (t[isl.Tab].Id == "media" && SpotifyRow()) h += SpotifyRowH;
-        return (620, h, 40);
+        // never wider than its screen (a small screen at a large scale is narrower than 620)
+        return (Math.Min(620, isl.Host.WindowWidth - 24), h, 40);
     }
 
     /// <summary>Rows the Home grid needs, counting climate tiles as two cells.</summary>
@@ -207,6 +216,17 @@ public sealed partial class DashboardPage : Page
         var animW = tl.Select((tb, idx) => ux.Anim("tabw:" + tb.Id, targetW[idx], SpringSpec.Snappy, 0.05)).ToArray();
         float tTotal = targetW.Sum() + (tl.Count - 1) * gap, aTotal = animW.Sum() + (tl.Count - 1) * gap;
         float tx0 = a.CX - tTotal / 2 + 18, ax0 = a.CX - aTotal / 2 + 18;
+        // too many tabs for the width (a narrow screen, more tabs): the strip scrolls sideways between the
+        // search and settings buttons, keeping the chosen tab in view, its edges fading where more are hidden
+        var lane = new Box(a.X + 56, stripY - 2, a.W - 112, stripH + 4);
+        bool overflow = aTotal > lane.W;
+        float stripOff = 0;
+        if (overflow)
+        {
+            float selStart = animW.Take(isl.Tab).Sum() + isl.Tab * gap;
+            stripOff = ux.Anim("tab:strip", StripOffset(aTotal, lane.W, selStart, animW[isl.Tab]), SpringSpec.Smooth);
+            ax0 = lane.X - stripOff;
+        }
         // search on the left, settings on the right
         ux.IconButton("dash:search", a.X + 34, stripY + stripH / 2, 32, Glyph.Search, () => isl.OpenSearch(), null, 14, isl.Cfg.Search);
         ux.IconButton("dash:settings", a.Right - 34, stripY + stripH / 2, 32, Glyph.Settings, () => isl.Host.OpenSettings(), null, 14);
@@ -214,6 +234,7 @@ public sealed partial class DashboardPage : Page
         // label travel together instead of the pill arriving first
         float selX = ax0 + animW.Take(isl.Tab).Sum() + isl.Tab * gap;
         float sx = ux.Anim("tab:selx", selX, SpringSpec.Snappy), sw = ux.Anim("tab:selw", animW[isl.Tab], SpringSpec.Snappy);
+        if (overflow) c.FadeClipX(lane, Math.Clamp(stripOff / 12, 0, 1), Math.Clamp((aTotal - lane.W - stripOff) / 12, 0, 1), 20);
         c.Fill(new Box(sx, stripY, sw, stripH), Col.White.A(0.13f * t), stripH / 2);
         float x = ax0;
         for (int k = 0; k < tl.Count; k++)
@@ -236,6 +257,7 @@ public sealed partial class DashboardPage : Page
                 c.Unclip();
             }
         }
+        if (overflow) c.Unfade();
         var tw = ux.Add("tab:wheel", new Box(a.X, stripY - 6, a.W, stripH + 12), null); tw.Horizontal = true; tw.Wheel = (d, hz) => Swipe(i, (d > 0) != hz ? -1 : 1);
 
         // ---- panel ------------------------------------------------------

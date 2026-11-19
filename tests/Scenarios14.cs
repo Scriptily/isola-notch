@@ -733,4 +733,18 @@ public static partial class Scenarios
         True(resting, "resting at the start: drawn, not gliding (a few frames a second)");
         True(gliding, "mid-slide: gliding (every frame)");
     }
+
+    [Scenario("tabs that don't fit scroll sideways and keep the chosen one in view; the open island fits a narrow screen")]
+    public static void TabStripFitsAnyScreen()
+    {
+        Eq(0f, DashboardPage.StripOffset(400, 500, 300, 100), "they fit: no scrolling");
+        Eq(0f, DashboardPage.StripOffset(700, 400, 20, 40), "the first tab chosen: at the start");
+        Eq(300f, DashboardPage.StripOffset(700, 400, 640, 60), "the last chosen: at the end, not past it");
+        float mid = DashboardPage.StripOffset(700, 400, 330, 40);
+        True(mid > 0 && mid < 300 && Math.Abs(330 + 20 - mid - 200) < 0.01f, $"one in the middle sits in the middle of the lane ({mid})");
+        var (isl, host, clock) = NewIsland();
+        host.Width = 520;   // a small screen at a large scale
+        isl.Expand(); clock.Advance(0.6, isl);
+        True(isl.Shape.W <= 520 - 24 + 0.5f, $"the open island fits the screen ({isl.Shape.W:0})");
+    }
 }

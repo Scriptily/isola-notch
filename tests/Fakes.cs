@@ -31,7 +31,8 @@ public sealed class FakeClock : IClock
 /// <summary>Stands in for the two windows: records what the island asks of them.</summary>
 public sealed class FakeHost : IIslandHost
 {
-    public float WindowWidth => 900;
+    public float Width = 900;
+    public float WindowWidth => Width;
     public float WindowHeight => 560;
     public int Frames, KeyboardTakes;
     public bool Shown = true, Keyboard, ButtonDown;
