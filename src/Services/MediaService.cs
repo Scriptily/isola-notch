@@ -41,10 +41,7 @@ public sealed partial class MediaService : IMediaSourceEx
         get
         {
             var m = Current;
-            // turned down under a chime, the waveform keeps its size (it shows the music, not the dip)
-            float? app = m == null ? null : AppPeak(m);
-            if (app is float a) app = a / Math.Max(0.05f, Ducked());
-            float p = LevelFrom(app, OutputPeak());
+            float p = HeardLevel(m);
             level = p > level ? p : level * 0.82f + p * 0.18f;
             if (p > Silence) lastSoundAt = clock.Now;
             return level;
@@ -52,6 +49,17 @@ public sealed partial class MediaService : IMediaSourceEx
     }
     float level;
     double lastSoundAt = double.NegativeInfinity;
+
+    /// <summary>How loud what's shown is right now; turned down under a chime it counts as it was (the waveform keeps its size).</summary>
+    float HeardLevel(MediaInfo m)
+    {
+        float? app = m == null ? null : AppPeak(m);
+        if (app is float a) app = a / Math.Max(0.05f, Ducked());
+        return LevelFrom(app, OutputPeak());
+    }
+
+    /// <summary>Tests: the quarter-second watch that StartAsync starts.</summary>
+    internal void StartWatching() { Ui.Cancel(ref heardTimer); WatchHeard(); }
     /// <summary>How long without sound before the visualizer settles (a gap between songs is shorter).</summary>
     internal const double QuietFor = 1.2;
     /// <summary>
@@ -106,6 +114,13 @@ public sealed partial class MediaService : IMediaSourceEx
     void WatchHeard()
     {
         heardTimer = Ui.After(0.25, WatchHeard);
+        // whether it's heard is kept up to date here, not only when the waveform is drawn: under a popup nothing
+        // draws it, so a second chime a moment later took the video for silent and played without the dip
+        if (Current is { Playing: true } cur)
+        {
+            audio?.RefreshAppMeters(clock.Now);   // the sessions the dip turns down stay current too
+            if (HeardLevel(cur) > Silence) lastSoundAt = clock.Now;
+        }
         var playing = infos.Values.Where(i => i.Playing).ToList();
         // Spotify's slider is invisible to Windows' meters: while Spotify plays on the island or beside another
         // app, keep reading it, or a volume of 0% set in Spotify goes unnoticed until its panel is opened

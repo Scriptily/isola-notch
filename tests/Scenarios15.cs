@@ -343,4 +343,123 @@ public static partial class Scenarios
         Eq(0.8f, r.Music.V, "the music back at exactly its volume after the burst");
         True(!r.Ducker.Active, "and nothing left turned down");
     }
+
+    /// <summary>
+    /// The whole real path: the media service watching how loud the video is (its loudness follows the
+    /// session's volume, as the real meters' does), the dip, the sounds, the island and its queue.
+    /// </summary>
+    sealed class LiveRig
+    {
+        public Island.Island Isl; public FakeClock Clock; public MediaService Media; public Ducker Ducker;
+        public Vol Video = new() { V = 0.9f };
+        public readonly List<(string kind, float vol, float videoAt)> Played = new();
+        public LiveRig(Config cfg)
+        {
+            var (isl, _, clock) = NewIsland(cfg);
+            Isl = isl; Clock = clock;
+            Ducker = new Ducker(() => new() { Video.Session() }, null);
+            Media = new MediaService(clock, null) { Ducked = () => Ducker.Factor };
+            Media.AppPeak = _ => 0.5f * Video.V;
+            Media.OutputPeak = () => 0;
+            Media.Current = new MediaInfo { AppName = "Chrome", SessionId = "Chrome", Title = "A video", Playing = true };
+            Media.StartWatching();
+            isl.Svc.Media = Media;
+            isl.SetAnyFullscreen(true);
+            var snd = new AlertSounds(() => cfg, () => Media.Current is { Playing: true }, () => Media.Sounding, Ducker)
+            {
+                Play = (k, v, t) => Played.Add((k, v, Video.V)), Stop = () => { }, Length = (k, t) => 0.6,
+            };
+            isl.SoundOn = snd.On; isl.SoundOff = snd.Off;
+            clock.Advance(1, isl);
+        }
+        public void Notify(string key) => Isl.Alert(new Alert { Key = key, Kind = "notification", Title = "Sam", Subtitle = "WhatsApp", Detail = "hi " + key, Sound = Sounds.Notification, Seconds = 3 });
+        public void Notice(string key) => Isl.Alert(new Alert { Key = key, Kind = "battery", Title = "Fully charged", Sound = Sounds.Notice, Seconds = 3 });
+    }
+
+    [Scenario("rapid notifications over a fullscreen video, quieter and dipped: every chime gets the dip, not only the first, and the video comes back")]
+    public static void EveryChimeInABurstDips()
+    {
+        var r = new LiveRig(new Config { SoundsWhilePlaying = "quiet" });
+        r.Notify("n1"); r.Clock.Advance(0.6, r.Isl);
+        r.Notify("n2"); r.Clock.Advance(0.4, r.Isl);   // one midway through the first
+        r.Notice("full"); r.Notify("n3");
+        r.Clock.Advance(25, r.Isl);
+        True(r.Played.Count >= 3, $"each popup chimes ({r.Played.Count})");
+        for (int k = 0; k < r.Played.Count; k++)
+            True(r.Played[k].videoAt < 0.9f * 0.5f, $"chime {k + 1} ({r.Played[k].kind}) plays with the video down ({r.Played[k].videoAt:0.00} of 0.90)");
+        True(r.Played.All(p => p.vol < Isola.App.App.SoundVolumeOf(new Config()) * 0.5f), "all of them quieter");
+        Eq(0.9f, r.Video.V, "and the video back where it was");
+    }
+
+    [Scenario("notifications spaced out over a long fullscreen video: the tenth dips like the first")]
+    public static void SpacedOutChimesAllDip()
+    {
+        var r = new LiveRig(new Config());
+        for (int k = 0; k < 10; k++) { r.Notify("n" + k); r.Clock.Advance(7, r.Isl); }
+        Eq(10, r.Played.Count, "ten chimes");
+        True(r.Played.All(p => p.videoAt < 0.45f), "every one with the video down: " + string.Join(", ", r.Played.Select(p => p.videoAt.ToString("0.00"))));
+        Eq(0.9f, r.Video.V, "back up after each");
+    }
+
+    [Scenario("a call in the middle of a burst: it rings with the video down, the notifications after it dip too, and the video comes back")]
+    public static void CallInABurst()
+    {
+        var r = new LiveRig(new Config { SoundsWhilePlaying = "quiet" });
+        r.Notify("n1"); r.Clock.Advance(0.5, r.Isl);
+        r.Isl.Alert(new Alert { Key = "call", Kind = "call", Title = "Mom", Priority = 3, Sticky = true, MaxSeconds = 60, Sound = Sounds.Call });
+        r.Clock.Advance(0.5, r.Isl);
+        r.Notify("n2"); r.Notice("full");
+        r.Clock.Advance(8, r.Isl);
+        var ring = r.Played.FindIndex(p => p.kind == Sounds.Call);
+        True(ring >= 0 && r.Played[ring].videoAt < 0.45f, "the ringtone plays with the video down");
+        True(r.Video.V < 0.45f, "and the video stays down while it rings");
+        r.Isl.DismissAlert("call");
+        r.Clock.Advance(25, r.Isl);
+        var after = r.Played.Skip(ring + 1).ToList();
+        True(after.Count >= 1, $"the ones that waited behind the call chime after it ({after.Count})");
+        True(after.All(p => p.videoAt < 0.45f), "with the dip too: " + string.Join(", ", after.Select(p => p.videoAt.ToString("0.00"))));
+        Eq(0.9f, r.Video.V, "the video back where it was");
+    }
+
+    [Scenario("held while focused, then a burst comes back as one summary: one sound, dipped if the video is still going")]
+    public static void HeldBurstOneSound()
+    {
+        var r = new LiveRig(new Config { HoldWhileFocused = true, SoundsWhilePlaying = "quiet" });
+        for (int k = 0; k < 5; k++) { r.Notify("n" + k); r.Clock.Advance(0.3, r.Isl); }
+        r.Notice("full");
+        r.Clock.Advance(5, r.Isl);
+        Eq(0, r.Played.Count, "silent while held");
+        Eq(0.9f, r.Video.V, "the video untouched");
+        r.Isl.Expand(); r.Clock.Advance(3, r.Isl);   // opened: they come back (the video is still playing)
+        Eq(1, r.Played.Count, "one sound for the summary");
+        True(r.Played[0].videoAt < 0.45f, "with the dip, the video still playing");
+        r.Clock.Advance(5, r.Isl);
+        Eq(0.9f, r.Video.V, "and back up");
+    }
+
+    [Scenario("muted while media plays: a burst and a call make no sound and never touch the video")]
+    public static void MutedBurstLeavesVideoAlone()
+    {
+        var r = new LiveRig(new Config { SoundsWhilePlaying = "mute" });
+        for (int k = 0; k < 4; k++) { r.Notify("n" + k); r.Clock.Advance(0.4, r.Isl); }
+        r.Isl.Alert(new Alert { Key = "call", Kind = "call", Title = "Mom", Priority = 3, Sticky = true, MaxSeconds = 60, Sound = Sounds.Call });
+        r.Clock.Advance(3, r.Isl); r.Isl.DismissAlert("call"); r.Clock.Advance(20, r.Isl);
+        Eq(0, r.Played.Count, "no sound at all");
+        Eq(0, r.Video.Sets, "the video's volume never touched");
+    }
+
+    [Scenario("the media counts as heard while a popup covers the waveform (nothing draws it then)")]
+    public static void HeardWithoutTheWaveform()
+    {
+        var clock = Clock();
+        float vol = 0.8f;
+        var m = new MediaService(clock, null) { AppPeak = _ => 0.4f * vol, OutputPeak = () => 0 };
+        m.Current = new MediaInfo { AppName = "Chrome", SessionId = "Chrome", Title = "A video", Playing = true };
+        m.StartWatching();
+        clock.Advance(10);   // the level never read: no waveform on screen
+        True(m.Sounding, "still heard 10 s later");
+        vol = 0;   // turned to 0 in the app
+        clock.Advance(2);
+        True(!m.Sounding, "and silent once it really is");
+    }
 }
