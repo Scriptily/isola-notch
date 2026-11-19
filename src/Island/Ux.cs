@@ -229,9 +229,15 @@ public sealed class Ux
 
     public CursorKind CursorAt(float x, float y) => HitTest(x, y)?.Cursor ?? CursorKind.Arrow;
 
+    /// <summary>The pointer is inside this box (and in the window).</summary>
+    public bool PointerIn(Box b) => MouseInside && b.Contains(MouseX, MouseY);
+    string overList;
+
     public void Move(float x, float y)
     {
         MouseX = x; MouseY = y; MouseInside = true;
+        string over = ScrollZoneAt(x, y)?.Id;
+        if (over != overList) { overList = over; RequestFrame(); }   // into or out of a list: its scroll bar wakes or dims
         if (Dragging != null)
         {
             var z = live.FirstOrDefault(q => q.Id == Dragging);
@@ -428,9 +434,12 @@ public sealed class TextBox
         Changed?.Invoke();
     }
 
+    /// <summary>Tab types a tab here (no box does today: in search it switches to the actions).</summary>
+    public bool AcceptsTab;
+
     public void Char(char ch, double now)
     {
-        if (ch < 32 && ch != '\t') return;
+        if (ch < 32 && !(ch == '\t' && AcceptsTab)) return;   // Tab moves (to a result's actions), it doesn't type
         Replace(ch.ToString(), now);
     }
 

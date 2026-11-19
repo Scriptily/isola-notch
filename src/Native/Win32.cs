@@ -430,6 +430,48 @@ public static unsafe partial class Win32
         try { nint h = GetClipboardData(CF_UNICODETEXT); if (h == 0) return null; char* p = (char*)GlobalLock(h); try { return p == null ? null : new string(p); } finally { GlobalUnlock(h); } }
         finally { CloseClipboard(); }
     }
+    /// <summary>Files copied in Explorer (CF_HDROP), or none.</summary>
+    public static List<string> GetClipboardFiles()
+    {
+        var list = new List<string>();
+        if (!IsClipboardFormatAvailable(CF_HDROP) || !OpenClipboard(0)) return list;
+        try
+        {
+            nint h = GetClipboardData(CF_HDROP);
+            if (h == 0) return list;
+            uint n = DragQueryFileW(h, 0xFFFFFFFF, null, 0);
+            char* buf = stackalloc char[1024];
+            for (uint i = 0; i < n; i++) { uint len = DragQueryFileW(h, i, buf, 1024); if (len > 0) list.Add(new string(buf, 0, (int)len)); }
+        }
+        finally { CloseClipboard(); }
+        return list;
+    }
+
+    /// <summary>A copied picture as PNG: the PNG format when an app offers it, else Windows' bitmap (CF_DIB) converted.</summary>
+    public static byte[] GetClipboardPng()
+    {
+        uint png = RegisterClipboardFormatW("PNG");
+        bool hasPng = IsClipboardFormatAvailable(png), hasDib = IsClipboardFormatAvailable(CF_DIB);
+        if ((!hasPng && !hasDib) || !OpenClipboard(0)) return null;
+        try
+        {
+            nint h = GetClipboardData(hasPng ? png : CF_DIB);
+            if (h == 0) return null;
+            nuint size = GlobalSize(h);
+            byte* p = (byte*)GlobalLock(h);
+            if (p == null || size == 0) return null;
+            try
+            {
+                var bytes = new ReadOnlySpan<byte>(p, (int)Math.Min(size, (nuint)int.MaxValue)).ToArray();
+                if (hasPng) return bytes;
+                var bgra = Services.Png.DibToBgra(bytes, out int w, out int hgt);
+                return bgra == null ? null : Services.Png.Encode(bgra, w, hgt, false);
+            }
+            finally { GlobalUnlock(h); }
+        }
+        finally { CloseClipboard(); }
+    }
+
     public static bool ShellExecute(string file, string args = null, string verb = null, string dir = null, int show = SW_SHOWNORMAL, uint mask = 0)
     {
         fixed (char* f = file) fixed (char* a = args) fixed (char* v = verb) fixed (char* d = dir)

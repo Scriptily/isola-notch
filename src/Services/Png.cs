@@ -13,6 +13,39 @@ public static class Png
     /// (a half-transparent edge pixel is darkened by its alpha); PNG wants
     /// straight alpha, so those are divided back out.
     /// </summary>
+    /// <summary>
+    /// Windows' clipboard bitmap (a BITMAPINFOHEADER and its pixels, 24 or 32 bits) as top-down BGRA; null for
+    /// anything else. Copied 32-bit bitmaps often leave alpha at 0 meaning opaque, so an all-zero alpha is made opaque.
+    /// </summary>
+    public static byte[] DibToBgra(byte[] dib, out int w, out int h)
+    {
+        w = h = 0;
+        if (dib == null || dib.Length < 40) return null;
+        int hdr = BitConverter.ToInt32(dib, 0), width = BitConverter.ToInt32(dib, 4), height = BitConverter.ToInt32(dib, 8);
+        int bits = BitConverter.ToUInt16(dib, 14), comp = BitConverter.ToInt32(dib, 16), colors = BitConverter.ToInt32(dib, 32);
+        if (width <= 0 || height == 0 || width > 16384 || Math.Abs(height) > 16384 || bits is not (24 or 32) || comp is not (0 or 3)) return null;
+        int off = hdr + (comp == 3 && hdr == 40 ? 12 : 0) + colors * 4;
+        bool bottomUp = height > 0; int hh = Math.Abs(height);
+        int stride = ((width * bits + 31) / 32) * 4;
+        if (off + (long)stride * hh > dib.Length) return null;
+        var o = new byte[width * hh * 4];
+        bool anyAlpha = false;
+        for (int y = 0; y < hh; y++)
+        {
+            int src = off + (bottomUp ? hh - 1 - y : y) * stride, dst = y * width * 4;
+            for (int x = 0; x < width; x++)
+            {
+                int s = src + x * (bits / 8);
+                o[dst + x * 4] = dib[s]; o[dst + x * 4 + 1] = dib[s + 1]; o[dst + x * 4 + 2] = dib[s + 2];
+                byte a = bits == 32 ? dib[s + 3] : (byte)255;
+                o[dst + x * 4 + 3] = a; anyAlpha |= a != 0;
+            }
+        }
+        if (!anyAlpha) for (int i = 3; i < o.Length; i += 4) o[i] = 255;
+        w = width; h = hh;
+        return o;
+    }
+
     public static byte[] Encode(byte[] bgra, int w, int h, bool premultiplied = true)
     {
         var raw = new byte[h * (w * 4 + 1)];

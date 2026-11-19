@@ -26,6 +26,29 @@ public sealed class Pages
 /// <summary>Shared drawing bits.</summary>
 public static class Paint
 {
+    /// <summary>Room a list gives up for its scroll bar, only while it scrolls (so nothing sits under the bar).</summary>
+    public const float ScrollLane = 12;
+
+    /// <summary>Whether content this tall needs a scroll bar in a view this tall.</summary>
+    public static bool Scrolls(float content, float view) => content > view + 0.5f;
+
+    /// <summary>
+    /// A thin scroll bar down the right edge of <paramref name="view"/>, so it's plain at a glance that there's more.
+    /// None when everything fits. Dimmed while the pointer is elsewhere; it wakes (brighter, a little wider) when
+    /// the pointer comes into the list or the list is scrolling, and dims again a moment after.
+    /// </summary>
+    public static void ScrollBar(Canvas c, Ux ux, string id, Box view, float scroll, float target, float content, float t)
+    {
+        if (!Scrolls(content, view.H)) return;
+        bool awake = ux.PointerIn(view) || Math.Abs(scroll - target) > 0.5f;
+        float wake = ux.Anim("sbar:" + id, awake ? 1 : 0, awake ? SpringSpec.Snappy : SpringSpec.Slow);
+        float w = 3 + 1.5f * wake, track = view.H - 8;
+        float len = Math.Max(24, track * view.H / content);
+        float pos = Math.Clamp(scroll / Math.Max(1, content - view.H), 0, 1) * (track - len);
+        var bar = new Box(view.Right - 4 - w, view.Y + 4 + pos, w, len);
+        c.Fill(bar, Col.White.A((0.16f + 0.34f * wake) * t), w / 2);
+    }
+
     static readonly Dictionary<string, (ID2D1Bitmap1 bmp, int gen)> images = new();
 
     /// <summary>GPU bitmap for encoded bytes, cached by key for the device's lifetime.</summary>

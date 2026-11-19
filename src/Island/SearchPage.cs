@@ -232,7 +232,7 @@ public sealed class SearchPage : Page
         ux.Add("search:field", bar, () => i.TakeKeyboard(), 12, CursorKind.IBeam);
         var s = i.Svc?.Search;
         string note = s?.Note;
-        if (!waiting) c.Text("↑↓ · Tab actions", new Box(bar.Right - 130, bar.Y, 122, bar.H), 10.5f, Col.White.A(0.3f * t), FontWeight.SemiBold, HAlign.Right);
+        if (!waiting) c.Text("↑↓ select · Tab actions", new Box(bar.Right - 130, bar.Y, 122, bar.H), 10.5f, Col.White.A(0.3f * t), FontWeight.SemiBold, HAlign.Right);
 
         if (box.Text.Trim().Length == 0) return;
         float y = a.Y + 62;

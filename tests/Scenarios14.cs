@@ -625,4 +625,56 @@ public static partial class Scenarios
         isl.CloseToRest("test"); clock.Advance(0.5, isl);
         Eq(theme, isl.GlowTarget0, "closed onto the eyes: the theme's");
     }
+
+    [Scenario("a copied picture (Windows' clipboard bitmap) becomes a Shelf image: 24- and 32-bit, bottom-up, rows padded")]
+    public static void ClipboardBitmapsBecomeImages()
+    {
+        // 3x2 at 24 bits, bottom-up: rows are padded to 12 bytes; the bottom row comes first
+        var dib = new List<byte>();
+        void I32(int v) => dib.AddRange(BitConverter.GetBytes(v)); void I16(short v) => dib.AddRange(BitConverter.GetBytes(v));
+        I32(40); I32(3); I32(2); I16(1); I16(24); I32(0); I32(0); I32(0); I32(0); I32(0); I32(0);
+        dib.AddRange(new byte[] { 0, 0, 255, 0, 255, 0, 255, 0, 0, 0, 0, 0 });       // bottom row: red, green, blue, pad
+        dib.AddRange(new byte[] { 255, 255, 255, 0, 0, 0, 128, 128, 128, 0, 0, 0 });  // top row: white, black, gray, pad
+        var bgra = Services.Png.DibToBgra(dib.ToArray(), out int w, out int h);
+        True(bgra != null && w == 3 && h == 2, "read");
+        True(bgra[0] == 255 && bgra[1] == 255 && bgra[2] == 255 && bgra[3] == 255, "top-left is the white of the top row");
+        True(bgra[12 + 2] == 255 && bgra[12 + 1] == 0 && bgra[12] == 0, "bottom-left is red");
+        True(Services.Png.Encode(bgra, w, h, false) is { Length: > 8 } png && png[1] == (byte)'P', "and encodes to PNG");
+        True(Services.Png.DibToBgra(new byte[10], out _, out _) == null, "junk is refused");
+    }
+
+    [Scenario("Tab never types into a text box: in search it moves to the actions")]
+    public static void TabDoesntType()
+    {
+        var tb = new TextBox();
+        tb.Char('a', 1); tb.Char('\t', 1); tb.Char('b', 1);
+        Eq("ab", tb.Text, "no tab typed");
+    }
+
+    [Scenario("a list shows a scroll bar only when it scrolls; dim while the pointer is elsewhere, awake when it's inside")]
+    public static void ScrollBarsShowAndWake()
+    {
+        using var o = new Offscreen(200, 200);
+        var u = new Ux();
+        var view = new Box(0, 0, 200, 200);
+        int Brightest(float content)
+        {
+            int best = 0;
+            for (int f = 0; f < 40; f++)
+            {
+                o.Draw(c => { u.BeginFrame(c); Paint.ScrollBar(c, u, "t", view, 0, 0, content, 1); u.EndFrame(); });
+                u.Step(1 / 30.0);
+            }
+            foreach (var a in o.AlphaColumn(194)) best = Math.Max(best, a);
+            return best;
+        }
+        Eq(0, Brightest(150), "everything fits: no bar");
+        u.Move(-50, -50); u.Leave();
+        int dim = Brightest(600);
+        True(dim > 0, "more than fits: a bar");
+        u.Move(100, 100);
+        int awake = Brightest(600);
+        True(awake > dim * 1.6, $"the pointer inside wakes it ({dim} -> {awake})");
+        True(Paint.Scrolls(600, 200) && !Paint.Scrolls(200, 200), "and only scrolling lists give up a lane for it");
+    }
 }
