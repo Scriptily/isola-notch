@@ -35,6 +35,12 @@ public sealed class SearchPage : Page
     static float RowH(LItem it) => it.Card != null ? CardH : 46;
     bool CardPending => webPending && webAnswer == null;
     internal IReadOnlyList<LItem> Items => items;
+    internal string Query => box.Text;
+    // cut short by a call or a timer: what was typed, to carry on with
+    string keptText; double keptAt;
+    internal bool Resuming;
+    internal const double KeepFor = 120;
+    internal void Keep(double now) { keptText = box.Text; keptAt = now; }
 
     public SearchPage() { box.Changed = Schedule; }
 
@@ -56,6 +62,10 @@ public sealed class SearchPage : Page
         if (i.Svc?.Ha is { Configured: true } ha && ha.All.Count == 0 && !ha.Busy) _ = ha.RefreshAsync(true);
         box.Escape = () => isl.CloseToRest("search escape");
         box.Touch(i.Clock.Now);
+        // back from a call or a timer: the search as it was (the caret at the end when it comes straight back,
+        // all selected when opened again later, so typing starts a new one)
+        if (keptText is { Length: > 0 } && i.Clock.Now - keptAt < KeepFor) { box.Set(keptText, !Resuming); Schedule(); }
+        keptText = null; Resuming = false;
     }
 
     int Visible => Math.Min(items.Count - top, isl?.Cfg.SearchResults ?? 8);
@@ -326,7 +336,16 @@ public sealed class SearchPage : Page
         ux.Add("search:field", bar, () => i.TakeKeyboard(), 12, CursorKind.IBeam);
         var s = i.Svc?.Search;
         string note = s?.Note;
-        if (!waiting) c.Text("↑↓ select · Tab actions", new Box(bar.Right - 130, bar.Y, 122, bar.H), 10.5f, Col.White.A(0.3f * t), FontWeight.SemiBold, HAlign.Right);
+        // notices that came in while typing wait for the search to close: the bar says so
+        int queued = i.QueuedAlerts.Count(q => q.Priority < 2);
+        if (queued > 0)
+        {
+            string wq = queued == 1 ? "1 notification waiting" : $"{queued} notifications waiting";
+            float ww = c.Measure(wq, 10.5f, FontWeight.SemiBold).w;
+            c.Text(wq, new Box(bar.Right - 8 - ww, bar.Y, ww + 2, bar.H), 10.5f, Col.White.A(0.5f * t), FontWeight.SemiBold);
+            c.Icon(Glyph.Bell, bar.Right - 8 - ww - 11, bar.CY, 11, Col.White.A(0.5f * t));
+        }
+        else if (!waiting) c.Text("↑↓ select · Tab actions", new Box(bar.Right - 130, bar.Y, 122, bar.H), 10.5f, Col.White.A(0.3f * t), FontWeight.SemiBold, HAlign.Right);
 
         if (box.Text.Trim().Length == 0) return;
         float y = a.Y + 62;

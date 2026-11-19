@@ -68,10 +68,10 @@ public sealed class WebAnswers
     const RegexOptions Opt = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
     static readonly Regex[] TranslateTo =
     {
-        new($@"^translate\s+(.+?)\s+(?:to|into|in)\s+({LangAlt})$", Opt),
+        new($@"^translate\s+(.+?)(?:\s+from\s+(?:{LangAlt}))?\s+(?:to|into|in)\s+({LangAlt})$", Opt),
         new($@"^how\s+(?:do\s+(?:you|i)|to)\s+say\s+(.+?)\s+in\s+({LangAlt})$", Opt),
         new($@"^(.+?)\s+meaning\s+in\s+({LangAlt})$", Opt),
-        new($@"^(.+?)\s+(?:in|to|into)\s+({LangAlt})$", Opt),
+        new($@"^(?!(?:how|what|why|when|where|who|which|is|are|can|does|do|best|learn|speak|translate)\b)(?!.*\btranslat)((?:\S+\s+){{0,3}}\S+)\s+(?:in|to|into)\s+({LangAlt})$", Opt),
     };
     static readonly Regex TranslateAny = new(@"^translate\s+(.+)$", Opt);
     static readonly Regex[] Define =

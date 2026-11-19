@@ -207,6 +207,7 @@ public sealed unsafe partial class Host : IIslandHost
     }
 
     public void OpenSettings(string section = null) => OpenSettingsRequested?.Invoke(section);
+    public nint Foreground() => Win32.GetForegroundWindow();
 
     public void ShowContextMenu(float x, float y)
     {

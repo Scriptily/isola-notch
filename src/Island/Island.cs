@@ -42,6 +42,8 @@ public interface IIslandHost
     void StartTextDrag(string text);
     /// <summary>A mouse button is held right now (dragging a window or selecting under the island).</summary>
     bool MouseButtonDown => false;
+    /// <summary>The window with the keyboard now (to tell whether someone moved on to another app meanwhile).</summary>
+    nint Foreground() => 0;
 }
 
 /// <summary>A piece of content the island can show. Pages are cheap; views swap them.</summary>
@@ -191,6 +193,7 @@ public sealed partial class Island : ITouchTarget
         if (old == Mode.Hello || m == Mode.Hello) Ui.Post(UpdateGlowColors);
         if (m != Mode.Peek && m != Mode.Expanded && m != Mode.Search) Ui.Cancel(ref collapseTimer);
         if (old == Mode.Search && m != Mode.Search) ReleaseKeyboard();
+        if (old == Mode.Search && m is not (Mode.Search or Mode.Alert) && alertQueue.Count > 0) Ui.Post(PumpAlerts);   // what waited while typing
         // An alert's sound belongs to the alert being on screen. Leaving it any
         // other way than EndTransient (opened, hovered into, hidden for a
         // fullscreen app) used to leave a ringtone looping with nothing showing,
@@ -735,7 +738,10 @@ public sealed partial class Island : ITouchTarget
         var next = alertQueue[0];
         // the island open on a tab or in search: a banner drops in at its top instead of the notice waiting
         // unseen until it closed; hovering the pill isn't being busy (and hovering a notice pauses it anyway)
-        if (Mode is Mode.Expanded or Mode.Search && next.Priority < 2)
+        // typing in search: notices wait until it closes (a banner dropped over the field you were typing in);
+        // the bar says how many are waiting
+        if (Mode == Mode.Search && next.Priority < 2) return;
+        if (Mode is Mode.Expanded && next.Priority < 2)
         {
             if (InlineAlert != null) return;   // one banner at a time; the next follows it
             alertQueue.Remove(next);
@@ -753,6 +759,13 @@ public sealed partial class Island : ITouchTarget
             Log.D("alert", $"{cut.Kind} steps aside for {next.Kind}");
             if (cut.Suspended != null) Ui.Guard("alert suspended", cut.Suspended);
             if (SoundOff != null) Ui.Guard("alert sound", () => SoundOff(cut));
+        }
+        // a call or a timer over search: what was typed is kept, and it comes back after
+        if (Mode == Mode.Search)
+        {
+            P.Search.Keep(Clock.Now);
+            searchResume = true; searchLeftAt = Clock.Now;
+            Ui.Post(() => fgAtInterrupt = Host.Foreground());   // once the keyboard has gone back
         }
         alertQueue.Remove(next);
         EnterTransient();
@@ -780,6 +793,9 @@ public sealed partial class Island : ITouchTarget
         else Host.RequestFrame();
         ArmTransient(kind is HudKind.CapsLock or HudKind.Layout ? 1.6 : 1.8);
     }
+
+    bool searchResume; double searchLeftAt; nint fgAtInterrupt;
+    internal const double ResumeSearchWithin = 60;
 
     void EnterTransient()
     {
@@ -819,6 +835,20 @@ public sealed partial class Island : ITouchTarget
         // the ended hook may itself have raised an alert that is now showing:
         // carrying on would put the island straight back to rest over it
         if (CurrentAlert != null && Mode == Mode.Alert) return;
+        if (searchResume && !alertQueue.Any(q => q.Priority >= 2))
+        {
+            // back to search, text and all, if it was cut short a moment ago and nothing else took the keyboard
+            // since (moved on to another app: it isn't pulled back; the text is there when search next opens)
+            searchResume = false;
+            if (Cfg.Search && !Blocked && Clock.Now - searchLeftAt < ResumeSearchWithin && Host.Foreground() == fgAtInterrupt)
+            {
+                P.Search.Resuming = true;
+                SetMode(Mode.Search, "back to search after " + why);
+                TakeKeyboard();
+                UpdateGlowColors();
+                return;
+            }
+        }
         if (alertQueue.Count > 0) { Mode = Mode.Rest; PumpAlerts(); if (Mode == Mode.Alert) return; }
         if (Blocked) { SetMode(Mode.Off, "transient over, still blocked"); UpdateGlowColors(); return; }
         if (hiddenBeforeTransient && !Hovering) SetMode(Mode.Hidden, "back to hidden after " + why);

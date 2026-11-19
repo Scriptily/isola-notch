@@ -32,6 +32,8 @@ public sealed class FakeClock : IClock
 public sealed class FakeHost : IIslandHost
 {
     public float Width = 900;
+    public nint Fg;   // the window with the keyboard
+    public nint Foreground() => Fg;
     public float WindowWidth => Width;
     public float WindowHeight => 560;
     public int Frames, KeyboardTakes;

@@ -190,4 +190,75 @@ public static partial class Scenarios
         isl2.P.Search.Type("12*7"); Settle(clock2, isl2);
         Eq(0, net2.Asked.Count, "on, but a path or a sum: still nothing sent");
     }
+
+    static (Island.Island isl, FakeHost host, FakeClock clock) Typing(string q)
+    {
+        var (isl, host, clock) = NewIsland();
+        host.Fg = 7;   // the app that was in front before search
+        isl.OpenSearch(); clock.Advance(0.3, isl);
+        isl.P.Search.Type(q); clock.Advance(0.3, isl);
+        return (isl, host, clock);
+    }
+
+    [Scenario("a notification while typing in search waits until it closes (nothing covers the field), then shows")]
+    public static void NoticesWaitForSearch()
+    {
+        var (isl, host, clock) = Typing("budget");
+        isl.Alert(new Alert { Key = "n1", Kind = "notification", Title = "Sam", Subtitle = "WhatsApp", Detail = "hi", Seconds = 3 });
+        isl.Alert(new Alert { Key = "full", Kind = "battery", Title = "Fully charged", Seconds = 3 });
+        clock.Advance(1, isl);
+        Eq(Mode.Search, isl.Mode, "search stays open");
+        Eq(null, isl.InlineAlert, "no banner over the field");
+        Eq("budget", isl.P.Search.Query, "what was typed is untouched");
+        Eq(2, isl.QueuedAlerts.Count, "both waiting (the bar says so)");
+        Eq(2, isl.History.Count, "and already in Recent");
+        isl.CloseToRest("search escape"); clock.Advance(0.5, isl);
+        Eq(Mode.Alert, isl.Mode, "closed: they show");
+        Eq("n1", isl.CurrentAlert?.Key, "in order");
+    }
+
+    [Scenario("a call while typing takes over, and when it ends search comes back with what was typed")]
+    public static void CallInterruptsSearchAndReturns()
+    {
+        var (isl, host, clock) = Typing("translate hello to");
+        isl.Alert(new Alert { Key = "call", Kind = "call", Title = "Mom", Priority = 3, Sticky = true, MaxSeconds = 60 });
+        clock.Advance(0.5, isl);
+        Eq(Mode.Alert, isl.Mode, "the call comes first");
+        isl.DismissAlert("call"); clock.Advance(0.5, isl);
+        Eq(Mode.Search, isl.Mode, "then back to search");
+        Eq("translate hello to", isl.P.Search.Query, "with the text as it was");
+        True(isl.KeyboardTaken, "ready to keep typing");
+
+        // a timer going off: the same
+        isl.Alert(new Alert { Key = "timer", Kind = "timer", Title = "Timer done", Priority = 2, Seconds = 2 });
+        clock.Advance(3, isl);
+        Eq(Mode.Search, isl.Mode, "after the timer too");
+        Eq("translate hello to", isl.P.Search.Query, "text kept");
+    }
+
+    [Scenario("moved on to another app during the call: search isn't pulled back, but opening it again soon brings the text back")]
+    public static void CallThenSwitchedAppKeepsTextForLater()
+    {
+        var (isl, host, clock) = Typing("quarterly report");
+        isl.Alert(new Alert { Key = "call", Kind = "call", Title = "Mom", Priority = 3, Sticky = true, MaxSeconds = 60 });
+        clock.Advance(0.5, isl);
+        host.Fg = 9;   // answered it in Phone Link
+        isl.DismissAlert("call"); clock.Advance(0.5, isl);
+        Eq(Mode.Rest, isl.Mode, "not dragged back over the other app");
+        clock.Advance(20, isl);
+        isl.OpenSearch(); clock.Advance(0.3, isl);
+        Eq("quarterly report", isl.P.Search.Query, "opened again: the search is still there");
+        isl.CloseToRest("x"); clock.Advance(1, isl);
+        isl.OpenSearch(); clock.Advance(0.3, isl);
+        Eq("", isl.P.Search.Query, "once, then it starts fresh");
+    }
+
+    [Scenario("web answers don't mistake questions about translating for phrases to translate")]
+    public static void WebIntentsAboutTranslating()
+    {
+        foreach (var q in new[] { "how to translate english to arabic", "how to translate in arabic", "learn to speak in spanish", "what is hello in french" })
+            True(WebAnswers.Intent(q)?.Kind != "translate", $"\"{q}\" isn't a phrase to translate");
+        Eq("subsidies|ar", WebAnswers.Intent("translate subsidies from english to arabic") is { } i ? i.Text + "|" + i.Lang : "none", "\"from English\" is the source, not part of the phrase");
+        Eq("good night|es", WebAnswers.Intent("good night in spanish") is { } j ? j.Text + "|" + j.Lang : "none", "a short phrase in a language still is");
+    }
 }

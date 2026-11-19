@@ -50,6 +50,12 @@ release notes.
 
 ### Changed
 
+- Notifications and notices that arrive while you're typing in search wait
+  until it closes, with a note in the search bar saying how many. Before, a
+  banner dropped over the box you were typing in. A call or a timer still
+  comes through, and when it's over search comes back with what you'd typed.
+  If you moved to another app meanwhile, the text is there the next time you
+  open search.
 - The pill shows the song's artist after the title, in grey: "The Break Up -
   mgk". A new song pops up with every artist for a moment, then tucks back
   into one line, and the pill crossfades from one song to the next.
