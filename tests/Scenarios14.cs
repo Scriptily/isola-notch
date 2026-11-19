@@ -243,17 +243,6 @@ public static partial class Scenarios
         True(Math.Abs(l - 0.9f) < 0.01f, $"an app whose sessions can't be told apart follows the output, as before ({l:0.00})");
     }
 
-    [Scenario("a media session finds its app's audio sessions by exe, registered name or Store package")]
-    public static void MediaAppsMatchTheirAudio()
-    {
-        True(AudioService.AppMatches("Spotify.exe", "Spotify", @"C:\Users\a\AppData\Roaming\Spotify\Spotify.exe", "Spotify"), "Spotify (desktop)");
-        True(AudioService.AppMatches("SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify", "Spotify", @"C:\Program Files\WindowsApps\SpotifyAB.SpotifyMusic_1.2_x64__zpdnekdrzrea0\Spotify.exe", "Spotify"), "Spotify (Store)");
-        True(AudioService.AppMatches("Chrome", "Chrome", @"C:\Program Files\Google\Chrome\Application\chrome.exe", "Google Chrome"), "Chrome");
-        True(AudioService.AppMatches("MSEdge", "Edge", @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe", "Microsoft Edge"), "Edge");
-        True(AudioService.AppMatches("308046B0AF4A39CB", "Firefox", @"C:\Program Files\Mozilla Firefox\firefox.exe", "Firefox"), "Firefox, by name");
-        True(!AudioService.AppMatches("Chrome", "Chrome", @"C:\Users\a\AppData\Roaming\Spotify\Spotify.exe", "Spotify"), "Chrome isn't Spotify");
-        True(!AudioService.AppMatches("Spotify.exe", "Spotify", @"C:\Program Files\Google\Chrome\Application\chrome.exe", "Google Chrome"), "nor the other way round");
-    }
 
     // ---- out of the way ------------------------------------------------------------------------
 
@@ -524,5 +513,51 @@ public static partial class Scenarios
             True(after < 0.0002f, $"and silence once it stops ({after:0.0000})");
         }
         finally { PlaySound(0, 0, 0); cap.Dispose(); pin.Free(); }
+    }
+
+    [Scenario("each media session finds the processes playing its sound, for any app: Store packages, window app ids, helpers a browser starts, program names")]
+    public static void MediaSessionsFindTheirProcesses()
+    {
+        var procs = new Dictionary<uint, ProcInfo>();
+        ProcInfo P(uint pid, uint parent, string exe, string family = "", string name = "", params string[] windowIds)
+        {
+            var pi = new ProcInfo { Pid = pid, Parent = parent, Exe = exe, Family = family, Name = name };
+            foreach (var w in windowIds) pi.WindowIds.Add(w);
+            return procs[pid] = pi;
+        }
+        P(4, 0, "explorer.exe", windowIds: "Microsoft.Windows.Explorer");
+        P(10, 4, "AppleMusic.exe", "AppleInc.AppleMusicWin_nzyj5cx40ttqa", "AppleMusic");   // its description isn't the name the controls show
+        P(20, 4, "Microsoft.Media.Player.exe", "Microsoft.ZuneMusic_8wekyb3d8bbwe", "Microsoft.Media.Player");
+        P(30, 4, "chrome.exe", windowIds: "Chrome"); P(31, 30, "chrome.exe");                       // the browser and its audio helper
+        P(40, 4, "firefox.exe", name: "Firefox", windowIds: "308046B0AF4A39CB"); P(41, 40, "firefox.exe");
+        P(50, 4, "Plex.exe", name: "Plex", windowIds: "tv.plex.desktop");
+        P(60, 4, "vlc.exe", name: "VLC media player");
+        P(70, 4, "Spotify.exe", name: "Spotify");
+        P(80, 4, "foobar2000.exe", name: "foobar2000");
+        ProcInfo Look(uint pid) => procs.GetValueOrDefault(pid);
+        bool Owns(string aumid, string app, uint pid) => MediaApps.Owns(aumid, app, pid, Look);
+
+        True(Owns("AppleInc.AppleMusicWin_nzyj5cx40ttqa!App", "Apple Music", 10), "Apple Music, by its Store package");
+        True(Owns("Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic", "Media Player", 20), "Media Player, whose id shares no word with its program");
+        True(Owns("Chrome", "Chrome", 31), "Chrome's sound comes from a helper it started, found through its window's id");
+        True(Owns("308046B0AF4A39CB", "Firefox", 41), "Firefox's id is a code: found on its window");
+        True(Owns("tv.plex.desktop", "Plex", 50), "Plex, by its window's id");
+        True(Owns("vlc.exe", "VLC", 60) || Owns("VLC", "VLC media player", 60), "VLC, by its program");
+        True(Owns("Spotify.exe", "Spotify", 70), "Spotify, by its program");
+        True(Owns("foobar2000.exe", "foobar2000", 80), "foobar2000, by its program");
+        True(!Owns("Chrome", "Chrome", 70) && !Owns("Spotify.exe", "Spotify", 31), "no app takes another's sound");
+        True(!Owns("AppleInc.AppleMusicWin_nzyj5cx40ttqa!App", "Apple Music", 20), "nor one Store app another's");
+    }
+
+    [Scenario("a player picked by hand stays until another app starts playing; then the island shows what can be heard again")]
+    public static void HandPickLastsUntilSomethingStarts()
+    {
+        var spotify = Playing("Spotify", "Spotify.exe", since: 10); var chrome = Playing("Chrome", "Chrome", since: 5);
+        chrome.Playing = false;
+        var all = new List<MediaInfo> { spotify, chrome };
+        True(!MediaService.PinReleased("Spotify.exe", 20, all), "picked at 20 s, nothing new: it stays");
+        chrome.Playing = true; chrome.PlayingSince = 25;
+        True(MediaService.PinReleased("Spotify.exe", 20, all), "the video resumes at 25 s: the pick lets go");
+        True(!MediaService.PinReleased("Spotify.exe", 30, all), "picked again after that: it holds");
     }
 }

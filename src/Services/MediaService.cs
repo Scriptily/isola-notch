@@ -301,6 +301,7 @@ public sealed partial class MediaService : IMediaSourceEx
 
     void Choose()
     {
+        if (PinReleased(pinned, pinnedAt, infos.Values)) { Log.D("media", "another app started playing: the hand-picked one lets go"); pinned = null; }
         var ignored = Ignored();
         var (pick, recheckAt) = Pick(Current, infos.Values.ToList(), pinned, SafeCurrentId(), i => IsIgnored(i, ignored), clock.Now, Heard);
         Ui.Cancel(ref recheck);
@@ -449,7 +450,15 @@ public sealed partial class MediaService : IMediaSourceEx
         Changed?.Invoke();
         Do($"repeat {next}", s => s.TryChangeAutoRepeatModeAsync(next));
     }
-    public void Select(string sessionId) { pinned = sessionId; Choose(); }
+    public void Select(string sessionId) { pinned = sessionId; pinnedAt = clock.Now; Choose(); }
+    double pinnedAt;
+
+    /// <summary>
+    /// A session picked by hand stays on the island until another one starts playing: starting something is
+    /// a choice too, so the island then goes back to showing what can be heard.
+    /// </summary>
+    internal static bool PinReleased(string pinned, double pinnedAt, IEnumerable<MediaInfo> all) =>
+        pinned != null && all.Any(i => i.SessionId != pinned && i.Playing && !double.IsNaN(i.PlayingSince) && i.PlayingSince > pinnedAt);
 
     // ---- helpers -----------------------------------------------------------
 

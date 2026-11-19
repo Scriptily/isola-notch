@@ -13,6 +13,17 @@ public sealed partial class AudioService
 {
     sealed class MeteredSession { public string Exe = "", Name = "", Id = ""; public uint Pid; public IAudioMeterInformation Meter; public ISimpleAudioVolume Vol; public IChannelAudioVolume Channels; public int State; }
     volatile List<MeteredSession> metered = new();
+    volatile Dictionary<uint, ProcInfo> procs = new();
+
+    /// <summary>A process from the last snapshot, its Store package looked up the first time it's asked for.</summary>
+    ProcInfo Proc(uint pid)
+    {
+        if (!procs.TryGetValue(pid, out var p)) return null;
+        p.Family ??= MediaApps.FamilyOf(pid);
+        return p;
+    }
+
+    bool Owns(MeteredSession m, string aumid, string appName) => MediaApps.Owns(aumid, appName, m.Pid, Proc);
     int meterBusy;
     double meteredAt = double.NegativeInfinity;
 
@@ -24,7 +35,13 @@ public sealed partial class AudioService
         if (Interlocked.Exchange(ref meterBusy, 1) == 1) return;
         Task.Run(() =>
         {
-            try { metered = ReadMeters(); }
+            try
+            {
+                var map = MediaApps.Snapshot(cw);
+                var list = ReadMeters();
+                foreach (var m in list) if (map.TryGetValue(m.Pid, out var pi)) pi.Name = m.Name;   // the program's own description, for the last-resort match
+                procs = map; metered = list;
+            }
             catch (Exception ex) { Log.W("audio", "app meters unavailable: " + ex.Message); }
             finally { Interlocked.Exchange(ref meterBusy, 0); }
         });
@@ -62,7 +79,7 @@ public sealed partial class AudioService
         float? best = null;
         foreach (var m in metered)
         {
-            if (!AppMatches(aumid, appName, m.Exe, m.Name)) continue;
+            if (!Owns(m, aumid, appName)) continue;
             float p = 0, v = 1; bool muted = false;
             try { m.Meter.GetPeakValue(out p); m.Vol?.GetMasterVolume(out v); m.Vol?.GetMute(out muted); } catch { continue; }
             best = Math.Max(best ?? 0, Audible(p, v, muted));
@@ -76,7 +93,7 @@ public sealed partial class AudioService
         var sb = new System.Text.StringBuilder();
         foreach (var m in metered)
         {
-            if (!AppMatches(aumid, appName, m.Exe, m.Name)) continue;
+            if (!Owns(m, aumid, appName)) continue;
             try
             {
                 m.Meter.GetPeakValue(out float p); float v = -1; bool mu = false; m.Vol?.GetMasterVolume(out v); m.Vol?.GetMute(out mu);
@@ -98,16 +115,4 @@ public sealed partial class AudioService
     /// </summary>
     internal static float Audible(float peak, float volume, bool muted) => muted ? 0 : peak * Math.Clamp(volume, 0, 1);
 
-    /// <summary>
-    /// Whether an audio session's program is the app a media session belongs to. Media sessions name
-    /// their app by an id: an exe ("Spotify.exe"), a registered name ("Chrome", "MSEdge") or a Store
-    /// package ("SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify"); some only by a name to compare.
-    /// </summary>
-    internal static bool AppMatches(string aumid, string appName, string exe, string name)
-    {
-        string stem = Path.GetFileNameWithoutExtension(exe ?? "").ToLowerInvariant();
-        string id = (aumid ?? "").ToLowerInvariant();
-        if (stem.Length >= 3 && id.Contains(stem)) return true;
-        return !string.IsNullOrWhiteSpace(appName) && !string.IsNullOrWhiteSpace(name) && string.Equals(appName.Trim(), name.Trim(), StringComparison.OrdinalIgnoreCase);
-    }
 }

@@ -172,7 +172,7 @@ public sealed partial class AudioService
     public float? CapturedPeak(string aumid, string appName, double now)
     {
         float? best = null;
-        foreach (var pid in metered.Where(m => m.Pid != 0 && AppMatches(aumid, appName, m.Exe, m.Name)).Select(m => m.Pid).Distinct())
+        foreach (var pid in metered.Where(m => m.Pid != 0 && Owns(m, aumid, appName)).Select(m => m.Pid).Distinct())
         {
             ProcessCapture c;
             lock (captures) captures.TryGetValue(pid, out c);
