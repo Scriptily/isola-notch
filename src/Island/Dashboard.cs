@@ -20,7 +20,7 @@ public sealed partial class DashboardPage : Page
         new("media", "Now Playing", Glyph.Music, c => c.Media, 292),
         new("sound", "Sound", Glyph.Volume3, c => true, 330),
         new("home", "Home", Glyph.Home, c => c.HomeAssistant, 330),
-        new("weather", "Weather", Glyph.Sun, c => c.Weather, 280),
+        new("weather", "Weather", Glyph.Sun, c => c.Weather, 312),   // the hours/days row needs its own 32
         new("notes", "Notes", Glyph.Note, c => c.Notes, 320),
         new("shelf", "Shelf", Glyph.Folder, c => c.Shelf, 336),
         new("clipboard", "Clipboard", Glyph.Clipboard, c => c.Clipboard, 320),
@@ -344,7 +344,7 @@ public sealed partial class DashboardPage : Page
         float sc = ux.Anim("scroll:recent", scroll.GetValueOrDefault("recent"), ScrollSpring, 0.05);
         var rs = ux.Add("recent:scroll", list, null, 0, CursorKind.Arrow); rs.ScrollPx = rh;
         rs.Wheel = (d, hz) => { scroll["recent"] = Math.Clamp(scroll.GetValueOrDefault("recent") - d / 120f * rh, 0, Math.Max(0, total - list.H)); isl.Host.RequestFrame(); };
-        Paint.ScrollBar(c, ux, "recent", list, sc, scroll.GetValueOrDefault("recent"), total, t);
+        Bar(c, ux, "recent", list, sc, total, t);
         if (Paint.Scrolls(total, list.H)) list = new Box(list.X, list.Y, list.W - Paint.ScrollLane, list.H);
         c.FadeClip(list, sc > 0.5f, sc < total - list.H - 0.5f);
         for (int i = 0; i < h.Count; i++)
@@ -365,6 +365,11 @@ public sealed partial class DashboardPage : Page
         }
         c.Unfade();
     }
+
+    /// <summary>A list's scroll bar, dragged or pressed to move the list (its scroll target and spring).</summary>
+    void Bar(Canvas c, Ux ux, string key, Box view, float sc, float content, float t) =>
+        Paint.ScrollBar(c, ux, key, view, sc, scroll.GetValueOrDefault(key), content, t,
+            v => { scroll[key] = v; isl.Host.RequestFrame(); }, "scroll:" + key);
 
     static void Empty(Canvas c, Box p, char glyph, string title, string sub, float t)
     {
@@ -469,7 +474,7 @@ public sealed partial class DashboardPage : Page
         if (isl.Clock.Now - lastMixer > 1.0) { au.RefreshMixerAsync(() => isl.Host.RequestFrame()); lastMixer = isl.Clock.Now; }
         float sc = ux.Anim("scroll:sound", scroll.GetValueOrDefault("sound"), ScrollSpring, 0.05);
         var view = p.Inset(0, -4);
-        Paint.ScrollBar(c, ux, "sound", view, sc, scroll.GetValueOrDefault("sound"), contentH, t);
+        Bar(c, ux, "sound", view, sc, contentH, t);
         if (Paint.Scrolls(contentH, view.H)) p = new Box(p.X, p.Y, p.W - Paint.ScrollLane, p.H);
         var soundScroll = ux.Add("sound:scroll", view, null, 0, CursorKind.Arrow); soundScroll.ScrollPx = 40; soundScroll.Wheel = (d, h) => { scroll["sound"] = Math.Clamp(scroll.GetValueOrDefault("sound") - d / 120f * 40, 0, Math.Max(0, contentH - view.H)); isl.Host.RequestFrame(); };
         c.FadeClip(view, sc > 0.5f, sc < contentH - view.H - 0.5f);
@@ -568,7 +573,7 @@ public sealed partial class DashboardPage : Page
         int k = 0;
         float sc = ux.Anim("scroll:home", scroll.GetValueOrDefault("home"), ScrollSpring, 0.05);
         ux.Add("ha:scroll", grid, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["home"] = Math.Clamp(scroll.GetValueOrDefault("home") - d / 120f * 50, 0, Math.Max(0, homeH - grid.H)); isl.Host.RequestFrame(); };
-        Paint.ScrollBar(c, ux, "home", homeView, sc, scroll.GetValueOrDefault("home"), homeH, t);
+        Bar(c, ux, "home", homeView, sc, homeH, t);
         c.FadeClip(grid.Inset(-4, -2), sc > 0.5f, sc < homeH - grid.H - 0.5f);
         foreach (var id in isl.Cfg.HaEntities)
         {
@@ -900,7 +905,7 @@ public sealed partial class DashboardPage : Page
         float sc = ux.Anim("scroll:notes", scroll.GetValueOrDefault("notes"), ScrollSpring, 0.05);
         var notesScroll = ux.Add("notes:scroll", list, null, 0, CursorKind.Arrow); notesScroll.ScrollPx = 40; notesScroll.Wheel = (d, h) => { scroll["notes"] = Math.Clamp(scroll.GetValueOrDefault("notes") - d / 120f * 40, 0, Math.Max(0, notes.Items.Count * 38 - list.H)); isl.Host.RequestFrame(); };
         if (notes.Items.Count == 0) { c.Text("Nothing here yet. Type above and press Enter.", list.Inset(0, 30), 12, Col.White.A(0.4f * t), FontWeight.Normal, HAlign.Center, VAlign.Top); return; }
-        Paint.ScrollBar(c, ux, "notes", list, sc, scroll.GetValueOrDefault("notes"), notes.Items.Count * 38, t);
+        Bar(c, ux, "notes", list, sc, notes.Items.Count * 38, t);
         if (Paint.Scrolls(notes.Items.Count * 38, list.H)) list = new Box(list.X, list.Y, list.W - Paint.ScrollLane, list.H);
         c.FadeClip(list, sc > 0.5f, sc < notes.Items.Count * 38 - list.H - 0.5f);
         float y = list.Y - sc;
@@ -957,7 +962,7 @@ public sealed partial class DashboardPage : Page
             if (png != null) { shelf.AddImage(png); return; }
             var tx = Native.Win32.GetClipboardText();
             if (!string.IsNullOrWhiteSpace(tx)) { shelf.AddText(tx); return; }
-            isl.Alert(new Alert { Key = "shelf:empty", Kind = "info", Title = "Nothing to keep", Subtitle = "The clipboard is empty", Glyph = Glyph.Clipboard, Accent = Col.Gray(0.6f), Seconds = 2.2 });
+            isl.Alert(new Alert { Key = "shelf:empty", Kind = "info", Title = "Nothing to keep", Subtitle = "The clipboard is empty", Glyph = Glyph.Clipboard, Accent = Col.Gray(0.6f), Seconds = 2.2, Sound = Services.Sounds.Notice });
         }
         var dl = isl.Svc?.Downloads;
         if (isl.Cfg.Downloads && dl != null)
@@ -974,7 +979,9 @@ public sealed partial class DashboardPage : Page
             var msg = new Box(p.X, p.Y, p.W, p.H - 46);
             Empty(c, msg, '\uE896', isl.DragHover ? "Drop to keep it here" : "Your shelf is empty",
                 "Drag files, highlighted text, links or images onto the island to keep them here while you work - separate from the clipboard, and kept until you remove them.", t);
-            ux.Pill("shelf:paste", Box.Centered(p.CX, p.Bottom - 22, 226, 30), "Keep what's on the clipboard", Paste, Col.White, Glyph.Clipboard);
+            // as wide as its icon and words, evenly padded (a fixed width left room on the right)
+            float pw = 26 + c.Measure("Keep what's on the clipboard", 12.5f, FontWeight.SemiBold).w + 14;
+            ux.Pill("shelf:paste", Box.Centered(p.CX, p.Bottom - 22, pw, 30), "Keep what's on the clipboard", Paste, Col.White, Glyph.Clipboard);
             return;
         }
         if (convertFor != null && shelf.Items.Contains(convertFor)) ConvertBar(c, ux, p, t);
@@ -990,7 +997,7 @@ public sealed partial class DashboardPage : Page
         var grid = new Box(p.X, p.Y + 26, p.W, p.H - 26);
         float shelfH = (float)Math.Ceiling(shelf.Items.Count / 5.0) * 96;
         float shelfTarget = scroll.GetValueOrDefault("shelf");
-        Paint.ScrollBar(c, ux, "shelf", grid, ux.Anim("scroll:shelf", shelfTarget, ScrollSpring, 0.05), shelfTarget, shelfH, t);
+        Bar(c, ux, "shelf", grid, ux.Anim("scroll:shelf", shelfTarget, ScrollSpring, 0.05), shelfH, t);
         if (Paint.Scrolls(shelfH, grid.H)) grid = new Box(grid.X, grid.Y, grid.W - Paint.ScrollLane, grid.H);
         int cols = 5; float cw = grid.W / cols, ch = 96;
         float sc = ux.Anim("scroll:shelf", scroll.GetValueOrDefault("shelf"), ScrollSpring, 0.05);
@@ -1094,7 +1101,7 @@ public sealed partial class DashboardPage : Page
         float rowH = 44;
         float total = cb.Items.Sum(i => i.Kind == "image" ? 84f : rowH);
         var clipScroll = ux.Add("clip:scroll", list, null, 0, CursorKind.Arrow); clipScroll.ScrollPx = 44; clipScroll.Wheel = (d, h) => { scroll["clip"] = Math.Clamp(scroll.GetValueOrDefault("clip") - d / 120f * 44, 0, Math.Max(0, total - list.H)); isl.Host.RequestFrame(); };
-        Paint.ScrollBar(c, ux, "clip", list, sc, scroll.GetValueOrDefault("clip"), total, t);
+        Bar(c, ux, "clip", list, sc, total, t);
         if (Paint.Scrolls(total, list.H)) list = new Box(list.X, list.Y, list.W - Paint.ScrollLane, list.H);
         c.FadeClip(list, sc > 0.5f, sc < total - list.H - 0.5f);
         float y = list.Y - sc;
@@ -1260,7 +1267,7 @@ public sealed partial class DashboardPage : Page
         c.ClipRect(area);
         float sc = ux.Anim("scroll:dev", scroll.GetValueOrDefault("dev"), ScrollSpring, 0.05);
         var devScroll = ux.Add("dev:scroll", area, null, 0, CursorKind.Arrow); devScroll.ScrollPx = 40; devScroll.Wheel = (d, h) => { scroll["dev"] = Math.Clamp(scroll.GetValueOrDefault("dev") - d / 120f * 40, 0, Math.Max(0, list.Count * 34 - area.H)); isl.Host.RequestFrame(); };
-        Paint.ScrollBar(c, ux, "dev", area, sc, scroll.GetValueOrDefault("dev"), list.Count * 34, t);
+        Bar(c, ux, "dev", area, sc, list.Count * 34, t);
         if (Paint.Scrolls(list.Count * 34, area.H)) p = new Box(p.X, p.Y, p.W - Paint.ScrollLane, p.H);   // the rows are laid out across p
         y -= sc;
         // the watcher is still listing paired devices: rows in their shape

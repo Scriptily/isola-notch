@@ -37,16 +37,34 @@ public static class Paint
     /// None when everything fits. Dimmed while the pointer is elsewhere; it wakes (brighter, a little wider) when
     /// the pointer comes into the list or the list is scrolling, and dims again a moment after.
     /// </summary>
-    public static void ScrollBar(Canvas c, Ux ux, string id, Box view, float scroll, float target, float content, float t)
+    /// <param name="set">moves the list (the bar is dragged, or its track pressed); null for a bar only to look at</param>
+    /// <param name="springKey">the list's scroll spring, put straight where the bar is dragged so the list keeps up</param>
+    public static void ScrollBar(Canvas c, Ux ux, string id, Box view, float scroll, float target, float content, float t, Action<float> set = null, string springKey = null)
     {
         if (!Scrolls(content, view.H)) return;
         bool scrolling = Math.Abs(scroll - target) > 0.5f;
         c.MovingText = scrolling;   // its text glides with it (unsnapped) until the list is drawn
-        bool awake = ux.PointerIn(view) || scrolling;
+        string zid = "sbar:" + id + ":drag";
+        bool held = ux.Dragging == zid;
+        bool awake = ux.PointerIn(view) || scrolling || held;
         float wake = ux.Anim("sbar:" + id, awake ? 1 : 0, awake ? SpringSpec.Snappy : SpringSpec.Slow);
-        float w = 3 + 1.5f * wake, track = view.H - 8;
+        float w = 3 + 1.5f * wake + (held ? 1 : 0), track = view.H - 8;
         float len = Math.Max(24, track * view.H / content);
         float pos = Math.Clamp(scroll / Math.Max(1, content - view.H), 0, 1) * (track - len);
+        if (set != null)
+        {
+            // a real control: drag the thumb, or press the track to jump there. Taking the press, it also keeps the
+            // island from reading a drag on the bar as a drag on itself (which moved the island)
+            var lane = new Box(view.Right - 16, view.Y, 16, view.H);
+            var z = ux.Add(zid, lane, null, 6, CursorKind.Arrow);
+            float max = content - view.H, l = len, tr = track, top = view.Y + 4;
+            z.Drag = (x, y, fin) =>
+            {
+                float v = Math.Clamp((y - top - l / 2) / Math.Max(1, tr - l), 0, 1) * max;
+                set(v);
+                if (springKey != null) ux.Snap(springKey, v);
+            };
+        }
         var bar = new Box(view.Right - 4 - w, view.Y + 4 + pos, w, len);
         c.Fill(bar, Col.White.A((0.16f + 0.34f * wake) * t), w / 2);
     }

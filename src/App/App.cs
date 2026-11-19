@@ -762,6 +762,7 @@ public sealed unsafe partial class App
         Sounds.Timer => c.TimerTone,
         Sounds.Charge => c.ChargeTone,
         Sounds.Low => c.LowTone,
+        Sounds.Notice => c.NoticeTone,
         _ => c.DeviceTone,   // connecting and disconnecting
     };
 
@@ -782,6 +783,7 @@ public sealed unsafe partial class App
         Sounds.Timer => c.TimerSound,
         Sounds.Call => c.CallRingtone,
         Sounds.Notification => c.NotificationSound,
+        Sounds.Notice => c.NoticeSound,
         _ => c.DeviceSounds,
     };
 

@@ -24,7 +24,7 @@ public static class Program
         if (args.Length == 2 && args[0] == "--render-sounds")
         {
             var labels = new Dictionary<string, string> { [Services.Sounds.Notification] = "Notifications", [Services.Sounds.Call] = "Ringtones (they loop)", [Services.Sounds.Timer] = "Timer alarms (they loop)",
-                [Services.Sounds.Connect] = "A device connects", [Services.Sounds.Disconnect] = "A device disconnects", [Services.Sounds.Charge] = "Charger plugged in", [Services.Sounds.Low] = "Low battery" };
+                [Services.Sounds.Connect] = "A device connects", [Services.Sounds.Disconnect] = "A device disconnects", [Services.Sounds.Charge] = "Charger plugged in", [Services.Sounds.Low] = "Low battery", [Services.Sounds.Notice] = "Notices (quieter)" };
             var html = new System.Text.StringBuilder("<!doctype html><meta charset=utf-8><title>Isola's sounds</title><style>body{background:#16161a;color:#eee;font:14px 'Segoe UI',sans-serif;max-width:720px;margin:30px auto;padding:0 16px}h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#999;margin:26px 0 8px}div{display:flex;gap:12px;align-items:center;margin:6px 0}audio{height:32px}</style><h1>Isola's sounds, as it plays them</h1>");
             foreach (var kind in Services.Sounds.All)
             {

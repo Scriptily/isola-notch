@@ -354,7 +354,7 @@ public sealed unsafe partial class SettingsWindow
         var area = new Box(220 + 32, 0, W - 220 - 64, H);
         // the page fades where there's more to scroll, rather than slicing a card in half
         // its scroll bar sits in the page's right margin (32 px), so the cards needn't narrow for it
-        Paint.ScrollBar(c, ux, "settings", new Box(220, 0, W - 220 - 6, H), scrollY, scrollTarget, contentH, 1);
+        Paint.ScrollBar(c, ux, "settings", new Box(220, 0, W - 220 - 6, H), scrollY, scrollTarget, contentH, 1, v => { scrollTarget = v; dirty = true; }, "set:scroll");
         c.FadeClip(new Box(220, 0, W - 220, H), scrollY > 0.5f, scrollY < contentH - H - 0.5f, 28);
         float y = 24 - scrollY;
         c.Text(Sections[section].name, new Box(area.X, y, area.W, 36), 26, Col.White, FontWeight.SemiBold);
@@ -667,6 +667,8 @@ public sealed unsafe partial class SettingsWindow
         Tone(L, "tone:d", "Devices connecting", Sounds.Connect, work.DeviceTone, v => work.DeviceTone = v);
         Tone(L, "tone:g", "Charger plugged in", Sounds.Charge, work.ChargeTone, v => work.ChargeTone = v);
         Tone(L, "tone:l", "Low battery", Sounds.Low, work.LowTone, v => work.LowTone = v);
+        Toggle(L, "sndnotice", "Sounds for notices", "Fully charged, displays, sound output, updates and downloads, quieter than the rest", work.NoticeSound, v => work.NoticeSound = v);
+        Tone(L, "tone:i", "Notice sound", Sounds.Notice, work.NoticeTone, v => work.NoticeTone = v);
         L.End();
         L.Note("Picking a sound plays it; pick it again to hear it again.");
         Button(L, "preview", "Preview popups", "Shows one of each kind the island can show, in turn, with its sound", "Preview", () => app.PreviewPopups());

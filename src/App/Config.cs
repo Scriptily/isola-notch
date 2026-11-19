@@ -81,6 +81,9 @@ public sealed class Config
     public string DeviceTone { get; set; } = "click";
     public string ChargeTone { get; set; } = "click";
     public string LowTone { get; set; } = "click";
+    /// <summary>A soft sound for notices: fully charged, a display or sound output change, updates, the download tools.</summary>
+    public bool NoticeSound { get; set; } = true;
+    public string NoticeTone { get; set; } = "drop";
     /// <summary>Downloading and converting (yt-dlp and FFmpeg, fetched and kept up to date by Isola).</summary>
     public bool Downloads { get; set; } = true;
     /// <summary>Where finished files go: downloads (the Downloads folder), shelf, or folder (DownloadFolder).</summary>

@@ -25,6 +25,10 @@ release notes.
   today, sunrise and sunset.
 - A download, timer, update or tool download in progress also shows when you
   hover over the island or open it, not only in the pill.
+- A soft sound for notices: fully charged, on battery, a display or sound
+  output change, updates and the download tools. It's quieter than the other
+  sounds, and has its own switch and choice of four tones in Settings ->
+  Notifications & Sounds.
 
 ### Changed
 
@@ -35,7 +39,8 @@ release notes.
   at its top instead of waiting until you close it. Clicking a notification
   or a call dismisses it, and hovering keeps it on screen.
 - Every list, and Settings, shows a scroll bar when it has more to show. It
-  stays dim until the pointer is over the list, and the list makes room for it.
+  stays dim until the pointer is over the list, the list makes room for it, and
+  you can drag it or click along it.
 - Weather icons follow the real sunrise and sunset instead of a fixed 6 am
   and 7 pm.
 - The tabs scroll sideways when they don't all fit, and the open island never

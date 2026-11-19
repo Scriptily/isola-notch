@@ -21,8 +21,8 @@ namespace Isola.Services;
 public static class Sounds
 {
     public const string Notification = "notification", Call = "call", Timer = "timer",
-        Connect = "connect", Disconnect = "disconnect", Charge = "charge", Low = "low";
-    public static readonly string[] All = { Notification, Call, Timer, Connect, Disconnect, Charge, Low };
+        Connect = "connect", Disconnect = "disconnect", Charge = "charge", Low = "low", Notice = "notice";
+    public static readonly string[] All = { Notification, Call, Timer, Connect, Disconnect, Charge, Low, Notice };
     public static bool Loops(string kind) => kind is Call or Timer;
 
     /// <summary>The choices for each kind, as (id, label); the first is the default. Connecting and disconnecting share theirs.</summary>
@@ -33,6 +33,7 @@ public static class Sounds
         Timer => new[] { ("sweep", "Sweep"), ("sweep-triple", "Triple"), ("steps", "Steps"), ("beacon", "Beacon"), ("clock", "Clock"), ("marimba", "Marimba") },
         Connect or Disconnect => new[] { ("click", "Click"), ("click-soft", "Soft"), ("rise", "Rise"), ("bubble", "Bubble") },
         Charge => new[] { ("click", "Click"), ("spark", "Spark"), ("chord", "Chord"), ("energy", "Energy") },
+        Notice => new[] { ("drop", "Drop"), ("tap", "Tap"), ("glass", "Glass"), ("soft", "Soft") },
         _ => new[] { ("click", "Click"), ("fall", "Fall"), ("sink", "Sink"), ("tap", "Tap") },   // low battery
     };
 
@@ -475,7 +476,9 @@ public static class Sounds
         var t = Draw(kind, variant);
         double loud = Loudness(t.L, t.R), peak = 0;
         for (int i = 0; i < t.N; i++) peak = Math.Max(peak, Math.Max(Math.Abs(t.L[i]), Math.Abs(t.R[i])));
-        double gain = peak > 0 ? Math.Min(Math.Pow(10, (TargetLoudness - loud) / 20), Ceiling / peak) : 0;
+        // notices (a status, nothing to answer) sit 5 dB under the rest: there, not calling for attention
+        double target = TargetLoudness - (kind == Notice ? 5 : 0);
+        double gain = peak > 0 ? Math.Min(Math.Pow(10, (target - loud) / 20), Ceiling / peak) : 0;
         var s = new short[t.N * 2];
         for (int i = 0; i < t.N; i++)
         {
@@ -598,6 +601,10 @@ public static class Sounds
         }, 0.15),
 
         // ---- a device connects (rising) or disconnects (the same, falling)
+        (Notice, "drop") => Shot(0.5, (t, a) => Glide(t, a, Hz(B5), Hz(E5), dur: 0.18, amp: 0.7, decay: 14, curve: 1.4, harmonic: 0.04), 0.12),
+        (Notice, "tap") => Shot(0.35, (t, a) => Click(t, a, amp: 0.55, pitch: 1600, body: Hz(A5), len: 0.016), 0.08),
+        (Notice, "glass") => Shot(0.7, (t, a) => Mallet(t, a, Hz(E6), dur: 0.6, amp: 0.5, bright: 0.4), 0.15),
+        (Notice, "soft") => Shot(0.7, (t, a) => { Mallet(t, a, Hz(C6), dur: 0.5, amp: 0.45, bright: 0.3); Mallet(t, a + 0.08, Hz(G6), dur: 0.5, amp: 0.35, bright: 0.3); }, 0.15),
         (Connect, "click") => Shot(0.35, (t, a) => { Click(t, a, amp: 0.6, pitch: 3000, body: Hz(E6), len: 0.01); Click(t, a + 0.085, amp: 0.7, pitch: 3800, body: Hz(B6), len: 0.01, seed: 9); }, 0.08),
         (Disconnect, "click") => Shot(0.35, (t, a) => { Click(t, a, amp: 0.7, pitch: 3800, body: Hz(B6), len: 0.01, seed: 9); Click(t, a + 0.085, amp: 0.6, pitch: 3000, body: Hz(E6), len: 0.01); }, 0.08),
         (Connect, "click-soft") => Shot(0.35, (t, a) => { Click(t, a, amp: 0.5, pitch: 1800, body: Hz(E5), len: 0.014); Click(t, a + 0.09, amp: 0.55, pitch: 2200, body: Hz(B5), len: 0.014, seed: 9); }, 0.08),

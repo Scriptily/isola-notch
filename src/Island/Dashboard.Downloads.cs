@@ -193,7 +193,7 @@ public sealed partial class DashboardPage
         const float rh = 50;
         float sc = ux.Anim("scroll:dl", scroll.GetValueOrDefault("dl"), ScrollSpring, 0.05);
         ux.Add("dl:scroll", list, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["dl"] = Math.Clamp(scroll.GetValueOrDefault("dl") - d / 120f * 50, 0, Math.Max(0, dl.Jobs.Count * rh - list.H)); isl.Host.RequestFrame(); };
-        Paint.ScrollBar(c, ux, "dl", list, sc, scroll.GetValueOrDefault("dl"), dl.Jobs.Count * rh, t);
+        Bar(c, ux, "dl", list, sc, dl.Jobs.Count * rh, t);
         if (Paint.Scrolls(dl.Jobs.Count * rh, list.H)) list = new Box(list.X, list.Y, list.W - Paint.ScrollLane, list.H);
         c.FadeClip(list, sc > 0.5f, sc < dl.Jobs.Count * rh - list.H - 0.5f);
         for (int i = 0; i < dl.Jobs.Count; i++)

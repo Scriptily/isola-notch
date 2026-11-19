@@ -20,9 +20,9 @@ public static class Alerts
     public static Alert Battery(string e, int percent) => e switch
     {
         "plugged" => new() { Key = "battery", Kind = "battery", Title = "Charging", Subtitle = $"{percent}%", Glyph = Glyph.Charging, Accent = Col.Hex(0x34c759), Seconds = 2.8, Sound = Sounds.Charge, Batteries = { ("", percent, true) } },
-        "unplugged" => new() { Key = "battery", Kind = "battery", Title = "On battery", Subtitle = $"{percent}% remaining", Glyph = Glyph.Battery, Accent = Col.Gray(0.5f), Seconds = 2.5, Batteries = { ("", percent, false) } },
+        "unplugged" => new() { Key = "battery", Kind = "battery", Title = "On battery", Subtitle = $"{percent}% remaining", Glyph = Glyph.Battery, Accent = Col.Gray(0.5f), Sound = Sounds.Notice, Seconds = 2.5, Batteries = { ("", percent, false) } },
         "low" => new() { Key = "battery", Kind = "battery", Title = "Low battery", Subtitle = $"{percent}% remaining · plug in soon", Glyph = Glyph.Battery, Accent = Col.Hex(0xff453a), Seconds = 6, Priority = 1, Sound = Sounds.Low, Batteries = { ("", percent, false) } },
-        _ => new() { Key = "battery", Kind = "battery", Title = "Fully charged", Subtitle = "100%", Glyph = Glyph.Battery, Accent = Col.Hex(0x34c759), Seconds = 3, Batteries = { ("", 100, false) } },
+        _ => new() { Key = "battery", Kind = "battery", Title = "Fully charged", Subtitle = "100%", Glyph = Glyph.Battery, Accent = Col.Hex(0x34c759), Sound = Sounds.Notice, Seconds = 3, Batteries = { ("", 100, false) } },
     };
 
     /// <summary>A Bluetooth device connecting or going; AirPods get their three battery rings.</summary>
@@ -128,7 +128,7 @@ public static class Alerts
     public static Alert Display(string name, string detail, bool connected) => new()
     {
         Key = "display:" + name, Kind = "display", Title = name, Subtitle = connected ? $"Connected · {detail}" : "Disconnected",
-        Glyph = Glyph.Display, Accent = connected ? Col.Hex(0x5e5ce6) : Col.Gray(0.45f), Seconds = 3.5,
+        Glyph = Glyph.Display, Accent = connected ? Col.Hex(0x5e5ce6) : Col.Gray(0.45f), Sound = Sounds.Notice, Seconds = 3.5,
     };
 
     /// <summary>
@@ -147,7 +147,7 @@ public static class Alerts
 
     public static Alert Output(string name) => new()
     {
-        Key = "output", Kind = "audio", Title = OutputName(name), Subtitle = "Sound output", Glyph = Glyph.Volume3, Accent = Col.Hex(0x0a84ff), Seconds = 2.5,
+        Key = "output", Kind = "audio", Title = OutputName(name), Subtitle = "Sound output", Glyph = Glyph.Volume3, Accent = Col.Hex(0x0a84ff), Sound = Sounds.Notice, Seconds = 2.5,
     };
 
     public static Alert Track(string title, string artist, byte[] art, Color4 accent) => new()
@@ -178,7 +178,7 @@ public static class Alerts
     /// <summary>A newer Isola was found; the island then shows it downloading.</summary>
     public static Alert UpdateFound(string version) => new()
     {
-        Key = "update-found", Kind = "info", Title = $"Isola {version} is available", Subtitle = "Downloading it now", Glyph = Glyph.Download, Accent = Col.Hex(0x34c759), Seconds = 3,
+        Key = "update-found", Kind = "info", Title = $"Isola {version} is available", Subtitle = "Downloading it now", Glyph = Glyph.Download, Accent = Col.Hex(0x34c759), Sound = Sounds.Notice, Seconds = 3,
     };
 
     /// <summary>
@@ -191,19 +191,19 @@ public static class Alerts
         bool updates = got.All(g => g.update);
         string title = !updates ? "Downloads are ready" : got.Count == 1 ? $"{got[0].name} updated" : "Download tools updated";
         string sub = updates && got.Count == 1 ? got[0].version : Names(got.Select(g => g.name));
-        return new() { Key = "tools", Kind = "info", Title = title, Subtitle = Cap(sub, 40), Glyph = Glyph.Check, Accent = Col.Hex(0x34c759), Seconds = 3 };
+        return new() { Key = "tools", Kind = "info", Title = title, Subtitle = Cap(sub, 40), Glyph = Glyph.Check, Accent = Col.Hex(0x34c759), Sound = Sounds.Notice, Seconds = 3 };
     }
 
     /// <summary>The download tools were removed from Settings.</summary>
     public static Alert ToolsRemoved(long bytes) => new()
     {
         Key = "tools", Kind = "info", Title = "Download tools removed", Subtitle = bytes > 0 ? $"{bytes / 1_000_000} MB freed" : "They come back when you download something",
-        Glyph = Glyph.Delete, Accent = Col.Gray(0.6f), Seconds = 2.5,
+        Glyph = Glyph.Delete, Accent = Col.Gray(0.6f), Sound = Sounds.Notice, Seconds = 2.5,
     };
 
     public static Alert Updated(string version) => new()
     {
-        Key = "updated", Kind = "info", Title = $"Updated to v{version}", Subtitle = "Isola", Glyph = Glyph.Check, Accent = Col.Hex(0x34c759), Seconds = 3.5,
+        Key = "updated", Kind = "info", Title = $"Updated to v{version}", Subtitle = "Isola", Glyph = Glyph.Check, Accent = Col.Hex(0x34c759), Sound = Sounds.Notice, Seconds = 3.5,
     };
 
     /// <summary>

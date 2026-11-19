@@ -594,8 +594,12 @@ public static partial class Scenarios
             var (loud, ceiling) = Sounds.Measure(kind, variant);
             all.Add(($"{kind}/{variant}", loud, ceiling));
         }
+        // notices sit 5 dB under the rest on purpose (a status, nothing to answer); everything else matches
         foreach (var (what, loud, ceiling) in all.Where(x => !x.ceiling))
-            True(Math.Abs(loud - Sounds.TargetLoudness) < 0.1, $"{what}: at the target loudness ({loud:0.0} dB)");
+        {
+            double want = Sounds.TargetLoudness - (what.StartsWith(Sounds.Notice + "/") ? 5 : 0);
+            True(Math.Abs(loud - want) < 0.1, $"{what}: at its target loudness ({loud:0.0} dB, want {want:0.0})");
+        }
         // a sound held back by its peak can only be quieter, never louder
         foreach (var (what, loud, _) in all) True(loud <= Sounds.TargetLoudness + 0.1, $"{what}: never louder than the rest ({loud:0.0} dB)");
         int held = all.Count(x => x.ceiling);

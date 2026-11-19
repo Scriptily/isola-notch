@@ -54,6 +54,8 @@
   "DeviceTone": "click",
   "ChargeTone": "click",
   "LowTone": "click",
+  "NoticeSound": true,
+  "NoticeTone": "drop",
   "Downloads": true,
   "DownloadTo": "downloads",
   "DownloadFolder": "",

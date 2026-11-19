@@ -865,4 +865,22 @@ public static partial class Scenarios
         Eq(Mode.Hidden, isl.Mode, "and slides away");
         Eq(red, isl.GlowTarget0, "still the song's colors as it goes");
     }
+
+    [Scenario("a scroll bar can be dragged and its track pressed; the press is the bar's, never a drag on the island")]
+    public static void ScrollBarsDrag()
+    {
+        using var o = new Offscreen(200, 200);
+        var u = new Ux();
+        var view = new Box(0, 0, 200, 200);
+        float target = 0;
+        void Frame() { o.Draw(c => { u.BeginFrame(c); Paint.ScrollBar(c, u, "t", view, target, target, 600, 1, v => target = v); u.EndFrame(); }); }
+        Frame(); Frame();
+        True(u.HitTest(192, 100) != null, "the bar's lane takes a press (the island doesn't see it as its own)");
+        u.Move(192, 20); u.Down(192, 20);
+        u.Move(192, 196); Frame();
+        True(Math.Abs(target - 400) < 1, $"dragged to the bottom: the list at its end ({target:0} of 400)");
+        u.Up(192, 196); Frame();
+        u.Move(192, 4); u.Down(192, 4); u.Up(192, 4);
+        True(target < 1, $"a press at the top of the track: back to the start ({target:0})");
+    }
 }
