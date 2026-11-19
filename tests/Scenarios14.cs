@@ -426,4 +426,30 @@ public static partial class Scenarios
         True(first != null && second != null && !ReferenceEquals(first, second), "the new notice is drawn by the other alert page");
         True(first.Key.Contains(":one:") && second.Key.Contains(":two:"), $"each keeps its own notice ({first.Key} / {second.Key})");
     }
+
+    [Scenario("a title too long for the island rests, slides slowly to its end, rests, and slides back, easing in and out")]
+    public static void LongTitlesSlide()
+    {
+        float over = 140;
+        Eq(0f, Canvas.MarqueeOffset(over, 0), "starts at the start");
+        Eq(0f, Canvas.MarqueeOffset(over, Canvas.MarqueeHoldStart - 0.05), "and rests there a moment to be read");
+        double glide = over / Canvas.MarqueeSpeed;
+        float early = Canvas.MarqueeOffset(over, Canvas.MarqueeHoldStart + glide * 0.1), mid = Canvas.MarqueeOffset(over, Canvas.MarqueeHoldStart + glide * 0.5);
+        True(early > 0 && early < over * 0.1f, $"it eases off the mark (slow in): {early:0.0} of {over * 0.1f:0.0} after a tenth of the way");
+        True(Math.Abs(mid - over / 2) < 1, $"halfway through the glide, halfway along ({mid:0.0})");
+        Eq(over, Canvas.MarqueeOffset(over, Canvas.MarqueeHoldStart + glide + 0.1), "reaches the very end");
+        Eq(over, Canvas.MarqueeOffset(over, Canvas.MarqueeHoldStart + glide + Canvas.MarqueeHoldEnd - 0.05), "and rests there too");
+        float back = Canvas.MarqueeOffset(over, Canvas.MarqueeHoldStart + glide + Canvas.MarqueeHoldEnd + glide * 0.5);
+        True(Math.Abs(back - over / 2) < 1, $"then slides back ({back:0.0})");
+        double cycle = Canvas.MarqueeHoldStart + glide + Canvas.MarqueeHoldEnd + glide;
+        Eq(0f, Canvas.MarqueeOffset(over, cycle + 0.5), "and starts over");
+        Eq(0f, Canvas.MarqueeOffset(0, 5), "a title that fits doesn't move");
+        float prev = 0;
+        for (double t = Canvas.MarqueeHoldStart; t <= Canvas.MarqueeHoldStart + glide; t += 1 / 60.0)
+        {
+            float o = Canvas.MarqueeOffset(over, t);
+            True(o >= prev - 1e-3 && o - prev < Canvas.MarqueeSpeed * 2.2f / 60, $"smooth, never jumping (at {t:0.00} s: {prev:0.0} -> {o:0.0})");
+            prev = o;
+        }
+    }
 }

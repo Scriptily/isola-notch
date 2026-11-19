@@ -225,7 +225,10 @@ public sealed unsafe partial class App
             : Alerts.DownloadFailed(job, () => { try { svc.Downloads.Retry(job); } catch (Exception ex) { Log.W("downloads", ex.Message); } }));
         svc.Tools.Start();
         svc.Updates.Found += v => island.Alert(Alerts.UpdateFound(Updater.Short(v)));
-        svc.Updates.Changed += () => island.Host.RequestFrame();
+        bool updating = false, fetching = false;
+        // starting or finishing changes the island's live activity (a redraw alone kept the song on it)
+        svc.Updates.Changed += () => { island.Host.RequestFrame(); if ((svc.Updates.Phase != null) != updating) { updating = !updating; island.ActivityChanged(); } };
+        svc.Tools.Changed += () => { if ((svc.Tools.Fetching != null) != fetching) { fetching = !fetching; island.ActivityChanged(); } };
         svc.Tools.Fetched += got => { if (cfg.Downloads) island.Alert(Alerts.ToolsFetched(got)); };
         // a moment of "Installing v..." on the island first (the setup waits for Isola to close anyway)
         svc.Updates.Installing += v => { Log.I("update", "handing over to the installer"); island.Host.RequestFrame(); Ui.After(Updater.ShowInstallingFor, () => { Log.Flush(); quit = true; }); };

@@ -86,6 +86,9 @@ public sealed class Canvas
     /// </summary>
     public int LoaderFrame { get; set; } = -1;
     public bool LoaderDrawn => LoaderFrame == Frame;
+    /// <summary>A title slid this frame (<see cref="Marquee"/>): the window keeps drawing so it keeps moving.</summary>
+    public bool MarqueeMoved => marqueeFrame == Frame;
+    int marqueeFrame = -1;
     ID2D1SolidColorBrush brush;
     int brushGen;
     readonly Dictionary<string, IDWriteTextFormat> formats = new();
@@ -265,6 +268,67 @@ public sealed class Canvas
             (0, Col.Black.A(top ? 0 : 1)), (t, Col.Black), (1 - t, Col.Black), (1, Col.Black.A(bottom ? 0 : 1)));
         Push(null, 1, brush);
         fades.Push(brush);   // the layer reads the brush until it's popped
+    }
+
+    /// <summary>
+    /// Like <see cref="FadeClip"/>, across: how faded the left and right edges are, 0 (sharp) to 1. Text that
+    /// runs on past an edge fades out there instead of being sliced off.
+    /// </summary>
+    public void FadeClipX(Box view, float left, float right, float edge = 16)
+    {
+        C.PushAxisAlignedClip(view.Raw, AntialiasMode.PerPrimitive);
+        if ((left <= 0.001f && right <= 0.001f) || view.W < 3 * edge) { fades.Push(null); return; }
+        float t = edge / view.W;
+        var brush = Linear(new Vector2(view.X, view.Y), new Vector2(view.Right, view.Y),
+            (0, Col.Black.A(1 - left)), (t, Col.Black), (1 - t, Col.Black), (1, Col.Black.A(1 - right)));
+        Push(null, 1, brush);
+        fades.Push(brush);
+    }
+
+    readonly Dictionary<string, double> marqueeStart = new();
+    /// <summary>The wait at the start before a long title slides, and at its end before it slides back, in seconds.</summary>
+    public const double MarqueeHoldStart = 2.2, MarqueeHoldEnd = 1.6;
+    /// <summary>How fast it slides, DIPs a second: slow enough to read along.</summary>
+    public const float MarqueeSpeed = 28;
+
+    /// <summary>
+    /// How far a title that's <paramref name="over"/> DIPs too long has slid, <paramref name="t"/> seconds after
+    /// it appeared: it rests at the start, eases along to the end, rests, and eases back, over and over.
+    /// </summary>
+    public static float MarqueeOffset(float over, double t)
+    {
+        if (over <= 0) return 0;
+        double glide = Math.Max(1.2, over / MarqueeSpeed), cycle = MarqueeHoldStart + glide + MarqueeHoldEnd + glide;
+        t %= cycle;
+        static double Ease(double x) => x < 0.5 ? 2 * x * x : 1 - Math.Pow(-2 * x + 2, 2) / 2;   // slow in, slow out
+        double p = t < MarqueeHoldStart ? 0
+            : t < MarqueeHoldStart + glide ? Ease((t - MarqueeHoldStart) / glide)
+            : t < MarqueeHoldStart + glide + MarqueeHoldEnd ? 1
+            : 1 - Ease((t - MarqueeHoldStart - glide - MarqueeHoldEnd) / glide);
+        return (float)(p * over);
+    }
+
+    /// <summary>
+    /// Text that fits is drawn as usual. Text that doesn't slides slowly back and forth inside its box so all of
+    /// it can be read, instead of ending in "...": its edges fade where more of it lies beyond, and each fade
+    /// clears as the text reaches that end.
+    /// </summary>
+    public void Marquee(string text, Box b, float size, Color4 color, FontWeight weight, double now, VAlign va = VAlign.Middle)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        float tw = Measure(text, size, weight).w;
+        if (tw <= b.W + 0.5f) { Text(text, b, size, color, weight, HAlign.Left, va); return; }
+        if (!marqueeStart.TryGetValue(text, out double start))
+        {
+            if (marqueeStart.Count > 64) marqueeStart.Clear();
+            marqueeStart[text] = start = now;
+        }
+        float over = tw - b.W, off = MarqueeOffset(over, now - start);
+        marqueeFrame = Frame;
+        // the edges fade only where there's more to read, and ease off as it arrives
+        FadeClipX(new Box(b.X, b.Y - 4, b.W, b.H + 8), Math.Clamp(off / 10, 0, 1), Math.Clamp((over - off) / 10, 0, 1));
+        Text(text, new Box(b.X - off, b.Y, tw + 6, b.H), size, color, weight, HAlign.Left, va);
+        Unfade();
     }
 
     public void Unfade()

@@ -65,6 +65,7 @@ public sealed partial class MediaService : IMediaSourceEx
 
     // ---- which playing apps can be heard: one playing at 0% mustn't take the island from one you're listening to ----
     readonly Dictionary<string, double> heardAt = new();
+    double levelLogAt = double.NegativeInfinity;
     string heardSet = "";
     long heardTimer;
     /// <summary>An app counts as heard for this long after its sound last rose above silence (quiet passages don't count as stopping).</summary>
@@ -82,6 +83,13 @@ public sealed partial class MediaService : IMediaSourceEx
     {
         heardTimer = Ui.After(0.25, WatchHeard);
         var playing = infos.Values.Where(i => i.Playing).ToList();
+        if (Current is { Playing: true } c && clock.Now - levelLogAt > 3)
+        {
+            levelLogAt = clock.Now;
+            audio?.RefreshAppMeters(clock.Now);
+            float? app = AppPeak(c);
+            Log.D("media", $"level of {c.SessionId}: app {(app == null ? "unknown" : app.Value.ToString("0.0000"))}, output {OutputPeak():0.0000}, sounding {Sounding}");
+        }
         if (playing.Count < 2) { heardSet = ""; return; }
         audio?.RefreshAppMeters(clock.Now);
         double now = clock.Now;

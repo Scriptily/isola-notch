@@ -157,7 +157,8 @@ public sealed unsafe partial class SettingsWindow
         double now = Ui.Clock.Now;
         bool blink = focusField != null && now - lastFrame > 0.5;
         bool loader = loaderShown && now - lastFrame >= 1 / 30.0;
-        if (!dirty && !ux.Step(0) && !blink && !loader) { lastStep = now; return; }
+        bool tipDue = now >= ux.TipDue;   // a tooltip that's due needs a frame though nothing else changed
+        if (!dirty && !ux.Step(0) && !blink && !loader && !tipDue) { lastStep = now; return; }
         if (surface.FrameWaitHandle != 0 && Win32.WaitForSingleObject(surface.FrameWaitHandle, 0) != 0) return;   // not this vsync yet
         ux.Step(Math.Clamp(now - lastStep, 0, 0.05));
         lastStep = now;

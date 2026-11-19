@@ -192,12 +192,14 @@ public static class Paint
     }
 
     /// <summary>Animated equalizer bars driven by the real output level.</summary>
-    public static void Waveform(Canvas c, Box b, float level, bool playing, double now, Color4 color, int bars = 5)
+    /// <param name="alive">0 still dots, 1 moving: eased by the caller, so playing and pausing blend instead of cutting</param>
+    public static void Waveform(Canvas c, Box b, float level, float alive, double now, Color4 color, int bars = 5)
     {
         float gap = b.W / (bars * 2 - 1);
         for (int i = 0; i < bars; i++)
         {
-            float h = BarHeight(b, i, bars, level, playing, now);
+            float still = BarHeight(b, i, bars, 0, false, now), moving = BarHeight(b, i, bars, level, true, now);
+            float h = still + (moving - still) * Math.Clamp(alive, 0, 1);
             c.Fill(new Box(b.X + i * gap * 2, b.CY - h / 2, gap, h), color, gap / 2);
         }
     }
@@ -496,10 +498,11 @@ public sealed class CompactPage : Page
         var art = Box.Centered(a.X + 19, a.CY, 22, 22).Scale(1 + 0.25f * bump);
         Paint.Art(c, m, art, 6, t);
         var accent = m.Palette is { Length: > 0 } ? Col.Legible(m.Palette[0]) : Col.Hex(0x7aa2ff);
-        c.Text(m.Title, new Box(a.X + 38, a.Y, a.W - 38 - 48, a.H), 12.5f, Col.White.A(0.78f * t), FontWeight.Medium);
+        c.Marquee(m.Title, new Box(a.X + 38, a.Y, a.W - 38 - 48, a.H), 12.5f, Col.White.A(0.78f * t), FontWeight.Medium, now);
         var md = isl.Svc.Media;
         float lvl = md.Level;   // read first: it notes whether sound is flowing
-        Paint.Waveform(c, new Box(a.Right - 38, a.CY - 8, 22, 16), lvl, m.Playing && md.Sounding, now, accent.A(t));
+        float alive = ux.Anim("wave:compact", m.Playing && md.Sounding ? 1 : 0, SpringSpec.Smooth);
+        Paint.Waveform(c, new Box(a.Right - 38, a.CY - 8, 22, 16), lvl, alive, now, accent.A(t));
     }
 }
 
@@ -601,15 +604,16 @@ public sealed class PeekPage : Page
         }
         Paint.Art(c, m, art.Scale(1 + 0.12f * bump), large ? 16 : 13, t);
         float tx = art.Right + 16, tw = a.Right - pad - tx - 34;   // leave the waveform its corner
-        c.Text(m.Title, new Box(tx, art.Y + (large ? 6 : 3), tw, 22), large ? 17 : 15, Col.White.A(t), FontWeight.SemiBold, HAlign.Left, VAlign.Top);
-        c.Text(string.IsNullOrEmpty(m.Artist) ? m.AppName : m.Artist, new Box(tx, art.Y + (large ? 30 : 24), tw, 20), large ? 13.5f : 12.5f, Col.White.A(0.6f * t), FontWeight.Medium, HAlign.Left, VAlign.Top);
+        c.Marquee(m.Title, new Box(tx, art.Y + (large ? 6 : 3), tw, 22), large ? 17 : 15, Col.White.A(t), FontWeight.SemiBold, isl.Clock.Now, VAlign.Top);
+        c.Marquee(string.IsNullOrEmpty(m.Artist) ? m.AppName : m.Artist, new Box(tx, art.Y + (large ? 30 : 24), tw, 20), large ? 13.5f : 12.5f, Col.White.A(0.6f * t), FontWeight.Medium, isl.Clock.Now, VAlign.Top);
         if (large) c.Text(m.AppName + (string.IsNullOrEmpty(m.Album) ? "" : "  ·  " + m.Album), new Box(tx, art.Y + 52, tw, 18), 11.5f, Col.White.A(0.38f * t), FontWeight.Medium, HAlign.Left, VAlign.Top);
         {
             // only a picture of the sound: it used to light up on hover like a
             // button, and read as a "more" menu
             var wb = new Box(a.Right - pad - 30, art.Y - 2, 38, 30);
             float wl = media.Level;
-            Paint.Waveform(c, new Box(wb.CX - 9, wb.CY - 7, 18, 14), wl, m.Playing && media.Sounding, now, accent.A(t), 4);
+            float wAlive = ux.Anim("wave:np", m.Playing && media.Sounding ? 1 : 0, SpringSpec.Smooth);
+            Paint.Waveform(c, new Box(wb.CX - 9, wb.CY - 7, 18, 14), wl, wAlive, now, accent.A(t), 4);
         }
 
         // scrubber: drag to seek; shows the drag position while held
@@ -715,8 +719,8 @@ public sealed class AlertPage : Page
         // Text runs to 16 DIP from the edge when nothing sits to its right, about
         // the icon's inset on the left; 22 plus the ellipsis' slack looked lopsided.
         float tw = right - tx - (right >= a.Right - 14.5f ? 2 : 8);
-        c.Text(al.Title, new Box(tx, ty, tw, 20), 14, Col.White.A(t), FontWeight.SemiBold);
-        c.Text(al.Subtitle, new Box(tx, ty + 19, tw, 18), 12, (al.Kind == "call" ? Col.Hex(0x34c759) : Col.White).A(0.62f * t), FontWeight.Medium);
+        c.Marquee(al.Title, new Box(tx, ty, tw, 20), 14, Col.White.A(t), FontWeight.SemiBold, isl.Clock.Now);
+        c.Marquee(al.Subtitle, new Box(tx, ty + 19, tw, 18), 12, (al.Kind == "call" ? Col.Hex(0x34c759) : Col.White).A(0.62f * t), FontWeight.Medium, isl.Clock.Now);
         if (dl > 0) c.Text(al.Detail, new Box(tx, ty + 37, tw, 16 * dl + 2), 12, Col.White.A(0.8f * t), FontWeight.Normal, HAlign.Left, VAlign.Top, true);
     }
 }
