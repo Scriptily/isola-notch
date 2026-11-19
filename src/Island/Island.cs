@@ -1249,8 +1249,16 @@ public sealed partial class Island : ITouchTarget
         DrawInline(c, box);
         Ux.EndFrame();
         UpdateHitArea(box, r);
+        // what's shown wants another size than the island is heading for (Home Assistant came up while the
+        // island was open on its tab, and it kept another tab's height): it re-sizes
+        if (page != null && Mode is not (Mode.Hidden or Mode.Off) && !resizeQueued)
+        {
+            var (tw, th, _) = page.Size(this);
+            if (Math.Abs(tw - W.Target) > 0.5 || Math.Abs(th - H.Target) > 0.5) { resizeQueued = true; Ui.Post(() => { resizeQueued = false; Retarget(); }); }
+        }
     }
 
+    bool resizeQueued;
     ID2D1Bitmap1 chromeBmp; string chromeKey;
     bool GlowColorsSettled()
     {

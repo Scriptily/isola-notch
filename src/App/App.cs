@@ -174,7 +174,7 @@ public sealed unsafe partial class App
         svc.Clipboard.Changed += () => host.RequestFrame();
 
         svc.Ha = new HomeAssistant(clock) { BaseUrl = () => cfg.HaBaseUrl, Token = () => cfg.HaToken, Wanted = () => cfg.HaEntities };
-        svc.Ha.Changed += () => host.RequestFrame();
+        svc.Ha.Changed += () => { host.RequestFrame(); island.ActivityChanged(); };   // its tab can appear, its tiles change the height
 
         svc.Spotify = new SpotifyService(clock) { ClientId = () => cfg.SpotifyClientId, TokenFile = Paths.SpotifyToken };
         svc.Spotify.Load();
