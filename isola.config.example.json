@@ -10,11 +10,11 @@
   "ReduceMotion": false,
   "HelloOnLaunch": true,
   "HoverToExpand": true,
-  "HoverDelayMs": 200,
+  "HoverDelayMs": 450,
   "CollapseDelayMs": 450,
   "AutoHideMinutes": 2,
   "ShowIndicatorWhenHidden": true,
-  "RevealZoneWidth": 420,
+  "RevealZoneWidth": 200,
   "RevealZoneHeight": 6,
   "ShowOn": "laptop",
   "HideInFullscreen": true,
@@ -85,5 +85,6 @@
   "HaRefreshSeconds": 10,
   "AutoUpdate": true,
   "UpdateCheckHours": 6,
-  "VerboseLog": false
+  "VerboseLog": false,
+  "Revision": 0
 }

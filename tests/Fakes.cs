@@ -34,7 +34,8 @@ public sealed class FakeHost : IIslandHost
     public float WindowWidth => 900;
     public float WindowHeight => 560;
     public int Frames, KeyboardTakes;
-    public bool Shown = true, Keyboard;
+    public bool Shown = true, Keyboard, ButtonDown;
+    public bool MouseButtonDown => ButtonDown;
     public Box Hit; public float HitRadius;
     public (float x, float y, bool on) Pointer = (450, 900, true);
     public int SettingsOpened, Menus;

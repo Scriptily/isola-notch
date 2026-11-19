@@ -16,6 +16,8 @@ release notes.
   pull the island down to search. A tap just beside a button still presses
   it, and buttons that only showed on hover stay visible after a touch.
   Settings scrolls with a finger, stretching a little at either end.
+- Right-click the island to hide it at once, instead of dragging it up.
+  Right-click the top edge to bring it back.
 
 ### Changed
 
@@ -26,6 +28,16 @@ release notes.
   when you go back.
 - When you let go of the island after pulling it, it springs back at the
   speed it was actually moving.
+- The island gets in the way less. It opens on hover only once the pointer
+  has rested on it for 450 ms (it was 200), never while a mouse button is held,
+  and not for a moment after you click near the top of the screen. Once
+  hidden, it comes back only for a pointer resting at the top edge right above
+  it, not anywhere across half the screen, and not when the pointer just
+  passes over it.
+- Dragging the island with the mouse does what you meant. A small nudge up no
+  longer hides it, a drag that stops before you let go no longer flings it,
+  and dragging it sideways skips the song or changes the tab instead of
+  opening it.
 
 ### Fixed
 
@@ -37,10 +49,6 @@ release notes.
   0% under a YouTube video) took over the island. The island now shows the
   app you can hear, and its waveform follows that app's sound instead of
   everything the speakers play.
-
-### VirusTotal
-
-No security vendor flagged `IsolaSetup.exe`: 0 of 71 on 2026-11-19. [Full report](https://www.virustotal.com/gui/file/fa1782590329d1620175ad5dd91f2f7c727576ccf6e171c79df89b5f13eba71c)
 
 ## [1.5.2] - 2026-11-18
 

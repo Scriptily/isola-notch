@@ -26,11 +26,11 @@ public sealed class Config
 
     // ---- behavior ---------------------------------------------------------
     public bool HoverToExpand { get; set; } = true;
-    public int HoverDelayMs { get; set; } = 200;   // of the pointer resting on the island (see Island.ArmPeek)
+    public int HoverDelayMs { get; set; } = 450;   // of the pointer resting on the island (see Island.ArmPeek)
     public int CollapseDelayMs { get; set; } = 450;
     public double AutoHideMinutes { get; set; } = 2.0;     // 0 = never hide
     public bool ShowIndicatorWhenHidden { get; set; } = true;
-    public int RevealZoneWidth { get; set; } = 420;        // DIPs either side of center the cursor can reveal it from
+    public int RevealZoneWidth { get; set; } = 200;        // DIPs either side of center the cursor can reveal it from
     public int RevealZoneHeight { get; set; } = 6;
     public string ShowOn { get; set; } = "laptop";         // "laptop" (built-in panel), "primary", or a display's device path
     public bool HideInFullscreen { get; set; } = true;     // the island's screen only
@@ -169,8 +169,20 @@ public sealed class Config
         return c;
     }
 
+    /// <summary>Which of the changes to defaults below this file has been brought up to.</summary>
+    public int Revision { get; set; }
+
     public void Normalize()
     {
+        // 1.6.0: the island got in the way. It peeked after 200 ms of a resting pointer and came back from
+        // hiding anywhere along 840 px of the top edge. A file still on those old defaults moves to the new
+        // ones; values someone chose stay.
+        if (Revision < 1)
+        {
+            if (HoverDelayMs == 200) HoverDelayMs = 450;
+            if (RevealZoneWidth == 420) RevealZoneWidth = 200;
+            Revision = 1;
+        }
         Style = Style is "notch" ? "notch" : "pill";
         IdleFace = IdleFace is "clock" or "none" ? IdleFace : "eyes";
         GlowIntensity = Math.Clamp(double.IsFinite(GlowIntensity) ? GlowIntensity : 0.75, 0, 1);

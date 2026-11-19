@@ -283,18 +283,11 @@ public sealed unsafe partial class Host : IIslandHost
                 isl?.MouseMove(x, y);
                 if (mouseDownBg)
                 {
-                    // press-and-drag on the island's body: it follows the pointer;
-                    // released far enough down it opens search, up it hides
-                    Win32.GetCursorPos(out POINT sp);   // screen space: the region moves while dragging
-                    float ddx = (sp.X - mouseDownScreen.X) / Scale, ddy = (sp.Y - mouseDownScreen.Y) / Scale;
-                    if (!dragging && Math.Abs(ddy) > 6) { dragging = true; isl?.Ux.CancelPress(); Log.D("host", $"drag started on the island body ({ddy:0} DIP)"); }
-                    if (dragging)
-                    {
-                        double now = Ui.Clock.Now;
-                        if (now > lastDragT) dragVel = dragVel * 0.6f + 0.4f * (float)((ddy - lastDragY) / (now - lastDragT));
-                        lastDragT = now; lastDragY = ddy;
-                        isl?.DragTo(ddx, ddy);
-                    }
+                    // press-and-drag on the island's body: up and down it follows the pointer (released far
+                    // enough down it opens search, up it hides); sideways it's a swipe, judged on release
+                    var (sx, sy) = ScreenDip();
+                    if (drag.Move(sx, sy, Ui.Clock.Now)) { isl?.Ux.CancelPress(); Log.D("host", $"drag started on the island body ({(drag.Sideways ? "sideways" : "up/down")})"); }
+                    if (drag.Dragging && !drag.Sideways) { var (ddx, ddy) = drag.Offset(sx, sy); isl?.DragTo(ddx, ddy); }
                 }
                 return 0;
             }
@@ -307,9 +300,9 @@ public sealed unsafe partial class Host : IIslandHost
                 var (x, y) = Dip(l);
                 Win32.SetCapture(Input);
                 mouseDown = new POINT(Win32.LoWord(l), Win32.HiWord(l));
-                Win32.GetCursorPos(out mouseDownScreen);
+                var (dsx, dsy) = ScreenDip();
+                drag.Down(dsx, dsy, Ui.Clock.Now);
                 mouseDownBg = isl != null && isl.Ux.HitTest(x, y) == null;
-                dragging = false; dragVel = 0; lastDragY = 0; lastDragT = Ui.Clock.Now;
                 swallowUp = false;
                 isl?.MouseDown(x, y);
                 return 0;
@@ -319,11 +312,14 @@ public sealed unsafe partial class Host : IIslandHost
                 Win32.ReleaseCapture();
                 var (x, y) = Dip(l);
                 mouseDownBg = false;
-                if (dragging)
+                if (drag.Dragging)
                 {
-                    dragging = false;
-                    Win32.GetCursorPos(out POINT up);
-                    isl?.DragEnd((up.X - mouseDownScreen.X) / Scale, (up.Y - mouseDownScreen.Y) / Scale, dragVel);
+                    var (usx, usy) = ScreenDip();
+                    var (udx, udy, vy) = drag.Up(usx, usy, Ui.Clock.Now);
+                    drag.Down(usx, usy, Ui.Clock.Now);   // done with this one
+                    // dragged sideways it was never a click (it used to open the island); far enough, it's a swipe
+                    if (drag.Sideways || Math.Abs(udx) > Math.Abs(udy)) { if (Math.Abs(udx) > MouseDrag.SideSwipe) isl?.Swipe(udx, 0); }
+                    else isl?.DragEnd(udx, udy, vy);
                     return 0;
                 }
                 if (swallowUp) { swallowUp = false; isl?.Ux.Up(-1e4f, -1e4f); return 0; }
@@ -369,8 +365,11 @@ public sealed unsafe partial class Host : IIslandHost
         }
         return null;
     }
-    bool swallowUp, dragging;
-    POINT mouseDownScreen; float dragVel, lastDragY; double lastDragT;
+    bool swallowUp;
+    readonly MouseDrag drag = new();
+
+    public bool MouseButtonDown => (Win32.GetAsyncKeyState(0x01) & 0x8000) != 0 || (Win32.GetAsyncKeyState(0x02) & 0x8000) != 0;
+    (float x, float y) ScreenDip() { Win32.GetCursorPos(out POINT p); return (p.X / Scale, p.Y / Scale); }   // screen space: the region moves while dragging
 
     bool Pointer(uint m, nint w)
     {

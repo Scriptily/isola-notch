@@ -254,4 +254,100 @@ public static partial class Scenarios
         True(!AudioService.AppMatches("Chrome", "Chrome", @"C:\Users\a\AppData\Roaming\Spotify\Spotify.exe", "Spotify"), "Chrome isn't Spotify");
         True(!AudioService.AppMatches("Spotify.exe", "Spotify", @"C:\Program Files\Google\Chrome\Application\chrome.exe", "Google Chrome"), "nor the other way round");
     }
+
+    // ---- out of the way ------------------------------------------------------------------------
+
+    [Scenario("right-click hides the island at once (no menu), and brings a hidden one back")]
+    public static void RightClickHides()
+    {
+        var (isl, host, clock) = NewIsland();
+        isl.RightClick(450, 20);
+        Eq(Mode.Hidden, isl.Mode, "hidden");
+        Eq(0, host.Menus, "no menu");
+        isl.RightClick(450, 2);
+        Eq(Mode.Rest, isl.Mode, "right-clicking the hidden island brings it back");
+        isl.Expand(); clock.Advance(0.5, isl);
+        isl.RightClick(450, 60);
+        Eq(Mode.Hidden, isl.Mode, "open, it hides too");
+    }
+
+    [Scenario("hovering waits for the pointer to settle, never opens during a drag passing under it, and stays quiet after a click nearby")]
+    public static void HoverStaysOutOfTheWay()
+    {
+        var (isl, host, clock) = NewIsland();
+        Eq(450, isl.Cfg.HoverDelayMs, "a 450 ms rest before it peeks");
+        isl.MouseMove(450, 20); clock.Advance(0.3, isl);
+        Eq(Mode.Rest, isl.Mode, "300 ms on it isn't enough");
+        clock.Advance(0.25, isl);
+        Eq(Mode.Peek, isl.Mode, "450 ms is");
+        isl.MouseLeave(); clock.Advance(2, isl);
+        Eq(Mode.Rest, isl.Mode, "back to rest");
+        host.ButtonDown = true;
+        isl.MouseMove(450, 20); clock.Advance(1, isl);
+        Eq(Mode.Rest, isl.Mode, "a drag passing under it (button held) doesn't open it");
+        host.ButtonDown = false; isl.MouseLeave(); clock.Advance(0.2, isl);
+        isl.WorkingNearby();
+        isl.MouseMove(450, 20); clock.Advance(1, isl);
+        Eq(Mode.Rest, isl.Mode, "just after a click beside it, hovering leaves it alone");
+        isl.MouseLeave(); clock.Advance(1, isl);
+        isl.MouseMove(450, 20); clock.Advance(0.6, isl);
+        Eq(Mode.Peek, isl.Mode, "a moment later it works again");
+    }
+
+    [Scenario("a hidden island comes back for a pointer resting on it, not one passing over the top edge")]
+    public static void HiddenWaitsForARestingPointer()
+    {
+        var (isl, host, clock) = NewIsland();
+        isl.RightClick(450, 20);
+        isl.RevealSuppressed = false;
+        isl.MouseLeave();
+        for (int i = 0; i < 6; i++) { isl.MouseMove(300 + i * 40, 2); clock.Advance(0.1, isl); }
+        Eq(Mode.Hidden, isl.Mode, "passing along the top, moving, it stays hidden");
+        clock.Advance(Island.Island.HoverRevealDwell + 0.05, isl);
+        Eq(Mode.Rest, isl.Mode, "resting, it comes back");
+        True(RevealIntent.Dwell >= 0.5, "the top strip wants half a second's rest too");
+        Eq(200, new Config().RevealZoneWidth, "and the strip is about the island's width, not half the screen");
+    }
+
+    [Scenario("a config still on the old hover and reveal defaults moves to the new ones; values someone chose stay")]
+    public static void OldDefaultsMoveOn()
+    {
+        var old = new Config { HoverDelayMs = 200, RevealZoneWidth = 420, Revision = 0 };
+        old.Normalize();
+        True(old.HoverDelayMs == 450 && old.RevealZoneWidth == 200 && old.Revision == 1, "old defaults upgraded");
+        var mine = new Config { HoverDelayMs = 120, RevealZoneWidth = 600, Revision = 0 };
+        mine.Normalize();
+        True(mine.HoverDelayMs == 120 && mine.RevealZoneWidth == 600, "chosen values kept");
+        var later = new Config { HoverDelayMs = 200, Revision = 1 };
+        later.Normalize();
+        Eq(200, later.HoverDelayMs, "chosen after the upgrade (even 200): kept");
+    }
+
+    [Scenario("mouse drags on the island: a real pull hides or searches, a pause before letting go doesn't fling, sideways is a swipe and never a click")]
+    public static void MouseDragsAreAccurate()
+    {
+        var (isl, host, clock) = NewIsland();
+        isl.DragTo(0, -15); isl.DragEnd(0, -15, 0);
+        Eq(Mode.Rest, isl.Mode, "a 15 px nudge up doesn't hide it");
+        isl.DragTo(0, -35); isl.DragEnd(0, -35, 0);
+        Eq(Mode.Hidden, isl.Mode, "35 px up does");
+        isl.RightClick(450, 2); clock.Advance(0.5, isl);
+        isl.DragTo(0, -10); isl.DragEnd(0, -10, -600);
+        Eq(Mode.Hidden, isl.Mode, "a short quick flick up does too");
+        isl.RightClick(450, 2); clock.Advance(0.5, isl);
+        isl.DragTo(0, 10); isl.DragEnd(0, 10, 900);
+        Eq(Mode.Rest, isl.Mode, "a 10 px twitch down isn't a pull to search, however quick");
+
+        var d = new MouseDrag();
+        d.Down(100, 100, 1); d.Move(102, 103, 1.01);
+        True(!d.Dragging, "4 px of a shaky click isn't a drag");
+        d.Move(100, 130, 1.03); d.Move(100, 140, 1.05);
+        True(d.Dragging && !d.Sideways, "down is a pull");
+        var (dx, dy, vy) = d.Up(100, 140, 1.3);
+        True(dy == 40 && vy == 0, $"stopped before letting go: no fling ({vy:0})");
+        d.Down(100, 100, 2); d.Move(130, 102, 2.02); d.Move(180, 104, 2.04);
+        True(d.Dragging && d.Sideways, "sideways is a swipe");
+        (dx, dy, vy) = d.Up(180, 104, 2.05);
+        True(dx > MouseDrag.SideSwipe, "far enough to change track");
+    }
 }

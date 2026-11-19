@@ -170,8 +170,12 @@ applies as you change it. Every option is listed with its default in
 [`isola.config.example.json`](isola.config.example.json).
 
 Isola steps aside for fullscreen videos and games on its screen, and can slide
-out of sight after a few quiet minutes. Bring the pointer to the top edge to
-get it back, or press `Ctrl+Alt+I` to hide or show it.
+out of sight after a few quiet minutes. Right-click the island to hide it
+yourself, or press `Ctrl+Alt+I`. To get it back, rest the pointer at the top
+edge above it for a moment, or right-click there. Pointing at it only opens it
+once the pointer settles, and never while you're dragging something or just
+after you click near it, so it stays out of the way while you work at the top
+of the screen.
 
 ## Works even better with
 

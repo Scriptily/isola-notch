@@ -40,6 +40,8 @@ public interface IIslandHost
     void ShowContextMenu(float x, float y);
     void StartFileDrag(IReadOnlyList<string> paths);
     void StartTextDrag(string text);
+    /// <summary>A mouse button is held right now (dragging a window or selecting under the island).</summary>
+    bool MouseButtonDown => false;
 }
 
 /// <summary>A piece of content the island can show. Pages are cheap; views swap them.</summary>
@@ -680,11 +682,11 @@ public sealed partial class Island : ITouchTarget
         Host.SetCursor(Ux.CursorAt(x, y));
         Ui.Cancel(ref collapseTimer);
         if (!wasHover) { hoverX = x; hoverY = y; OnEnter(); }
-        else if (Mode == Mode.Rest && Cfg.HoverToExpand && MathF.Abs(x - hoverX) + MathF.Abs(y - hoverY) > StillRadius)
+        else if (MathF.Abs(x - hoverX) + MathF.Abs(y - hoverY) > StillRadius && (Mode == Mode.Rest && Cfg.HoverToExpand || Mode == Mode.Hidden && !RevealSuppressed))
         {
             // still traveling: the wait starts again from here
             hoverX = x; hoverY = y;
-            ArmPeek();
+            if (Mode == Mode.Hidden) ArmReveal(); else ArmPeek();
         }
     }
 
@@ -697,8 +699,30 @@ public sealed partial class Island : ITouchTarget
     void ArmPeek()
     {
         Ui.Cancel(ref hoverTimer);
-        hoverTimer = Ui.After(Cfg.HoverDelayMs / 1000.0, () => { if (Hovering && Mode == Mode.Rest) SetMode(Mode.Peek, "hover"); });
+        hoverTimer = Ui.After(Cfg.HoverDelayMs / 1000.0, () => { if (Hovering && Mode == Mode.Rest && !Busy()) SetMode(Mode.Peek, "hover"); });
     }
+
+    /// <summary>The hidden island comes back for a pointer resting on its sliver this long, not for one passing over it.</summary>
+    internal const double HoverRevealDwell = 0.5;
+
+    void ArmReveal()
+    {
+        Ui.Cancel(ref hoverTimer);
+        hoverTimer = Ui.After(HoverRevealDwell, () => { if (Hovering && Mode == Mode.Hidden && !RevealSuppressed && !Busy()) Reveal("hover"); });
+    }
+
+    /// <summary>After a click near the top of the screen (not on the island), hover leaves the island alone this long.</summary>
+    internal const double QuietAfterClick = 1.5;
+    double quietUntil = double.NegativeInfinity;
+
+    /// <summary>
+    /// A mouse button went down near the top of the screen, beside the island: someone is working up
+    /// there (tabs, a toolbar, a window's title), so for a moment hovering doesn't open or reveal it.
+    /// </summary>
+    public void WorkingNearby() { quietUntil = Clock.Now + QuietAfterClick; Ui.Cancel(ref hoverTimer); }
+
+    /// <summary>Hover shouldn't open anything now: a button is held (a drag passing under it) or the user just clicked nearby.</summary>
+    bool Busy() => Host.MouseButtonDown || Clock.Now < quietUntil;
 
     /// <summary>
     /// Set when the user hides the island (drag up, swipe, hotkey). The pointer
@@ -710,7 +734,8 @@ public sealed partial class Island : ITouchTarget
     void OnEnter()
     {
         MarkActive();
-        if (Mode == Mode.Hidden) { if (!RevealSuppressed) Reveal("hover"); else Log.D("island", "hover on the indicator ignored: just hidden from here"); return; }
+        // the hidden island waits for the pointer to rest on it: passing over the top edge on the way to a tab brought it back
+        if (Mode == Mode.Hidden) { if (!RevealSuppressed) ArmReveal(); else Log.D("island", "hover on the indicator ignored: just hidden from here"); return; }
         if (Mode == Mode.Rest && Cfg.HoverToExpand) ArmPeek();
     }
 
@@ -764,9 +789,23 @@ public sealed partial class Island : ITouchTarget
         }
     }
 
+    /// <summary>
+    /// Right-click: a control's own right-click first (a shelf item shows its file); otherwise it hides the
+    /// island, quicker than dragging it up, or brings a hidden one back.
+    /// </summary>
     public void RightClick(float x, float y)
     {
-        Ux.RightUp(x, y);   // zones may use right-click (shelf: reveal); the island itself has no menu
+        MarkActive();
+        if (Ux.RightUp(x, y)) return;
+        switch (Mode)
+        {
+            case Mode.Hidden: RevealSuppressed = false; Reveal("right-click"); break;
+            case Mode.Alert: EndTransient("right-clicked"); break;
+            default:
+                Log.D("island", "right-click -> hide");
+                ReleaseKeyboard(); RevealSuppressed = true; SetMode(Mode.Hidden, "right-click");
+                break;
+        }
     }
 
     public void Wheel(float x, float y, float delta, bool horizontal)
@@ -796,8 +835,9 @@ public sealed partial class Island : ITouchTarget
         // the island keeps the speed it was really moving at: the finger's speed through the rubber band's slope there
         pull.Velocity = Math.Clamp(velocityY * RubberSlope(dy, 140), -1500, 1500);
         Ux.CancelPress();
-        if (projected > 46) { Log.D("island", $"dragged down {dy:0} (projected {projected:0}) -> search"); OpenSearch(); }
-        else if (dy < -10 || projected < -24)
+        // a real pull, not a nudge: 10 px up used to hide it, which a shaky click could do
+        if (projected > 50 && dy > 12) { Log.D("island", $"dragged down {dy:0} (projected {projected:0}) -> search"); OpenSearch(); }
+        else if (dy < -28 || (projected < -40 && dy < -8))
         {
             Log.D("island", $"dragged up {dy:0} (projected {projected:0}) -> hide");
             if (Mode is Mode.Alert) EndTransient("swiped away");

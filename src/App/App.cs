@@ -971,8 +971,19 @@ public sealed unsafe partial class App
     }
 
     double lastPoll;
+    bool buttonWasDown;
+
     void PollCursor()
     {
+        // a click near the top of the screen, beside the island, means someone is working up there:
+        // hovering leaves the island alone for a moment instead of opening it over what they clicked
+        bool buttonDown = host.MouseButtonDown;
+        if (buttonDown && !buttonWasDown)
+        {
+            var (cx, cy, onLaptop) = host.Cursor();
+            if (onLaptop && cy < 80 && !host.PointerOverIsland()) island.WorkingNearby();
+        }
+        buttonWasDown = buttonDown;
         // Windows' leave notice can go missing (tracking is dropped when another
         // window activates, as Settings does when opened from the gear): the
         // island then stayed open over the settings window for seconds. While

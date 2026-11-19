@@ -10,7 +10,7 @@ namespace Isola.Island;
 /// </summary>
 public sealed class RevealIntent
 {
-    public const double Dwell = 0.35, AfterClick = 1.5;
+    public const double Dwell = 0.5, AfterClick = 1.5;
     public const float StillRadius = 6;
     double since = -1, quietUntil = double.NegativeInfinity;
     float ax, ay;

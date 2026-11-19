@@ -110,7 +110,9 @@ public static partial class Scenarios
         Eq(Mode.Hidden, isl.Mode, "hover on the indicator right after hiding is ignored");
         // the app's poller clears this once the pointer has left the strip
         isl.RevealSuppressed = false; isl.MouseLeave(); isl.MouseMove(450, 2); clock.Advance(0.3, isl);
-        Eq(Mode.Rest, isl.Mode, "comes back once the pointer returns");
+        Eq(Mode.Hidden, isl.Mode, "a pointer passing over the hidden island doesn't bring it back");
+        clock.Advance(0.3, isl);
+        Eq(Mode.Rest, isl.Mode, "resting there does");
     }
 
     [Scenario("a HUD while hidden slides back up with its content, instead of vanishing")]
