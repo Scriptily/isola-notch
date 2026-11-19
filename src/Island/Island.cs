@@ -450,8 +450,10 @@ public sealed partial class Island : ITouchTarget
     internal bool ShowsMedia() => Mode switch
     {
         Mode.Peek or Mode.Expanded or Mode.Search => true,
-        // a volume HUD or a notice over the rest keeps what the rest would have (a notice without an icon leaves the glow alone)
-        Mode.Rest or Mode.Hud or Mode.Alert => P.Compact.HasActivity(this) && P.Compact.Kind == "media",
+        // a volume HUD over the rest keeps what the rest would have; a notice or a call is its own moment: its
+        // app's colors if it brings them, the theme's if not (it had the song's), then back to the song when it goes
+        Mode.Rest or Mode.Hud => P.Compact.HasActivity(this) && P.Compact.Kind == "media",
+        Mode.Alert => CurrentAlert?.Kind == "track",   // a new song's popup is the media: its colors stay
         _ => false,
     };
 

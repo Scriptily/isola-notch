@@ -28,13 +28,13 @@ public static class Sounds
     /// <summary>The choices for each kind, as (id, label); the first is the default. Connecting and disconnecting share theirs.</summary>
     public static (string id, string label)[] Choices(string kind) => kind switch
     {
-        Notification => new[] { ("bubble", "Bubble"), ("bubble-pair", "Pair"), ("pop", "Pop"), ("duo", "Duo"), ("bloom", "Bloom") },
-        Call => new[] { ("classic", "Classic"), ("classic-warm", "Warm"), ("marimba", "Marimba"), ("harp", "Harp"), ("digital", "Digital"), ("pulse", "Pulse") },
-        Timer => new[] { ("sweep", "Sweep"), ("sweep-triple", "Triple"), ("steps", "Steps"), ("beacon", "Beacon"), ("clock", "Clock"), ("marimba", "Marimba") },
-        Connect or Disconnect => new[] { ("click", "Click"), ("click-soft", "Soft"), ("rise", "Rise"), ("bubble", "Bubble") },
-        Charge => new[] { ("click", "Click"), ("spark", "Spark"), ("chord", "Chord"), ("energy", "Energy") },
+        Notification => new[] { ("bloom", "Bloom"), ("bubble", "Bubble"), ("bubble-pair", "Pair"), ("pop", "Pop"), ("duo", "Duo") },
+        Call => new[] { ("classic-warm", "Warm"), ("classic", "Classic"), ("marimba", "Marimba"), ("harp", "Harp"), ("digital", "Digital"), ("pulse", "Pulse") },
+        Timer => new[] { ("sweep-triple", "Triple"), ("sweep", "Sweep"), ("steps", "Steps"), ("beacon", "Beacon"), ("clock", "Clock"), ("marimba", "Marimba") },
+        Connect or Disconnect => new[] { ("bubble", "Bubble"), ("click", "Click"), ("click-soft", "Soft"), ("rise", "Rise") },
+        Charge => new[] { ("energy", "Energy"), ("click", "Click"), ("spark", "Spark"), ("chord", "Chord") },
         Notice => new[] { ("drop", "Drop"), ("tap", "Tap"), ("glass", "Glass"), ("soft", "Soft") },
-        _ => new[] { ("click", "Click"), ("fall", "Fall"), ("sink", "Sink"), ("tap", "Tap") },   // low battery
+        _ => new[] { ("sink", "Sink"), ("click", "Click"), ("fall", "Fall"), ("tap", "Tap") },   // low battery
     };
 
     /// <summary>A choice that exists for the kind, or the default (an unknown id from an old or hand-edited config).</summary>

@@ -455,7 +455,9 @@ public static partial class Scenarios
         Eq(blue, isl.GlowTarget0, "then the new song's colors");
         var plain = new Alert { Key = "x", Kind = "bluetooth", Title = "AirPods", Seconds = 2 };
         isl.Alert(plain); clock.Advance(0.3, isl);
-        Eq(blue, isl.GlowTarget0, "alerts without an app icon leave the glow alone");
+        Eq(Island.Island.PaletteFor("aurora")[0], isl.GlowTarget0, "a notice with no colors of its own shows the theme's while it's up (not the song's)");
+        isl.DismissAlert("x"); clock.Advance(0.5, isl);
+        Eq(blue, isl.GlowTarget0, "and the song's come back when it goes");
     }
 
     [Scenario("setup: Everything found by its uninstall entry, Windows 10 2004+ required, and 'don't start at sign-in' written into the config")]
@@ -672,7 +674,7 @@ public static partial class Scenarios
             Eq(ch[0].id, Sounds.Valid(kind, "no-such-sound"), kind + ": unknown falls back to the default");
         }
         var c2 = new Config { Ringtone = "nonsense" }; c2.Normalize();
-        Eq("classic", c2.Ringtone, "a bad ringtone in the config is replaced by the default");
+        Eq("classic-warm", c2.Ringtone, "a bad ringtone in the config is replaced by the default");
         Eq("harp", Isola.App.App.ToneFor(new Config { Ringtone = "harp" }, Sounds.Call), "the chosen ringtone is used");
         var picks = new Config { DeviceTone = "rise", ChargeTone = "spark", LowTone = "sink" };
         Eq("rise", Isola.App.App.ToneFor(picks, Sounds.Connect), "connecting");
@@ -681,7 +683,7 @@ public static partial class Scenarios
         Eq("sink", Isola.App.App.ToneFor(picks, Sounds.Low), "so does low battery");
         True(!Sounds.Render(Sounds.Connect, 0.5f, "rise").SequenceEqual(Sounds.Render(Sounds.Disconnect, 0.5f, "rise")), "rise connects, falls disconnecting");
         var old = new Config { NotificationTone = "glass", TimerTone = "bells", DeviceTone = "soft" }; old.Normalize();
-        Eq("bubble|sweep|click", $"{old.NotificationTone}|{old.TimerTone}|{old.DeviceTone}", "sounds from before move to the new defaults");
+        Eq("bloom|sweep-triple|bubble", $"{old.NotificationTone}|{old.TimerTone}|{old.DeviceTone}", "sounds from before move to the defaults");
     }
 
     [Scenario("images decode safely under a storm of album art and icons on several threads, with garbage collections in between")]

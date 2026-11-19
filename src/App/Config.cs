@@ -74,13 +74,13 @@ public sealed class Config
     public bool CallRingtone { get; set; } = true;
     public bool DeviceSounds { get; set; } = true;
     /// <summary>Which of each kind's sounds (Sounds.Choices).</summary>
-    public string NotificationTone { get; set; } = "bubble";
-    public string Ringtone { get; set; } = "classic";
-    public string TimerTone { get; set; } = "sweep";
+    public string NotificationTone { get; set; } = "bloom";
+    public string Ringtone { get; set; } = "classic-warm";
+    public string TimerTone { get; set; } = "sweep-triple";
     /// <summary>Connecting and disconnecting (one choice: each sound has a rising and a falling form).</summary>
-    public string DeviceTone { get; set; } = "click";
-    public string ChargeTone { get; set; } = "click";
-    public string LowTone { get; set; } = "click";
+    public string DeviceTone { get; set; } = "bubble";
+    public string ChargeTone { get; set; } = "energy";
+    public string LowTone { get; set; } = "sink";
     /// <summary>A soft sound for notices: fully charged, a display or sound output change, updates, the download tools.</summary>
     public bool NoticeSound { get; set; } = true;
     public string NoticeTone { get; set; } = "drop";

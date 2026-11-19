@@ -53,7 +53,12 @@ release notes.
 - The waveform eases between moving and still, and lies still while the app
   makes no sound.
 - The glow takes the song's colors only while the island shows the song. On
-  the eyes, or the plain island, it goes back to your theme's colors.
+  the eyes, or the plain island, it goes back to your theme's colors. A
+  notification or call shows its app's colors, or your theme's if it has none,
+  and the song's come back when it goes. A new song's popup keeps the song's.
+- New default sounds: Bloom for notifications, Warm for calls, Triple for the
+  timer, Bubble for devices, Energy for the charger and Sink for low battery.
+  Sounds you picked yourself stay as they are.
 - Tooltips in Settings appear sooner, and the "?" popovers fade away instead
   of vanishing.
 
