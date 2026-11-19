@@ -2,6 +2,8 @@ name: Release
 
 # Publishes a version: push a tag "vX.Y.Z" (VERSION and CHANGELOG.md updated
 # first), or run this by hand with a tag that already exists to rebuild it.
+# Run again for a version already published (its Store submission failed), it
+# skips the scan, the release and the changelog commit, and does the rest.
 #
 # The setup is built here, from the tag's own source, so anyone can see what
 # went into it: the run log is public and the file gets a signed build
@@ -73,7 +75,21 @@ jobs:
         with:
           subject-path: src/dist/IsolaSetup.exe
 
+      # A version already on GitHub (a rerun for its Store submission): its
+      # release, notes and scan stay as published. Scanning this rebuild would
+      # put another file's result in the changelog, and creating the release
+      # again fails before the Store steps.
+      - name: Already published?
+        id: published
+        shell: pwsh
+        run: |
+          gh release view $env:TAG --repo $env:GITHUB_REPOSITORY --json tagName 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) { "done=true" >> $env:GITHUB_OUTPUT; "$env:TAG is already published: skipping the scan, the release and the changelog" }
+          else { "done=false" >> $env:GITHUB_OUTPUT }
+          exit 0
+
       - name: VirusTotal scan
+        if: steps.published.outputs.done != 'true'
         shell: pwsh
         env:
           VT_API_KEY: ${{ secrets.VT_API_KEY }}
@@ -84,6 +100,7 @@ jobs:
           "{0} of {1} flagged  {2}" -f $scan.Flagged, $scan.Total, $scan.Link
 
       - name: Publish the release
+        if: steps.published.outputs.done != 'true'
         shell: pwsh
         run: |
           $log = Get-Content main/CHANGELOG.md -Raw
@@ -97,6 +114,7 @@ jobs:
           if ($LASTEXITCODE) { throw "gh release create failed" }
 
       - name: Commit the scan to CHANGELOG.md
+        if: steps.published.outputs.done != 'true'
         shell: pwsh
         working-directory: main
         run: |
