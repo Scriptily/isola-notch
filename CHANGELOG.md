@@ -38,6 +38,10 @@ release notes.
   app you can hear, and its waveform follows that app's sound instead of
   everything the speakers play.
 
+### VirusTotal
+
+No security vendor flagged `IsolaSetup.exe`: 0 of 71 on 2026-11-19. [Full report](https://www.virustotal.com/gui/file/fa1782590329d1620175ad5dd91f2f7c727576ccf6e171c79df89b5f13eba71c)
+
 ## [1.5.2] - 2026-11-18
 
 ### Changed
