@@ -80,6 +80,13 @@ public static class Sounds
         return awake ? 0 : OutputIsBluetooth() ? LeadInBluetooth : LeadIn;
     }
 
+    /// <summary>How long a sound lasts as played (its lead-in, when the output needs waking, included); a loop: one round.</summary>
+    public static double Length(string kind, string variant)
+    {
+        try { return LeadFor(kind) + Samples(kind, Valid(kind, variant)).Length / 2.0 / Rate; }
+        catch { return 1.5; }
+    }
+
     /// <summary>Forgets that the output was recently in use (tests).</summary>
     internal static void Doze() => awakeUntil = double.NegativeInfinity;
 

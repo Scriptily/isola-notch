@@ -134,6 +134,9 @@ public sealed unsafe partial class App
     {
         svc.Audio = new AudioService();
         svc.Audio.Start();
+        ducker = new Ducker(() => svc.Media?.Current is { } dm ? svc.Audio.DuckSessionsOf(dm.SessionId, dm.AppName) : new(), Path.Combine(Paths.Home, "ducked.txt"));
+        // a run that ended while the media was turned down (a crash) put back first
+        Task.Run(() => { var all = svc.Audio.AllDuckSessions(); Ui.Post(() => Ducker.RestoreLeftovers(Path.Combine(Paths.Home, "ducked.txt"), all)); });
         Sounds.OutputIsBluetooth = () => AudioService.IsBluetoothOutput(svc.Audio.Bus, svc.Audio.ContainerId, svc.Audio.DeviceName, svc.Bluetooth?.Devices);
         Sounds.OutputAwake = () => svc.Audio.PeakNow() > 0.0005f;
         svc.Audio.VolumeChanged += (m, v) => { if (cfg.VolumeHud) island.Hud(m ? HudKind.Mute : HudKind.Volume, v); };
@@ -149,7 +152,7 @@ public sealed unsafe partial class App
         }
         else
         {
-            var media = new MediaService(clock, svc.Audio) { Ignored = () => cfg.MediaIgnoredApps, SpotifyVolume = () => svc.Spotify?.Volume, PollSpotify = () => svc.Spotify?.Poll() };
+            var media = new MediaService(clock, svc.Audio) { Ignored = () => cfg.MediaIgnoredApps, SpotifyVolume = () => svc.Spotify?.Volume, PollSpotify = () => svc.Spotify?.Poll(), Ducked = () => ducker.Factor };
             svc.Media = media;
             media.Changed += () => { island.ActivityChanged(); island.UpdateGlowColors(); };
             media.TrackChanged += (o, n) => island.TrackChanged(o, n);
@@ -251,13 +254,9 @@ public sealed unsafe partial class App
         island.PreviewPopups = PreviewPopups;
         // the chosen sounds, built in the background now so the first one plays without a wait
         { var c0 = cfg; Task.Run(() => { foreach (var k in Sounds.All) Sounds.Warm(k, ToneFor(c0, k)); }); }
-        island.SoundOn = a =>
-        {
-            if (!SoundAllowed(cfg, a)) return;
-            float v = SoundVolumeOf(cfg) * WhilePlayingScale(cfg, a.Sound, svc.Media?.Current is { Playing: true });
-            if (v > 0) Sounds.Play(a.Sound, v, ToneFor(cfg, a.Sound));
-        };
-        island.SoundOff = a => { if (a.Sound != null && Sounds.Loops(a.Sound)) Sounds.Stop(); };
+        var sounds = new AlertSounds(() => cfg, () => svc.Media?.Current is { Playing: true }, () => svc.Media?.Sounding ?? false, ducker);
+        island.SoundOn = sounds.On;
+        island.SoundOff = sounds.Off;
         if (FeedWanted(cfg)) _ = svc.Notifications.StartAsync();
     }
 
@@ -726,6 +725,7 @@ public sealed unsafe partial class App
         SaveConfig();
         Log.MinLevel = cfg.VerboseLog ? LogLevel.Debug : LogLevel.Info;
         island.ApplyConfig(cfg);
+        if (!cfg.DuckMedia || !cfg.Sounds) ducker?.RestoreAll("turned off");
         if (cfg.ShowOn != showWas) displays.Refresh("screen setting"); else host.Place(displays.Laptop, cfg.Scale);
         svc.Clipboard.Max = cfg.ClipboardHistory;
         if (cfg.Media && !mediaWas) _ = ((MediaService)svc.Media).StartAsync();
@@ -790,6 +790,11 @@ public sealed unsafe partial class App
     /// </summary>
     internal static float WhilePlayingScale(Config c, string sound, bool playing) =>
         !playing || sound == Sounds.Timer ? 1 : c.SoundsWhilePlaying switch { "quiet" => 0.35f, "mute" => 0, _ => 1 };
+
+    Ducker ducker;
+
+    /// <summary>Whether the media dips under a sound: the setting, and the media really being heard (paused, or at 0, there's nothing to lower).</summary>
+    internal static bool DuckFor(Config c, bool mediaHeard) => c.DuckMedia && mediaHeard;
 
     /// <summary>Whether an alert's sound plays, by the settings for its kind.</summary>
     internal static bool SoundAllowed(Config c, Alert a) => c.Sounds && a?.Sound != null && a.Sound switch
@@ -1041,6 +1046,7 @@ public sealed unsafe partial class App
     void Shutdown()
     {
         Log.I("app", "shutting down");
+        ducker?.RestoreAll("quitting");
         banners?.Restore("quitting");
         foreach (var h in hooks) Win32.UnhookWinEvent(h);
         var abd = new APPBARDATA { cbSize = (uint)sizeof(APPBARDATA), hWnd = host.Input };

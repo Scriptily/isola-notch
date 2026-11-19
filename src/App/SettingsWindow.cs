@@ -656,6 +656,8 @@ public sealed unsafe partial class SettingsWindow
         L.Header("While you're focused");
         Seg(L, "focussnd", "Sounds while media plays", "For notifications, calls and notices",
             new[] { "Full", "Quieter", "Muted" }, new[] { "full", "quiet", "mute" }, work.SoundsWhilePlaying, v => work.SoundsWhilePlaying = v);
+        Toggle(L, "focusduck", "Lower the media for sounds", "The playing app dips while a chime or ringtone plays, then comes back up",
+            work.DuckMedia, v => work.DuckMedia = v);
         Toggle(L, "focushold", "Hold notifications until you're done", "While media plays or a game or video is fullscreen on any screen, they wait and show as one summary when it stops, or when you use the island",
             work.HoldWhileFocused, v => work.HoldWhileFocused = v);
         L.End();

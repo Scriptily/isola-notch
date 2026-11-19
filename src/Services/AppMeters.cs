@@ -87,6 +87,25 @@ public sealed partial class AudioService
         return best;
     }
 
+    /// <summary>The media app's audio sessions, to turn down under a chime (see <see cref="Ducker"/>).</summary>
+    public List<DuckSession> DuckSessionsOf(string aumid, string appName) =>
+        metered.Where(m => m.Vol != null && Owns(m, aumid, appName)).Select(ToDuck).ToList();
+
+    /// <summary>Every app's audio sessions, read now (startup: putting back what a crash left turned down).</summary>
+    public List<DuckSession> AllDuckSessions()
+    {
+        if (enumr == null) return new();
+        try { return ReadMeters().Where(m => m.Vol != null).Select(ToDuck).ToList(); }
+        catch (Exception ex) { Log.D("audio", "sessions: " + ex.Message); return new(); }
+    }
+
+    static DuckSession ToDuck(MeteredSession m) => new()
+    {
+        Id = m.Id, Exe = m.Exe,
+        Get = () => { m.Vol.GetMasterVolume(out float v); m.Vol.GetMute(out bool mu); return mu ? 0 : v; },
+        Set = v => m.Vol.SetMasterVolume(Math.Clamp(v, 0, 1), Guid.Empty),
+    };
+
     /// <summary>Every audio session of an app, as numbers, for the verbose log (diagnosing what the meters miss).</summary>
     public string AppSessionsReport(string aumid, string appName)
     {

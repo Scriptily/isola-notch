@@ -86,6 +86,7 @@ public sealed class Config
     public bool NoticeSound { get; set; } = true;
     public string NoticeTone { get; set; } = "drop";
     public string SoundsWhilePlaying { get; set; } = "full";   // "full", "quiet" or "mute": the island's sounds while media plays
+    public bool DuckMedia { get; set; } = true;               // the playing media dips under the island's sounds
     public bool HoldWhileFocused { get; set; } = false;        // notices wait while media plays or something is fullscreen, then one summary
     /// <summary>Downloading and converting (yt-dlp and FFmpeg, fetched and kept up to date by Isola).</summary>
     public bool Downloads { get; set; } = true;

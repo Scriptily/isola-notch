@@ -41,7 +41,10 @@ public sealed partial class MediaService : IMediaSourceEx
         get
         {
             var m = Current;
-            float p = LevelFrom(m == null ? null : AppPeak(m), OutputPeak());
+            // turned down under a chime, the waveform keeps its size (it shows the music, not the dip)
+            float? app = m == null ? null : AppPeak(m);
+            if (app is float a) app = a / Math.Max(0.05f, Ducked());
+            float p = LevelFrom(app, OutputPeak());
             level = p > level ? p : level * 0.82f + p * 0.18f;
             if (p > Silence) lastSoundAt = clock.Now;
             return level;
@@ -60,6 +63,8 @@ public sealed partial class MediaService : IMediaSourceEx
 
     /// <summary>An app's own sound level right now, or null when its audio sessions can't be told apart (tests replace it).</summary>
     public Func<MediaInfo, float?> AppPeak;
+    /// <summary>How far down the media is turned under a chime right now (1: not at all).</summary>
+    public Func<float> Ducked = () => 1;
     /// <summary>The whole output's level right now (tests replace it).</summary>
     public Func<float> OutputPeak;
     /// <summary>Spotify's own volume, 0-100, when Isola knows it (connected to Spotify).</summary>
