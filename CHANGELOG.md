@@ -122,6 +122,14 @@ release notes.
 - The Weather tab's footer sat against the forecast, and the Shelf's button
   had more space after its label than before its icon.
 
+### VirusTotal
+
+1 of 71 security vendors flagged `IsolaSetup.exe` on 2026-11-19. [Full report](https://www.virustotal.com/gui/file/3c2cf2a4de4b9ea25f2ae1ba82abc27082a80c3572759ddd4eda018068dd7ac9)
+
+- Bkav: W32.Malware.EDBC4E18
+
+The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
+
 ## [1.6.0] - 2026-11-19
 
 ### Added
