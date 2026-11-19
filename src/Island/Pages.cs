@@ -457,6 +457,43 @@ public sealed class CompactPage : Page
     public override void Draw(Island isl, Canvas c, Ux ux, Box a, float t)
     {
         double now = isl.Clock.Now;
+        if (kind != "media") { Activity(isl, c, kind, a, t, now); return; }
+        var m = isl.Svc.Media.Current;
+        if (m == null) return;
+        // another app's media crossfades in: the old row drifts up and out as the new one rises in
+        // a new song or another app: the old row fades as the new one rises in (a song change just swapped the text)
+        if (m.TrackKey != rowFor) { if (rowFor != null && rowLast != null) { rowOld = rowLast; ux.Forget("compact:swap"); } rowFor = m.TrackKey; rowLast = m.Snapshot(); }
+        float sw = rowOld == null ? 1 : ux.AnimFrom("compact:swap", 0, 1, SpringSpec.Content);
+        if (rowOld != null && sw < 0.985f)
+        {
+            c.Push(null, (1 - sw) * t);
+            MediaRow(isl, c, ux, a.Offset(0, -6 * sw), 1, rowOld, now, false);
+            c.Pop();
+        }
+        else rowOld = null;
+        if (sw < 0.985f) c.Push(null, sw);
+        MediaRow(isl, c, ux, a.Offset(0, 6 * (1 - sw)), t, m, now, true);
+        if (sw < 0.985f) c.Pop();
+    }
+
+    /// <summary>
+    /// What's running besides the media, in the order the pill would pick them: a timer, an update, downloads,
+    /// tools being fetched. The hover card and the open island list them under what they show.
+    /// </summary>
+    public static List<string> Running(Island isl)
+    {
+        var s = isl.Svc; var l = new List<string>();
+        if (s == null) return l;
+        if (s.Timer != null && s.Timer.Running) l.Add("timer");
+        if (s.Updates?.Phase != null) l.Add("update");
+        if (isl.Cfg.Downloads && s.Downloads?.ActiveCount > 0) l.Add("download");
+        if (isl.Cfg.Downloads && s.Tools?.Fetching != null) l.Add("tools");
+        return l;
+    }
+
+    /// <summary>One running thing as a row: a ring that fills or empties (a spinner while it waits), its name, and how far along.</summary>
+    public static void Activity(Island isl, Canvas c, string kind, Box a, float t, double now)
+    {
         if (kind == "timer")
         {
             var tm = isl.Svc.Timer;
@@ -518,23 +555,22 @@ public sealed class CompactPage : Page
             if (!waiting) c.Text($"{pr * 100:0}%", new Box(a.Right - 92, a.Y, 78, a.H), 14, blue.A(t), FontWeight.SemiBold, HAlign.Right);
             return;
         }
-        var m = isl.Svc.Media.Current;
-        if (m == null) return;
-        // another app's media crossfades in: the old row drifts up and out as the new one rises in
-        if (m.SessionId != rowFor) { if (rowFor != null && rowLast != null) { rowOld = rowLast; ux.Forget("compact:swap"); } rowFor = m.SessionId; }
-        rowLast = m;
-        float sw = rowOld == null ? 1 : ux.AnimFrom("compact:swap", 0, 1, SpringSpec.Content);
-        if (rowOld != null && sw < 0.985f)
-        {
-            c.Push(null, (1 - sw) * t);
-            MediaRow(isl, c, ux, a.Offset(0, -6 * sw), 1, rowOld, now, false);
-            c.Pop();
-        }
-        else rowOld = null;
-        if (sw < 0.985f) c.Push(null, sw);
-        MediaRow(isl, c, ux, a.Offset(0, 6 * (1 - sw)), t, m, now, true);
-        if (sw < 0.985f) c.Pop();
     }
+
+    /// <summary>Running things as rows under a card, each in a soft lozenge.</summary>
+    public static void ActivityRows(Island isl, Canvas c, IReadOnlyList<string> kinds, Box area, float t)
+    {
+        float y = area.Y;
+        foreach (var k in kinds)
+        {
+            var row = new Box(area.X, y, area.W, ActivityRowH - 6);
+            c.Fill(row, Col.White.A(0.06f * t), row.H / 2);
+            Activity(isl, c, k, row.Inset(2, 0), t, isl.Clock.Now);
+            y += ActivityRowH;
+        }
+    }
+    public const float ActivityRowH = 40;
+
     string rowFor; MediaInfo rowLast, rowOld;
 
     void MediaRow(Island isl, Canvas c, Ux ux, Box a, float t, MediaInfo m, double now, bool live)
@@ -568,14 +604,24 @@ public sealed class PeekPage : Page
         var m = isl?.Svc?.Media?.Current;
         return isl != null && isl.Cfg.Media && m != null && !string.IsNullOrEmpty(m.Title);
     }
-    public override (float, float, float) Size(Island isl) { last = isl; return HasMedia(isl) ? (440, 186, 40) : (380, 96, 34); }
-    public override double AmbientInterval(Island isl) => HasMedia(isl) ? (isl.Svc.Media.Current.Playing ? 1 / 30.0 : 0.5) : 1.0;
+    public override (float, float, float) Size(Island isl)
+    {
+        last = isl;
+        float rows = CompactPage.Running(isl).Count * CompactPage.ActivityRowH;   // what's running, under the card
+        return HasMedia(isl) ? (440, 186 + rows, 40) : (380, 96 + rows, 34);
+    }
+    public override double AmbientInterval(Island isl) => CompactPage.Running(isl).Count > 0 ? 1 / 30.0 : HasMedia(isl) ? (isl.Svc.Media.Current.Playing ? 1 / 30.0 : 0.5) : 1.0;
 
     public override void Draw(Island isl, Canvas c, Ux ux, Box a, float t)
     {
         last = isl;
-        if (HasMedia(isl)) MediaCard(isl, c, ux, a, t, false);
-        else Glance(isl, c, a, t);
+        // a download, timer, update or tools running shows here too, under the song (it was only in the pill)
+        var running = CompactPage.Running(isl);
+        float rows = running.Count * CompactPage.ActivityRowH;
+        var top = new Box(a.X, a.Y, a.W, a.H - rows);
+        if (HasMedia(isl)) MediaCard(isl, c, ux, top, t, false);
+        else Glance(isl, c, top, t);
+        if (rows > 0) CompactPage.ActivityRows(isl, c, running, new Box(a.X + 16, top.Bottom - 4, a.W - 32, rows), t);
     }
 
     static void Glance(Island isl, Canvas c, Box a, float t)

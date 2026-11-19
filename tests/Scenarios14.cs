@@ -747,4 +747,25 @@ public static partial class Scenarios
         isl.Expand(); clock.Advance(0.6, isl);
         True(isl.Shape.W <= 520 - 24 + 0.5f, $"the open island fits the screen ({isl.Shape.W:0})");
     }
+
+    [Scenario("what's running shows when the island is hovered or opened too, not only in the pill")]
+    public static void ActivitiesShowEverywhere()
+    {
+        var (isl, host, clock) = NewIsland();
+        var media = new FakeMedia(clock) { Current = new MediaInfo { AppName = "Spotify", SessionId = "Spotify.exe", Title = "A song", Playing = true } };
+        isl.Svc.Media = media;
+        isl.MouseMove(450, 20); clock.Advance(1, isl);
+        Eq(Mode.Peek, isl.Mode, "hovered");
+        double plain = isl.TargetHeight;
+        isl.Svc.Timer = new Services.CountdownTimer(clock);
+        isl.Svc.Timer.Start(300);
+        isl.ActivityChanged(); clock.Advance(0.1, isl);
+        Eq("timer", string.Join(",", CompactPage.Running(isl)), "the timer is running");
+        True(isl.TargetHeight >= plain + CompactPage.ActivityRowH - 0.5, $"the hover card grows a row for it ({plain:0} -> {isl.TargetHeight:0})");
+        isl.Expand(); clock.Advance(0.6, isl);
+        double withTimer = isl.TargetHeight;
+        isl.Svc.Timer.Cancel();
+        isl.ActivityChanged(); clock.Advance(0.1, isl);
+        True(isl.TargetHeight <= withTimer - CompactPage.ActivityRowH + 0.5, "and the open island shows it too, until it's done");
+    }
 }

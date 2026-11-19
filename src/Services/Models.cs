@@ -25,6 +25,8 @@ public sealed class MediaInfo
     public double PlayingSince = double.NaN;   // monotonic seconds it last started playing; NaN while paused
 
     public string TrackKey => $"{SessionId}|{Title}|{Artist}";
+    /// <summary>A copy as it is now: the session's own object changes in place when the song does, so a fading-out view keeps a copy.</summary>
+    public MediaInfo Snapshot() => (MediaInfo)MemberwiseClone();
 
     /// <summary>
     /// The main artist, without the ones featured: "mgk, Avril Lavigne" and "mgk feat. X" are "mgk". Not cut at

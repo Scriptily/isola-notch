@@ -82,6 +82,9 @@ public sealed partial class DashboardPage : Page
     internal static float StripOffset(float total, float lane, float selStart, float selW)
         => total <= lane ? 0 : Math.Clamp(selStart + selW / 2 - lane / 2, 0, total - lane);
 
+    /// <summary>What's running that this tab doesn't already show (the Shelf shows downloads, Timer the timer).</summary>
+    List<string> Extras(string tab) => CompactPage.Running(isl).Where(k => !(k == "download" && tab == "shelf") && !(k == "timer" && tab == "timer")).ToList();
+
     public override (float, float, float) Size(Island i)
     {
         var t = Tabs(); if (t.Count == 0) return (420, 120, 36);
@@ -95,6 +98,7 @@ public sealed partial class DashboardPage : Page
         // room for the app chips: the same count the layout uses (sessions with something to show)
         if (t[isl.Tab].Id == "media" && (isl.Svc?.Media?.Sessions.Count(s => !string.IsNullOrEmpty(s.Title)) ?? 0) > 1) h += 34;
         if (t[isl.Tab].Id == "media" && SpotifyRow()) h += SpotifyRowH;
+        h += Extras(t[isl.Tab].Id).Count * CompactPage.ActivityRowH;
         // never wider than its screen (a small screen at a large scale is narrower than 620)
         return (Math.Min(620, isl.Host.WindowWidth - 24), h, 40);
     }
@@ -262,6 +266,14 @@ public sealed partial class DashboardPage : Page
 
         // ---- panel ------------------------------------------------------
         var panel = new Box(a.X + 22, stripY + stripH + 14, a.W - 44, a.Bottom - (stripY + stripH + 14) - 18);
+        // a download, timer or update running: listed at the bottom, whatever the tab
+        var extras = Extras(tl[isl.Tab].Id);
+        if (extras.Count > 0)
+        {
+            float rh = extras.Count * CompactPage.ActivityRowH;
+            panel = new Box(panel.X, panel.Y, panel.W, panel.H - rh);
+            CompactPage.ActivityRows(isl, c, extras, new Box(panel.X, panel.Bottom + 8, panel.W, rh), t);
+        }
         // Tab change: each panel is faded as ONE layer, so every button, pill and
         // slider in it fades together (elements that ignore the alpha argument
         // would otherwise stay solid and pop out at the end). The old panel is
@@ -371,8 +383,7 @@ public sealed partial class DashboardPage : Page
         var card = new Box(p.X - 22, p.Y - 14, p.W + 44, p.H + 14 - rowH - pillsH);
         // another app's media crossfades in: the old card fades out (drawn, not live) as the new one fades in
         var curM = media.Current;
-        if (curM.SessionId != cardFor) { if (cardFor != null && cardLast != null) { cardOld = cardLast; ux.Forget("np:swap"); } cardFor = curM.SessionId; }
-        cardLast = curM;
+        if (curM.TrackKey != cardFor) { if (cardFor != null && cardLast != null) { cardOld = cardLast; ux.Forget("np:swap"); } cardFor = curM.TrackKey; cardLast = curM.Snapshot(); }
         float sw = cardOld == null ? 1 : ux.AnimFrom("np:swap", 0, 1, SpringSpec.Content);
         if (cardOld != null && sw < 0.985f)
         {
