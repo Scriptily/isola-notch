@@ -27,10 +27,10 @@
   <a href="https://apps.microsoft.com/detail/9NW22R7PVDQT?mode=direct"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Get it from Microsoft" width="200"></a>
 </p>
 
-Isola puts a small black pill at the top of your screen. It shows what's
-happening as it happens (a notification, a call, a song, your AirPods
-connecting) and opens into a dashboard when you click it. Press `Alt+Space`
-and it turns into a launcher.
+Isola puts a small floating pill (or a notch that blends with your borders) at the top of your screen. It shows what's
+happening as it happens: a notification, a call, a song, your AirPods
+connecting, and opens into a dashboard when you click it. Press `Alt+Space`
+and it turns into a launcher. It tucks away into a tiny gray bar when idle so it's never distracting.
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/open-dark.webp"><img src="assets/readme/open-light.webp" alt="The island opening into the Home dashboard, then turning on the kitchen light and the coffee maker" width="651"></picture></p>
 
