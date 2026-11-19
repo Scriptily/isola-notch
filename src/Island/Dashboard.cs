@@ -99,6 +99,7 @@ public sealed partial class DashboardPage : Page
         if (t[isl.Tab].Id == "media" && (isl.Svc?.Media?.Sessions.Count(s => !string.IsNullOrEmpty(s.Title)) ?? 0) > 1) h += 34;
         if (t[isl.Tab].Id == "media" && SpotifyRow()) h += SpotifyRowH;
         h += Extras(t[isl.Tab].Id).Count * CompactPage.ActivityRowH;
+        if (t[isl.Tab].Id == "weather" && wxDetail >= 0) h += WxDetailH - 94;   // an hour or day opened into its details
         // never wider than its screen (a small screen at a large scale is narrower than 620)
         return (Math.Min(620, isl.Host.WindowWidth - 24), h, 40);
     }
@@ -781,25 +782,100 @@ public sealed partial class DashboardPage : Page
         string hl = double.IsNaN(w.High) ? "" : $"H {w.High:0}°  L {w.Low:0}°";
         c.Text(hl, new Box(p.X + 230, p.Y + 32, 200, 18), 12.5f, Col.White.A(0.6f * t), FontWeight.Medium);
         var extra = new List<string>();
+        if (!double.IsNaN(w.FeelsLike)) extra.Add($"feels {w.FeelsLike:0}°");
+        if (!double.IsNaN(w.Precip)) extra.Add($"{w.Precip:0}% rain");
         if (!double.IsNaN(w.Humidity)) extra.Add($"{w.Humidity:0}% humidity");
-        if (!double.IsNaN(w.Wind)) extra.Add($"wind {w.Wind:0}");
-        c.Text(string.Join("  ·  ", extra), new Box(p.X + 230, p.Y + 50, 300, 18), 11.5f, Col.White.A(0.45f * t), FontWeight.Medium);
-        // hourly
-        if (w.Hours.Count > 0)
+        if (!double.IsNaN(w.Wind)) extra.Add($"wind {w.Wind:0}{(w.WindUnit.Length > 0 ? " " + w.WindUnit : "")}");
+        c.Text(string.Join("  ·  ", extra), new Box(p.X + 230, p.Y + 50, p.W - 230, 18), 11.5f, Col.White.A(0.45f * t), FontWeight.Medium);
+        // the forecast: hours or days, each opening into its details
+        var list = wxDays ? w.Daily : w.Hourly;
+        float y0 = p.Y + 92;
+        if (w.Hourly.Count > 0 && w.Daily.Count > 0)
         {
-            float cw = p.W / w.Hours.Count, y0 = p.Y + 92;
-            c.Fill(new Box(p.X, y0 - 8, p.W, 94), Col.White.A(0.05f * t), 16);
-            for (int i = 0; i < w.Hours.Count; i++)
-            {
-                var (lbl, temp, icon) = w.Hours[i];
-                float cx = p.X + cw * (i + 0.5f);
-                c.Text(i == 0 ? "Now" : lbl, Box.Centered(cx, y0 + 8, cw, 16), 11, Col.White.A(0.55f * t), FontWeight.SemiBold, HAlign.Center);
-                Paint.Weather(c, icon, cx, y0 + 38, 20, t);
-                c.Text($"{temp:0}°", Box.Centered(cx, y0 + 66, cw, 18), 13, Col.White.A(0.9f * t), FontWeight.SemiBold, HAlign.Center);
-            }
+            ux.Pill("wx:hours", new Box(p.Right - 128, p.Y + 62, 60, 22), "Hours", () => { wxDays = false; wxDetail = -1; isl.Retarget(); }, Col.White, '\0', !wxDays, 11);
+            ux.Pill("wx:days", new Box(p.Right - 64, p.Y + 62, 60, 22), "Days", () => { wxDays = true; wxDetail = -1; isl.Retarget(); }, Col.White, '\0', wxDays, 11);
+        }
+        if (wxDetail >= list.Count) wxDetail = -1;
+        if (list.Count > 0)
+        {
+            if (wxDetail >= 0) WeatherDetail(c, ux, w, list[wxDetail], new Box(p.X, y0 - 8, p.W, WxDetailH), t);
+            else WeatherRow(c, ux, w, list, new Box(p.X, y0 - 8, p.W, 94), t);
         }
         c.Text($"{w.Location} · {w.Source} · updated {w.Updated:t}", new Box(p.X, p.Bottom - 16, p.W - 40, 16), 10.5f, Col.White.A(0.35f * t), FontWeight.Medium);
         RefreshButton(ux, c, "wx:refresh", p.Right - 10, p.Bottom - 8, ws.Busy, wxSpinUntil, () => { wxSpinUntil = isl.Clock.Now + MinSpin; _ = ws.RefreshAsync(); }, t);
+    }
+
+    bool wxDays;          // the forecast shows days (else hours)
+    int wxDetail = -1;    // the hour or day opened into its details, or -1
+    const float WxDetailH = 176;
+
+    /// <summary>The hours or days in a row; each opens its details when clicked.</summary>
+    void WeatherRow(Canvas c, Ux ux, WeatherNow w, List<Forecast> list, Box card, float t)
+    {
+        c.Fill(card, Col.White.A(0.05f * t), 16);
+        int n = Math.Min(list.Count, wxDays ? 7 : 6);
+        float cw = card.W / n;
+        for (int i = 0; i < n; i++)
+        {
+            var f = list[i]; int idx = i;
+            var cell = new Box(card.X + cw * i + 3, card.Y + 3, cw - 6, card.H - 6);
+            ux.Add("wx:f" + i, cell, () => { wxDetail = idx; ux.Forget("wx:in"); isl.Retarget(); }, 12);
+            float h = ux.HoverT("wx:f" + i), pr = ux.PressT("wx:f" + i);
+            var cb = cell.Scale(1 - 0.03f * pr);
+            if (h > 0.01f) c.Fill(cb, Col.White.A(0.06f * h * t), 12);
+            float cx = cb.CX;
+            c.Text(i == 0 && !wxDays ? "Now" : f.Label, Box.Centered(cx, card.Y + 16, cw, 16), 11, Col.White.A(0.55f * t), FontWeight.SemiBold, HAlign.Center);
+            Paint.Weather(c, f.Icon, cx, card.Y + 42, 20, t);
+            bool rain = !double.IsNaN(f.Precip) && f.Precip >= 10;
+            float ty = card.Y + (rain ? 64 : 70);
+            if (wxDays && !double.IsNaN(f.Low))
+            {
+                // high / low, the low a step dimmer
+                string hi = $"{f.Temp:0}°", lo = $" / {f.Low:0}°";
+                float hw = c.Measure(hi, 13, FontWeight.SemiBold).w, lw = c.Measure(lo, 13, FontWeight.SemiBold).w;
+                c.Text(hi, new Box(cx - (hw + lw) / 2, ty - 9, hw + 2, 18), 13, Col.White.A(0.92f * t), FontWeight.SemiBold);
+                c.Text(lo, new Box(cx - (hw + lw) / 2 + hw, ty - 9, lw + 2, 18), 13, Col.White.A(0.5f * t), FontWeight.SemiBold);
+            }
+            else c.Text($"{f.Temp:0}°", Box.Centered(cx, ty, cw, 18), 13, Col.White.A(0.9f * t), FontWeight.SemiBold, HAlign.Center);
+            if (rain) c.Text($"{f.Precip:0}%", Box.Centered(cx, card.Y + 81, cw, 14), 10.5f, Col.Hex(0x64d2ff).A(0.9f * t), FontWeight.SemiBold, HAlign.Center);
+        }
+    }
+
+    /// <summary>One hour or day opened up: its sky, temperatures and the rest, in from 97%; a click folds it back.</summary>
+    void WeatherDetail(Canvas c, Ux ux, WeatherNow w, Forecast f, Box card, float t)
+    {
+        float a = ux.AnimFrom("wx:in", 0, 1, SpringSpec.Content);
+        var b = card.Scale(0.97f + 0.03f * a);
+        c.Push(null, a);
+        c.Fill(b, Col.White.A(0.07f * t), 16);
+        ux.Add("wx:detail", b, () => { wxDetail = -1; isl.Retarget(); }, 16);
+        ux.IconButton("wx:close", b.Right - 22, b.Y + 22, 26, Glyph.Close, () => { wxDetail = -1; isl.Retarget(); }, null, 10);
+        Paint.Weather(c, f.Icon, b.X + 46, b.Y + 50, 40, t);
+        string when = wxDays ? (f.Label == "Today" ? "Today" : f.At.ToString("dddd, MMM d")) : (f.At.Date == DateTime.Today ? "Today " : f.At.ToString("ddd ")) + f.Label;
+        c.Text(when, new Box(b.X + 90, b.Y + 18, 260, 18), 12, Col.White.A(0.55f * t), FontWeight.SemiBold);
+        c.Text(f.Condition, new Box(b.X + 90, b.Y + 36, 260, 22), 16, Col.White.A(0.95f * t), FontWeight.SemiBold);
+        string temps = wxDays && !double.IsNaN(f.Low) ? $"{f.Temp:0}° / {f.Low:0}°" : $"{f.Temp:0}°";
+        c.Text(temps, new Box(b.X + 90, b.Y + 58, 260, 30), 24, Col.White.A(t), FontWeight.SemiBold);
+        // the details, two columns of label and value
+        var rows = new List<(string k, string v)>();
+        string pu = w.PrecipUnit, wu = w.WindUnit.Length > 0 ? " " + w.WindUnit : "";
+        if (!double.IsNaN(f.FeelsLike)) rows.Add(("Feels like", $"{f.FeelsLike:0}°"));
+        if (!double.IsNaN(f.Precip)) rows.Add(("Chance of rain", $"{f.Precip:0}%"));
+        if (!double.IsNaN(f.PrecipAmount)) rows.Add(("Rain", $"{f.PrecipAmount:0.#} {pu}"));
+        if (!double.IsNaN(f.Humidity)) rows.Add(("Humidity", $"{f.Humidity:0}%"));
+        if (!double.IsNaN(f.Wind)) rows.Add(("Wind", $"{f.Wind:0}{wu}"));
+        if (!double.IsNaN(f.Uv)) rows.Add(("UV index", $"{f.Uv:0}"));
+        if (wxDays && f.Label == "Today" && w.Sunrise is DateTime sr && w.Sunset is DateTime ss)
+            rows.Add(("Sun", $"{sr.ToString(isl.Cfg.Use24Hour ? "HH:mm" : "h:mm")} to {ss.ToString(isl.Cfg.Use24Hour ? "HH:mm" : "h:mm tt")}"));
+        float gx = b.X + 330, gw = (b.Right - 18 - gx) / 2, gy = b.Y + 46;
+        for (int i = 0; i < rows.Count && i < 8; i++)
+        {
+            float x = gx + (i % 2) * gw, y = gy + (i / 2) * 32;
+            c.Text(rows[i].k, new Box(x, y, gw - 8, 14), 10.5f, Col.White.A(0.45f * t), FontWeight.SemiBold);
+            c.Text(rows[i].v, new Box(x, y + 14, gw - 8, 18), 13, Col.White.A(0.92f * t), FontWeight.SemiBold);
+        }
+        if (rows.Count == 0) c.Text("No more detail from this source", new Box(gx, gy, b.Right - gx - 18, 18), 12, Col.White.A(0.45f * t));
+        c.Pop();
     }
 
     // ==== Notes ============================================================

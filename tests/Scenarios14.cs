@@ -768,4 +768,101 @@ public static partial class Scenarios
         isl.ActivityChanged(); clock.Advance(0.1, isl);
         True(isl.TargetHeight <= withTimer - CompactPage.ActivityRowH + 0.5, "and the open island shows it too, until it's done");
     }
+
+    [Scenario("weather: Home Assistant's forecast keeps each day's low, rain and the rest, and hours are night by the sun, not the clock")]
+    public static void WeatherFromHomeAssistant()
+    {
+        var now = new DateTime(2026, 11, 19, 15, 10, 0);
+        string U(DateTime d) => d.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
+        var daily = System.Text.Json.Nodes.JsonNode.Parse($$"""
+            [{"datetime":"{{U(now.Date.AddHours(12))}}","condition":"partlycloudy","temperature":29,"templow":18,"precipitation_probability":20,"precipitation":0.4,"humidity":51,"wind_speed":12,"uv_index":6},
+             {"datetime":"{{U(now.Date.AddDays(1).AddHours(12))}}","condition":"rainy","temperature":24,"templow":16,"precipitation_probability":80,"precipitation":6.2}]
+            """)!.AsArray();
+        var sunsetAt5 = Services.WeatherService.NightFrom(now.Date.AddHours(6.5), now.Date.AddHours(17));
+        var days = Services.WeatherService.FromHaForecast(daily, true, sunsetAt5, false, now);
+        Eq(2, days.Count, "two days");
+        Eq("Today", days[0].Label, "today first");
+        Eq(18.0, days[0].Low, "the day's low");
+        Eq(80.0, days[1].Precip, "tomorrow's rain chance");
+        Eq(6.2, days[1].PrecipAmount, "and amount");
+        Eq("rain", days[1].Icon, "rain's icon");
+        var hourly = System.Text.Json.Nodes.JsonNode.Parse($$"""
+            [{"datetime":"{{U(now.Date.AddHours(16))}}","condition":"sunny","temperature":27},
+             {"datetime":"{{U(now.Date.AddHours(18))}}","condition":"sunny","temperature":22},
+             {"datetime":"{{U(now.Date.AddHours(19))}}","condition":"partlycloudy","temperature":21,"is_daytime":true}]
+            """)!.AsArray();
+        var hours = Services.WeatherService.FromHaForecast(hourly, false, sunsetAt5, false, now);
+        Eq("sun", hours[0].Icon, "4 pm, before sunset: the sun");
+        Eq("moon", hours[1].Icon, "6 pm, after a 5 pm sunset: the moon (the old rule said day until 7)");
+        Eq("partly-day", hours[2].Icon, "the source's own daytime flag wins");
+        True(double.IsNaN(hours[0].Low), "hours have no low");
+    }
+
+    [Scenario("weather: Open-Meteo gives 12 hours (night by its own flag) and 7 days with highs, lows and rain")]
+    public static void WeatherFromOpenMeteo()
+    {
+        var now = new DateTime(2026, 11, 19, 15, 10, 0);
+        string H(int h) => now.Date.AddHours(h).ToString("yyyy-MM-ddTHH:mm");
+        var times = string.Join(",", Enumerable.Range(0, 30).Select(h => $"\"{H(h)}\""));
+        var isDay = string.Join(",", Enumerable.Range(0, 30).Select(h => h % 24 is >= 7 and < 17 ? 1 : 0));
+        var temps = string.Join(",", Enumerable.Range(0, 30).Select(h => 20 + h % 5));
+        var codes = string.Join(",", Enumerable.Range(0, 30).Select(h => h % 24 == 18 ? 61 : 0));
+        var rain = string.Join(",", Enumerable.Range(0, 30).Select(h => h % 24 == 18 ? 70 : 0));
+        var dayTimes = string.Join(",", Enumerable.Range(0, 7).Select(d => $"\"{now.Date.AddDays(d):yyyy-MM-dd}\""));
+        string Nums(params double[] v) => string.Join(",", v);
+        var j = System.Text.Json.Nodes.JsonNode.Parse($$$"""
+            {"current":{"temperature_2m":22,"relative_humidity_2m":51,"weather_code":2,"wind_speed_10m":9,"is_day":1,"apparent_temperature":23},
+             "hourly":{"time":[{{{times}}}],"temperature_2m":[{{{temps}}}],"weather_code":[{{{codes}}}],"is_day":[{{{isDay}}}],"precipitation_probability":[{{{rain}}}]},
+             "daily":{"time":[{{{dayTimes}}}],"weather_code":[{{{Nums(2,61,0,0,3,3,0)}}}],"temperature_2m_max":[{{{Nums(29,24,25,26,27,28,29)}}}],"temperature_2m_min":[{{{Nums(18,16,15,15,16,17,18)}}}],
+                      "precipitation_probability_max":[{{{Nums(20,80,0,0,10,10,0)}}}],"sunrise":["{{{now.Date.AddHours(6.5):yyyy-MM-ddTHH:mm}}}"],"sunset":["{{{now.Date.AddHours(17):yyyy-MM-ddTHH:mm}}}"]}}
+            """);
+        var w = Services.WeatherService.ParseOpenMeteo(j, "Somewhere", false, false, now);
+        Eq(12, w.Hourly.Count, "the next 12 hours");
+        Eq("3pm", w.Hourly[0].Label, "starting with the current hour");
+        Eq("moon", w.Hourly.First(f => f.At.Hour == 20).Icon, "8 pm by its own flag: the moon");
+        Eq(70.0, w.Hourly.First(f => f.At.Hour == 18).Precip, "6 pm's rain chance");
+        Eq(7, w.Daily.Count, "a week");
+        Eq(16.0, w.Daily[1].Low, "tomorrow's low");
+        Eq(29.0, w.High, "today's high on top");
+        Eq(23.0, w.FeelsLike, "feels like");
+        True(w.Sunset?.Hour == 17, "sunset kept for the details");
+    }
+
+    [Scenario("a new song at rest pops up with every artist, then tucks back into the one-line pill; opened, it doesn't")]
+    public static void NewSongPopsUpAtRest()
+    {
+        var (isl, host, clock) = NewIsland();
+        var media = new FakeMedia(clock) { Current = new MediaInfo { AppName = "Spotify", SessionId = "Spotify.exe", Title = "The Break Up", Artist = "mgk, Avril Lavigne", Playing = true } };
+        isl.Svc.Media = media; isl.ActivityChanged(); clock.Advance(0.5, isl);
+        Eq(Mode.Rest, isl.Mode, "resting on the song");
+        isl.TrackChanged(null, media.Current);
+        clock.Advance(Island.Island.TrackSettle + 0.2, isl);
+        Eq(Mode.Alert, isl.Mode, "it pops up");
+        Eq("mgk, Avril Lavigne", isl.CurrentAlert.Subtitle, "with every artist, featured ones included");
+        clock.Advance(5, isl);
+        Eq(Mode.Rest, isl.Mode, "then tucks back into the pill");
+        Eq("mgk", MediaInfo.MainArtist(media.Current.Artist), "where only the main artist shows");
+        isl.Expand(); clock.Advance(0.5, isl);
+        media.Current = new MediaInfo { AppName = "Spotify", SessionId = "Spotify.exe", Title = "Next", Artist = "Someone", Playing = true };
+        isl.TrackChanged(null, media.Current);
+        clock.Advance(Island.Island.TrackSettle + Island.Island.TrackGap, isl);
+        Eq(Mode.Expanded, isl.Mode, "opened: no popup, the song is already on screen");
+    }
+
+    [Scenario("a popup sliding away into the hidden island keeps the song's colors on its glow until it's gone")]
+    public static void HidingKeepsGlowColors()
+    {
+        var (isl, host, clock) = NewIsland(new Config { GlowColors = "auto" });
+        var red = new Vortice.Mathematics.Color4(0.9f, 0.1f, 0.1f, 1);
+        var media = new FakeMedia(clock) { Current = new MediaInfo { AppName = "Spotify", SessionId = "Spotify.exe", Title = "A song", Artist = "Someone", Playing = true, Palette = new[] { red, red, red } } };
+        isl.Svc.Media = media; media.LastPlayingAt = clock.Now; isl.ActivityChanged(); isl.UpdateGlowColors(); clock.Advance(0.5, isl);
+        isl.RightClick(450, 20); clock.Advance(0.5, isl);
+        Eq(Mode.Hidden, isl.Mode, "hidden");
+        isl.TrackChanged(null, media.Current);
+        clock.Advance(Island.Island.TrackSettle + 0.3, isl);
+        Eq(Mode.Alert, isl.Mode, "the new song pops up");
+        clock.Advance(4.5, isl);
+        Eq(Mode.Hidden, isl.Mode, "and slides away");
+        Eq(red, isl.GlowTarget0, "still the song's colors as it goes");
+    }
 }

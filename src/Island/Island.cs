@@ -398,7 +398,9 @@ public sealed partial class Island : ITouchTarget
         var m = Svc?.Media?.Current;
         double now = Clock.Now;
         if (m == null || !m.Playing || IsPlaceholder(m)) return;
-        if (Mode != Mode.Hidden || Blocked) return;                      // a visible island shows the track itself
+        // hidden or resting (the pill has one line: the popup shows the artists in full, then tucks away);
+        // open or hovered, the track is already on screen
+        if (Mode is not (Mode.Hidden or Mode.Rest) || Blocked) return;
         if (now - lastTrackAt < TrackGap) return;
         string key = m.AppName + "|" + m.Title + "|" + m.Artist;   // not the session: a reopened session is the same song
         if (announced.TryGetValue(key, out double at) && now - at < TrackForget) return;
@@ -410,6 +412,9 @@ public sealed partial class Island : ITouchTarget
 
     public void UpdateGlowColors()
     {
+        // hiding (or off), the glow keeps its colors while it fades with the island: re-picked as it slid away,
+        // the song's colors turned to the theme's mid-slide. They're picked again when it comes back.
+        if (Mode is Mode.Hidden or Mode.Off) return;
         Color4[] t = PaletteFor(Cfg.GlowColors);
         var m = Svc?.Media?.Current;
         // paused still counts: the cover is still what the island is about

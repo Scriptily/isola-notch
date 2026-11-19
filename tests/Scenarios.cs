@@ -175,7 +175,8 @@ public static partial class Scenarios
         media.Current.Playing = false;
         isl.UpdateGlowColors(); clock.Advance(2, isl);
         Eq(playing, isl.GlowTarget0, "paused keeps the album color");
-        clock.Advance(700, isl); isl.UpdateGlowColors();
+        clock.Advance(700, isl);
+        isl.Reveal("back"); clock.Advance(0.5, isl); isl.UpdateGlowColors();   // (hidden meanwhile, the glow kept its colors; they matter once it shows)
         True(!isl.GlowTarget0.Equals(playing), "after ten idle minutes it returns to the theme");
     }
 

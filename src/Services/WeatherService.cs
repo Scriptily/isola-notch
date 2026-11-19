@@ -7,14 +7,29 @@ using Vortice.Mathematics;
 
 namespace Isola.Services;
 
+/// <summary>One hour or one day of the forecast, with everything the source gives for it.</summary>
+public sealed class Forecast
+{
+    public DateTime At;
+    public string Label = "", Condition = "", Icon = "cloud";
+    /// <summary>The hour's temperature, or the day's high.</summary>
+    public double Temp = double.NaN;
+    /// <summary>The day's low (NaN for an hour).</summary>
+    public double Low = double.NaN;
+    public double FeelsLike = double.NaN, Precip = double.NaN, PrecipAmount = double.NaN, Humidity = double.NaN, Wind = double.NaN, Uv = double.NaN;
+    public bool Night;
+}
+
 public sealed class WeatherNow
 {
     public double Temp, High = double.NaN, Low = double.NaN, Humidity = double.NaN, Wind = double.NaN;
-    public string Condition = "", Location = "", Source = "", Unit = "°";
+    public double FeelsLike = double.NaN, Precip = double.NaN, Uv = double.NaN;
+    public string Condition = "", Location = "", Source = "", Unit = "°", WindUnit = "", PrecipUnit = "mm";
     public string Icon = "cloud";
     public Color4 Tint = Col.White;
     public bool Night;
-    public List<(string label, double temp, string icon)> Hours = new();
+    public DateTime? Sunrise, Sunset;
+    public List<Forecast> Hourly = new(), Daily = new();
     public DateTime Updated;
 }
 
@@ -82,22 +97,65 @@ public sealed class WeatherService
         w.Humidity = e.Num("humidity") ?? double.NaN;
         w.Wind = e.Num("wind_speed") ?? double.NaN;
         w.Unit = e.Str("temperature_unit") ?? "°";
-        w.Night = DateTime.Now.Hour is < 6 or >= 19;
+        w.WindUnit = e.Str("wind_speed_unit") ?? "";
+        w.PrecipUnit = e.Str("precipitation_unit") ?? "mm";
+        w.FeelsLike = e.Num("apparent_temperature") ?? double.NaN;
+        w.Uv = e.Num("uv_index") ?? double.NaN;
+        // day and night from the sun's real times (it was before 6 and after 7 all year)
+        try
+        {
+            var sun = await ha.GetAsync("sun.sun").ConfigureAwait(false);
+            w.Sunrise = Local(sun?.Str("next_rising")); w.Sunset = Local(sun?.Str("next_setting"));
+        }
+        catch { }
+        var night = NightFrom(w.Sunrise, w.Sunset);
+        w.Night = night(DateTime.Now);
         w.Icon = Icon(e.State, w.Night);
         var daily = await ha.ForecastAsync(e.Id, "daily").ConfigureAwait(false);
-        if (daily?.Count > 0) { w.High = Get(daily[0], "temperature"); w.Low = Get(daily[0], "templow"); }
+        if (daily != null) w.Daily = FromHaForecast(daily, true, night, cfg.Use24Hour, DateTime.Now);
+        if (w.Daily.Count > 0) { w.High = w.Daily[0].Temp; w.Low = w.Daily[0].Low; w.Precip = w.Daily[0].Precip; }
         var hourly = await ha.ForecastAsync(e.Id, "hourly").ConfigureAwait(false);
-        if (hourly != null)
-            foreach (var h in hourly.Take(6))
-            {
-                var dt = DateTime.TryParse(h?["datetime"]?.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var d) ? d.ToLocalTime() : DateTime.Now;
-                w.Hours.Add((dt.ToString(cfg.Use24Hour ? "HH" : "htt").ToLowerInvariant(), Get(h, "temperature"), Icon(h?["condition"]?.ToString() ?? "", dt.Hour is < 6 or >= 19)));
-            }
+        if (hourly != null) w.Hourly = FromHaForecast(hourly, false, night, cfg.Use24Hour, DateTime.Now);
         if (double.IsNaN(w.Temp)) return null;
         return w;
     }
 
     static double Get(JsonNode n, string k) => n?[k] is JsonValue v && v.TryGetValue(out double d) ? d : double.NaN;
+    static DateTime? Local(string s) => DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var d) ? d.ToLocalTime() : null;
+
+    /// <summary>Night by the sun's times of day when known (today's sunrise to sunset is day), else the old guess.</summary>
+    internal static Func<DateTime, bool> NightFrom(DateTime? rise, DateTime? set)
+    {
+        if (rise is DateTime r && set is DateTime s && r.TimeOfDay != s.TimeOfDay)
+            return t => !(t.TimeOfDay >= r.TimeOfDay && t.TimeOfDay < s.TimeOfDay);
+        return t => t.Hour is < 6 or >= 19;
+    }
+
+    internal static string HourLabel(DateTime t, bool h24) => t.ToString(h24 ? "HH:00" : "htt", CultureInfo.InvariantCulture).ToLowerInvariant();
+    internal static string DayLabel(DateTime t, DateTime now) => t.Date == now.Date ? "Today" : t.ToString("ddd", CultureInfo.CurrentCulture);
+
+    /// <summary>Home Assistant's forecast (hourly or daily) with every field it carries; the next 12 hours or 7 days.</summary>
+    internal static List<Forecast> FromHaForecast(JsonArray arr, bool daily, Func<DateTime, bool> night, bool h24, DateTime now)
+    {
+        var list = new List<Forecast>();
+        foreach (var h in arr)
+        {
+            if (h == null) continue;
+            var dt = Local(h["datetime"]?.ToString()) ?? now;
+            if (!daily && dt < now.AddMinutes(-59)) continue;   // an hour already gone
+            string cond = h["condition"]?.ToString() ?? "";
+            bool isNight = !daily && (h["is_daytime"] is JsonValue dv && dv.TryGetValue(out bool day) ? !day : night(dt));
+            list.Add(new Forecast
+            {
+                At = dt, Label = daily ? DayLabel(dt, now) : HourLabel(dt, h24), Condition = Pretty(cond), Night = isNight, Icon = Icon(cond, isNight),
+                Temp = Get(h, "temperature"), Low = daily ? Get(h, "templow") : double.NaN, FeelsLike = Get(h, "apparent_temperature"),
+                Precip = Get(h, "precipitation_probability"), PrecipAmount = Get(h, "precipitation"), Humidity = Get(h, "humidity"),
+                Wind = Get(h, "wind_speed"), Uv = Get(h, "uv_index"),
+            });
+            if (list.Count >= (daily ? 7 : 12)) break;
+        }
+        return list;
+    }
 
     async Task<WeatherNow> FromOpenMeteo(Config cfg)
     {
@@ -110,31 +168,61 @@ public sealed class WeatherService
             lat = Get(r, "latitude"); lon = Get(r, "longitude"); place = r["name"]?.ToString() ?? cfg.City;
         }
         if (double.IsNaN(lat) || double.IsNaN(lon)) return null;
-        string unit = cfg.Fahrenheit ? "&temperature_unit=fahrenheit&wind_speed_unit=mph" : "";
+        string unit = cfg.Fahrenheit ? "&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch" : "";
         string url = $"https://api.open-meteo.com/v1/forecast?latitude={lat.ToString(CultureInfo.InvariantCulture)}&longitude={lon.ToString(CultureInfo.InvariantCulture)}" +
-            "&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,is_day&hourly=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_days=2&timezone=auto" + unit;
+            "&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,is_day,apparent_temperature" +
+            "&hourly=temperature_2m,weather_code,is_day,precipitation_probability,precipitation,relative_humidity_2m,wind_speed_10m,apparent_temperature,uv_index" +
+            "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,uv_index_max,sunrise,sunset" +
+            "&forecast_days=7&timezone=auto" + unit;
         var j = JsonNode.Parse(await http.GetStringAsync(url).ConfigureAwait(false));
+        return ParseOpenMeteo(j, place, cfg.Fahrenheit, cfg.Use24Hour, DateTime.Now);
+    }
+
+    /// <summary>An Open-Meteo forecast: now, the next 12 hours (day or night by its own flag), the next 7 days.</summary>
+    internal static WeatherNow ParseOpenMeteo(JsonNode j, string place, bool fahrenheit, bool h24, DateTime now)
+    {
         var cur = j?["current"]; if (cur == null) return null;
         int code = (int)Get(cur, "weather_code");
         bool night = Get(cur, "is_day") == 0;
         var w = new WeatherNow
         {
             Source = "Open-Meteo", Location = place, Temp = Get(cur, "temperature_2m"), Humidity = Get(cur, "relative_humidity_2m"), Wind = Get(cur, "wind_speed_10m"),
-            Unit = cfg.Fahrenheit ? "°F" : "°C", Night = night, Condition = WmoText(code), Updated = DateTime.Now,
+            FeelsLike = Get(cur, "apparent_temperature"), Unit = fahrenheit ? "°F" : "°C", WindUnit = fahrenheit ? "mph" : "km/h", PrecipUnit = fahrenheit ? "in" : "mm",
+            Night = night, Condition = WmoText(code), Updated = now,
         };
-        w.High = j["daily"]?["temperature_2m_max"]?[0]?.GetValue<double>() ?? double.NaN;
-        w.Low = j["daily"]?["temperature_2m_min"]?[0]?.GetValue<double>() ?? double.NaN;
         w.Icon = Icon(WmoCondition(code), night);
-        var times = j["hourly"]?["time"] as JsonArray; var temps = j["hourly"]?["temperature_2m"] as JsonArray; var codes = j["hourly"]?["weather_code"] as JsonArray;
-        if (times != null && temps != null && codes != null)
-        {
-            int start = times.Select((t, i) => (t, i)).FirstOrDefault(x => DateTime.Parse(x.t!.ToString(), CultureInfo.InvariantCulture) > DateTime.Now).i;
-            for (int i = start; i < Math.Min(times.Count, start + 6); i++)
+        double At(JsonNode block, string k, int i) => block?[k] is JsonArray a && i < a.Count && a[i] is JsonValue v && v.TryGetValue(out double d) ? d : double.NaN;
+        var hourly = j["hourly"]; var times = hourly?["time"] as JsonArray;
+        if (times != null)
+            for (int i = 0; i < times.Count && w.Hourly.Count < 12; i++)
             {
                 var dt = DateTime.Parse(times[i]!.ToString(), CultureInfo.InvariantCulture);
-                w.Hours.Add((dt.ToString(cfg.Use24Hour ? "HH" : "htt").ToLowerInvariant(), temps[i]!.GetValue<double>(), Icon(WmoCondition((int)codes[i]!.GetValue<double>()), dt.Hour is < 6 or >= 19)));
+                if (dt < now.AddMinutes(-59)) continue;
+                int c = (int)At(hourly, "weather_code", i);
+                bool n = At(hourly, "is_day", i) == 0;
+                w.Hourly.Add(new Forecast
+                {
+                    At = dt, Label = HourLabel(dt, h24), Condition = WmoText(c), Night = n, Icon = Icon(WmoCondition(c), n),
+                    Temp = At(hourly, "temperature_2m", i), FeelsLike = At(hourly, "apparent_temperature", i), Precip = At(hourly, "precipitation_probability", i),
+                    PrecipAmount = At(hourly, "precipitation", i), Humidity = At(hourly, "relative_humidity_2m", i), Wind = At(hourly, "wind_speed_10m", i), Uv = At(hourly, "uv_index", i),
+                });
             }
-        }
+        var daily = j["daily"]; var days = daily?["time"] as JsonArray;
+        if (days != null)
+            for (int i = 0; i < days.Count && i < 7; i++)
+            {
+                var dt = DateTime.Parse(days[i]!.ToString(), CultureInfo.InvariantCulture);
+                int c = (int)At(daily, "weather_code", i);
+                w.Daily.Add(new Forecast
+                {
+                    At = dt, Label = DayLabel(dt, now), Condition = WmoText(c), Icon = Icon(WmoCondition(c), false),
+                    Temp = At(daily, "temperature_2m_max", i), Low = At(daily, "temperature_2m_min", i), Precip = At(daily, "precipitation_probability_max", i),
+                    PrecipAmount = At(daily, "precipitation_sum", i), Wind = At(daily, "wind_speed_10m_max", i), Uv = At(daily, "uv_index_max", i),
+                });
+            }
+        if (w.Daily.Count > 0) { w.High = w.Daily[0].Temp; w.Low = w.Daily[0].Low; w.Precip = w.Daily[0].Precip; w.Uv = w.Daily[0].Uv; }
+        if (daily?["sunrise"] is JsonArray sr && sr.Count > 0 && DateTime.TryParse(sr[0]?.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var rise)) w.Sunrise = rise;
+        if (daily?["sunset"] is JsonArray ss && ss.Count > 0 && DateTime.TryParse(ss[0]?.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var set)) w.Sunset = set;
         return w;
     }
 
