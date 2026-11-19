@@ -241,6 +241,19 @@ public sealed partial class Island : ITouchTarget
     /// <summary>Recompute targets: which page, what size, where.</summary>
     string glowKeyFor;
 
+    /// <summary>
+    /// The height's spring for growing <paramref name="by"/> DIPs. The bounce is a share of the distance, so opening
+    /// onto a tall tab swelled 15 px past it and settled back (it looked too big, then shrank): a long way up is
+    /// damped to overshoot by about 4 px, while short moves keep the bounce of Apple's (and the width keeps it all).
+    /// </summary>
+    internal static SpringSpec HeightSpec(SpringSpec spec, double by)
+    {
+        if (by <= 60 || spec.Damping >= 1) return spec;
+        double f = Math.Min(Math.Exp(-spec.Damping * Math.PI / Math.Sqrt(1 - spec.Damping * spec.Damping)), 4 / by);
+        double lf = Math.Log(f);
+        return new SpringSpec(spec.Response, Math.Max(spec.Damping, -lf / Math.Sqrt(Math.PI * Math.PI + lf * lf)));
+    }
+
     public void Retarget()
     {
         // Hidden/Off keep whatever was showing, so it slides away with the body
@@ -276,7 +289,7 @@ public sealed partial class Island : ITouchTarget
             // shrinking uses the calmer collapse spring, as in Apple's footage
             spec = (w * h < W.Target * H.Target) ? SpringSpec.Collapse : SpringSpec.Expand;
             if (Cfg.ReduceMotion) spec = SpringSpec.Reduced;
-            W.To(w, spec); H.To(h, spec); R.To(r, spec);
+            W.To(w, spec); H.To(h, HeightSpec(spec, h - H.Value)); R.To(r, spec);
         }
         float hiddenY = -(float)(H.Target + PillGap + 14);
         Y.To(shown ? 0 : hiddenY, shown ? (Cfg.ReduceMotion ? SpringSpec.Reduced : new SpringSpec(0.5, 0.74)) : new SpringSpec(0.42, 1.0));

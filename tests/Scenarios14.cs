@@ -883,4 +883,16 @@ public static partial class Scenarios
         u.Move(192, 4); u.Down(192, 4); u.Up(192, 4);
         True(target < 1, $"a press at the top of the track: back to the start ({target:0})");
     }
+
+    [Scenario("opening onto a tall tab settles at its height without swelling past it more than a few pixels")]
+    public static void TallTabsDontSwell()
+    {
+        var (isl, host, clock) = NewIsland(new Config { Weather = true });
+        isl.Tab = isl.P.Dashboard.TabIndex("weather");
+        isl.Expand();
+        double target = 0, peak = 0;
+        for (int f = 0; f < 90; f++) { clock.Advance(1 / 60.0, isl); target = isl.TargetHeight; peak = Math.Max(peak, isl.Shape.H); }
+        True(peak - target < 6, $"it overshoots its height by {peak - target:0.0} px (looked too big, then shrank)");
+        True(Math.Abs(isl.Shape.H - target) < 0.5, "and settles at it");
+    }
 }
