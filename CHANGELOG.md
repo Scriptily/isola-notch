@@ -50,6 +50,14 @@ release notes.
   app you can hear, and its waveform follows that app's sound instead of
   everything the speakers play.
 
+### VirusTotal
+
+1 of 65 security vendors flagged `IsolaSetup.exe` on 2026-11-19. [Full report](https://www.virustotal.com/gui/file/d85234310ac78bc3a27f522679572269ef0d58861e38df3b70438c48871f26bb)
+
+- Bkav: W32.Malware.141CA1D4
+
+The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
+
 ## [1.5.2] - 2026-11-18
 
 ### Changed
