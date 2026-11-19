@@ -502,6 +502,7 @@ public static partial class Scenarios
     }
 
     [System.Runtime.InteropServices.DllImport("winmm.dll")] static extern bool PlaySound(nint sound, nint mod, uint flags);
+    [System.Runtime.InteropServices.DllImport("winmm.dll")] static extern uint waveOutGetNumDevs();
 
     [Scenario("an app's own sound is measured as it leaves for the speakers (a near-silent tone reads at its level, then silence)")]
     public static void AppSoundIsCaptured()
@@ -519,7 +520,9 @@ public static partial class Scenarios
         if (cap == null) { Console.WriteLine("        (no audio device here: skipped)"); pin.Free(); return; }
         try
         {
-            PlaySound(pin.AddrOfPinnedObject(), 0, 0x0004 /* memory */ | 0x0001 /* async */ | 0x0008 /* loop */);
+            // a build machine has nothing to play the tone on (capture starts there, but nothing ever sounds)
+            if (waveOutGetNumDevs() == 0 || !PlaySound(pin.AddrOfPinnedObject(), 0, 0x0004 /* memory */ | 0x0001 /* async */ | 0x0008 /* loop */))
+            { Console.WriteLine("        (no sound output here: skipped)"); return; }
             float peak = 0;
             for (int i = 0; i < 40; i++) { Thread.Sleep(25); peak = Math.Max(peak, cap.Peak); }
             True(Math.Abs(peak - 0.002f) < 0.0006f, $"the tone's own level, not the meters' guess ({peak:0.0000})");

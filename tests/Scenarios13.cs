@@ -16,6 +16,7 @@ public static partial class Scenarios
         public readonly Dictionary<string, (string tag, string asset, byte[] bytes, string digest, string url)> Latest = new();
         public readonly List<string> Asked = new();
         public bool Offline;
+        public int DelayMs;   // a download takes a moment, as a real one does
         public void Put(string repo, string tag, string asset, byte[] bytes, string digest = null, string url = null) =>
             Latest[repo] = (tag, asset, bytes, digest ?? "sha256:" + Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), url ?? $"https://github.com/{repo}/releases/download/{tag}/{asset}");
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage r, CancellationToken ct)
@@ -31,7 +32,11 @@ public static partial class Scenarios
                     string json = $"{{\"tag_name\":\"{v.tag}\",\"assets\":[{{\"name\":\"other.zip\",\"browser_download_url\":\"https://github.com/{repo}/releases/download/{v.tag}/other.zip\",\"size\":1}},{{\"name\":\"{v.asset}\",{digest}\"size\":{v.bytes.Length},\"browser_download_url\":\"{v.url}\"}}]}}";
                     return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) });
                 }
-                if (u == v.url) return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(v.bytes) });
+                if (u == v.url)
+                {
+                    if (DelayMs > 0) Thread.Sleep(DelayMs);
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(v.bytes) });
+                }
             }
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
         }
@@ -73,13 +78,19 @@ public static partial class Scenarios
         var (gh, dir) = ToolsWorld();
         try
         {
+            gh.DelayMs = 60;
             var tools = new DownloadTools(dir, clock, gh);
             var fetched = new List<List<string>>();
             bool sawFetching = false;
+            // looked at as the island would, while they download (read only when the UI caught up, a fast machine
+            // could finish the whole batch in between, and the check failed on GitHub's build machine)
             tools.Changed += () => sawFetching |= tools.Fetching != null;
+            var probe = new Thread(() => { for (int k = 0; k < 2000 && !sawFetching; k++) { sawFetching |= tools.Fetching != null; Thread.Sleep(1); } }) { IsBackground = true };
+            probe.Start();
             tools.Fetched += got => fetched.Add(got.Select(g => $"{g.name} {g.version} {(g.update ? "updated" : "new")}").ToList());
             True(!tools.Ready, "nothing at first");
             True(Wait(tools.CheckAsync(true)), $"all fetched ({tools.Status})");
+            probe.Join(3000);
             clock.Advance(0.05);
             Eq(1, fetched.Count, "one notice for the whole batch, not one per tool covering the next one's progress");
             Eq(3, fetched[0].Count(f => f.EndsWith(" new")), "naming all three: " + string.Join(", ", fetched[0]));
