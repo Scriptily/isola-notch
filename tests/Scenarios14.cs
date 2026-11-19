@@ -882,6 +882,13 @@ public static partial class Scenarios
         u.Up(192, 196); Frame();
         u.Move(192, 4); u.Down(192, 4); u.Up(192, 4);
         True(target < 1, $"a press at the top of the track: back to the start ({target:0})");
+        // the thumb is 64 tall at the top (4..68): grabbed low on it, nothing moves until the pointer does
+        Frame();
+        u.Move(192, 60); u.Down(192, 60); Frame();
+        True(target < 1, $"grabbed on the thumb: the list stays put ({target:0})");
+        u.Move(192, 92); Frame();
+        True(Math.Abs(target - 100) < 2, $"then follows the pointer from there: 32 px along the 128 px of free track is 100 px of the 400 ({target:0})");
+        u.Up(192, 92);
     }
 
     [Scenario("opening onto a tall tab settles at its height without swelling past it more than a few pixels")]

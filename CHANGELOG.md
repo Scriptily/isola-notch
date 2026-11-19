@@ -26,9 +26,8 @@ release notes.
 - A download, timer, update or tool download in progress also shows when you
   hover over the island or open it, not only in the pill.
 - A soft sound for notices: fully charged, on battery, a display or sound
-  output change, updates and the download tools. It's quieter than the other
-  sounds, and has its own switch and choice of four tones in Settings ->
-  Notifications & Sounds.
+  output change, updates and the download tools, with its own switch and
+  choice of four tones in Settings -> Notifications & Sounds.
 
 ### Changed
 

@@ -39,6 +39,8 @@ public static class Paint
     /// </summary>
     /// <param name="set">moves the list (the bar is dragged, or its track pressed); null for a bar only to look at</param>
     /// <param name="springKey">the list's scroll spring, put straight where the bar is dragged so the list keeps up</param>
+    static string grabbing; static float grabAt;
+
     public static void ScrollBar(Canvas c, Ux ux, string id, Box view, float scroll, float target, float content, float t, Action<float> set = null, string springKey = null)
     {
         if (!Scrolls(content, view.H)) return;
@@ -57,12 +59,16 @@ public static class Paint
             // island from reading a drag on the bar as a drag on itself (which moved the island)
             var lane = new Box(view.Right - 16, view.Y, 16, view.H);
             var z = ux.Add(zid, lane, null, 6, CursorKind.Arrow);
-            float max = content - view.H, l = len, tr = track, top = view.Y + 4;
+            float max = content - view.H, l = len, tr = track, top = view.Y + 4, thumbTop = view.Y + 4 + pos;
             z.Drag = (x, y, fin) =>
             {
-                float v = Math.Clamp((y - top - l / 2) / Math.Max(1, tr - l), 0, 1) * max;
+                // the press: on the thumb it holds where it was grabbed (it jumped to center the thumb on the
+                // pointer); on the track the thumb's middle goes there
+                if (grabbing != zid) { grabbing = zid; grabAt = y >= thumbTop && y <= thumbTop + l ? y - thumbTop : l / 2; }
+                float v = Math.Clamp((y - top - grabAt) / Math.Max(1, tr - l), 0, 1) * max;
                 set(v);
                 if (springKey != null) ux.Snap(springKey, v);
+                if (fin) grabbing = null;
             };
         }
         var bar = new Box(view.Right - 4 - w, view.Y + 4 + pos, w, len);

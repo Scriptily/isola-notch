@@ -476,9 +476,7 @@ public static class Sounds
         var t = Draw(kind, variant);
         double loud = Loudness(t.L, t.R), peak = 0;
         for (int i = 0; i < t.N; i++) peak = Math.Max(peak, Math.Max(Math.Abs(t.L[i]), Math.Abs(t.R[i])));
-        // notices (a status, nothing to answer) sit 5 dB under the rest: there, not calling for attention
-        double target = TargetLoudness - (kind == Notice ? 5 : 0);
-        double gain = peak > 0 ? Math.Min(Math.Pow(10, (target - loud) / 20), Ceiling / peak) : 0;
+        double gain = peak > 0 ? Math.Min(Math.Pow(10, (TargetLoudness - loud) / 20), Ceiling / peak) : 0;
         var s = new short[t.N * 2];
         for (int i = 0; i < t.N; i++)
         {

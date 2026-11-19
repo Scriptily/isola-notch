@@ -1231,7 +1231,10 @@ public sealed partial class Island : ITouchTarget
 
             // content
             c.Push(clip, vis);
-            var area = box;
+            // laid out at the size the island is heading for, and revealed by its shape as it grows: laid out
+            // at the moving size, Home's tiles re-flowed (and re-measured their text) every frame of the
+            // animation, which hitched, and a list too tall for the half-grown island showed a scroll bar
+            var area = new Box(box.CX - (float)W.Target / 2, box.Y, (float)W.Target, (float)H.Target);
             float t = (float)xfade.Value;
             if (prevPage != null)
             {

@@ -215,46 +215,64 @@ public sealed partial class DashboardPage : Page
         // ---- tab strip --------------------------------------------------
         // Every tab's width is a spring: the chosen tab grows to show its label
         // while the others glide aside, instead of being shoved in one frame.
+        // Recent isn't in the row: the bell beside settings opens it, where a bell is expected.
         float stripY = a.Y + 14, stripH = 32;
         const float iconW = 38, gap = 4;
-        var targetW = tl.Select((tb, idx) => idx == isl.Tab ? iconW + c.Measure(tb.Label, 12.5f, FontWeight.SemiBold).w + 14 : iconW).ToArray();
-        var animW = tl.Select((tb, idx) => ux.Anim("tabw:" + tb.Id, targetW[idx], SpringSpec.Snappy, 0.05)).ToArray();
-        float tTotal = targetW.Sum() + (tl.Count - 1) * gap, aTotal = animW.Sum() + (tl.Count - 1) * gap;
-        float tx0 = a.CX - tTotal / 2 + 18, ax0 = a.CX - aTotal / 2 + 18;
+        var row = Enumerable.Range(0, tl.Count).Where(k => tl[k].Id != "recent").ToList();
+        int recentIdx = tl.FindIndex(tb => tb.Id == "recent");
+        bool onRow = row.Contains(isl.Tab);
+        // the label ends as far from the tab's edge as the icon starts from the other (it had 18 to the icon's 11)
+        float LabelW(TabDef tb) => c.Measure(tb.Label, 12.5f, FontWeight.SemiBold).w + 8;
+        var animW = row.Select(k => ux.Anim("tabw:" + tl[k].Id, k == isl.Tab ? iconW + LabelW(tl[k]) : iconW, SpringSpec.Snappy, 0.05)).ToArray();
+        float aTotal = animW.Sum() + (row.Count - 1) * gap;
+        int sel = row.IndexOf(isl.Tab);
+        // centered between search on the left and the bell and settings on the right
+        float laneL = a.X + 56, laneR = a.Right - 56 - (recentIdx >= 0 ? 38 : 0);
+        var lane = new Box(laneL, stripY - 2, laneR - laneL, stripH + 4);
+        float ax0 = lane.X + (lane.W - aTotal) / 2;
         // too many tabs for the width (a narrow screen, more tabs): the strip scrolls sideways between the
-        // search and settings buttons, keeping the chosen tab in view, its edges fading where more are hidden
-        var lane = new Box(a.X + 56, stripY - 2, a.W - 112, stripH + 4);
+        // buttons, keeping the chosen tab in view, its edges fading where more are hidden
         bool overflow = aTotal > lane.W;
         float stripOff = 0;
         if (overflow)
         {
-            float selStart = animW.Take(isl.Tab).Sum() + isl.Tab * gap;
-            stripOff = ux.Anim("tab:strip", StripOffset(aTotal, lane.W, selStart, animW[isl.Tab]), SpringSpec.Smooth);
+            float selStart = sel >= 0 ? animW.Take(sel).Sum() + sel * gap : 0;
+            stripOff = ux.Anim("tab:strip", StripOffset(aTotal, lane.W, selStart, sel >= 0 ? animW[sel] : 0), SpringSpec.Smooth);
             ax0 = lane.X - stripOff;
         }
-        // search on the left, settings on the right
+        // search on the left; the bell (Recent) and settings on the right
         ux.IconButton("dash:search", a.X + 34, stripY + stripH / 2, 32, Glyph.Search, () => isl.OpenSearch(), null, 14, isl.Cfg.Search);
         ux.IconButton("dash:settings", a.Right - 34, stripY + stripH / 2, 32, Glyph.Settings, () => isl.Host.OpenSettings(), null, 14);
-        // the selection pill chases the chosen tab's live position, so pill and
-        // label travel together instead of the pill arriving first
-        float selX = ax0 + animW.Take(isl.Tab).Sum() + isl.Tab * gap;
-        float sx = ux.Anim("tab:selx", selX, SpringSpec.Snappy), sw = ux.Anim("tab:selw", animW[isl.Tab], SpringSpec.Snappy);
-        if (overflow) c.FadeClipX(lane, Math.Clamp(stripOff / 12, 0, 1), Math.Clamp((aTotal - lane.W - stripOff) / 12, 0, 1), 20);
-        c.Fill(new Box(sx, stripY, sw, stripH), Col.White.A(0.13f * t), stripH / 2);
-        float x = ax0;
-        for (int k = 0; k < tl.Count; k++)
+        if (recentIdx >= 0)
         {
+            bool onRecent = isl.Tab == recentIdx;
+            // a lit circle behind it while Recent is open, as the chosen tab has its pill
+            float lit = ux.Anim("dash:recent:on", onRecent ? 1 : 0, SpringSpec.Snappy);
+            if (lit > 0.01f) c.Circle(a.Right - 72, stripY + stripH / 2, 16, Col.White.A(0.13f * lit * t));
+            ux.IconButton("dash:recent", a.Right - 72, stripY + stripH / 2, 32, Glyph.Bell, () => Select(recentIdx), null, 14);
+        }
+        // the selection pill chases the chosen tab's live position, so pill and
+        // label travel together instead of the pill arriving first (none while Recent is open)
+        float selX = sel >= 0 ? ax0 + animW.Take(sel).Sum() + sel * gap : ax0;
+        float sx = ux.Anim("tab:selx", selX, SpringSpec.Snappy), sw = ux.Anim("tab:selw", sel >= 0 ? animW[sel] : 0, SpringSpec.Snappy);
+        float pillA = ux.Anim("tab:pill", onRow ? 1 : 0, SpringSpec.Snappy);
+        if (overflow) c.FadeClipX(lane, Math.Clamp(stripOff / 12, 0, 1), Math.Clamp((aTotal - lane.W - stripOff) / 12, 0, 1), 20);
+        if (pillA > 0.01f) c.Fill(new Box(sx, stripY, sw, stripH), Col.White.A(0.13f * t * pillA), stripH / 2);
+        float x = ax0;
+        for (int j = 0; j < row.Count; j++)
+        {
+            int k = row[j];
             var tb = tl[k]; int idx = k;
-            var b = new Box(x, stripY, animW[k], stripH);
-            x += animW[k] + gap;
+            var b = new Box(x, stripY, animW[j], stripH);
+            x += animW[j] + gap;
             ux.Add("tab:" + tb.Id, b, () => Select(idx), stripH / 2);
             float h = ux.HoverT("tab:" + tb.Id), p = ux.PressT("tab:" + tb.Id);
-            bool sel = k == isl.Tab;
-            if (!sel && h > 0.01f) c.Fill(b, Col.White.A(0.07f * h * t), stripH / 2);
+            bool isSel = k == isl.Tab;
+            if (!isSel && h > 0.01f) c.Fill(b, Col.White.A(0.07f * h * t), stripH / 2);
             float s = 1 - 0.03f * p;
-            c.Icon(tb.Glyph, b.X + iconW / 2, b.CY, 15 * s, Col.White.A((sel ? 1f : 0.55f + 0.35f * h) * t));
+            c.Icon(tb.Glyph, b.X + iconW / 2, b.CY, 15 * s, Col.White.A((isSel ? 1f : 0.55f + 0.35f * h) * t));
             // the label fades in as its tab opens up (and out as it closes)
-            float open = Math.Clamp((animW[k] - iconW) / Math.Max(1, c.Measure(tb.Label, 12.5f, FontWeight.SemiBold).w + 14), 0, 1);
+            float open = Math.Clamp((animW[j] - iconW) / Math.Max(1, LabelW(tb)), 0, 1);
             if (open > 0.02f)
             {
                 c.ClipRect(b);

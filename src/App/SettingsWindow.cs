@@ -667,7 +667,7 @@ public sealed unsafe partial class SettingsWindow
         Tone(L, "tone:d", "Devices connecting", Sounds.Connect, work.DeviceTone, v => work.DeviceTone = v);
         Tone(L, "tone:g", "Charger plugged in", Sounds.Charge, work.ChargeTone, v => work.ChargeTone = v);
         Tone(L, "tone:l", "Low battery", Sounds.Low, work.LowTone, v => work.LowTone = v);
-        Toggle(L, "sndnotice", "Sounds for notices", "Fully charged, displays, sound output, updates and downloads, quieter than the rest", work.NoticeSound, v => work.NoticeSound = v);
+        Toggle(L, "sndnotice", "Sounds for notices", "Fully charged, displays, sound output, updates and downloads", work.NoticeSound, v => work.NoticeSound = v);
         Tone(L, "tone:i", "Notice sound", Sounds.Notice, work.NoticeTone, v => work.NoticeTone = v);
         L.End();
         L.Note("Picking a sound plays it; pick it again to hear it again.");
