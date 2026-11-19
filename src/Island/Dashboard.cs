@@ -980,7 +980,7 @@ public sealed partial class DashboardPage : Page
             Empty(c, msg, '\uE896', isl.DragHover ? "Drop to keep it here" : "Your shelf is empty",
                 "Drag files, highlighted text, links or images onto the island to keep them here while you work - separate from the clipboard, and kept until you remove them.", t);
             // as wide as its icon and words, evenly padded (a fixed width left room on the right)
-            float pw = 26 + c.Measure("Keep what's on the clipboard", 12.5f, FontWeight.SemiBold).w + 14;
+            float pw = 26 + c.Measure("Keep what's on the clipboard", 12.5f, FontWeight.SemiBold).w + 10;   // 10 after the words, as before the icon
             ux.Pill("shelf:paste", Box.Centered(p.CX, p.Bottom - 22, pw, 30), "Keep what's on the clipboard", Paste, Col.White, Glyph.Clipboard);
             return;
         }
