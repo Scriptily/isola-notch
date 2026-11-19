@@ -84,6 +84,11 @@ its cover and a waveform. Open it for the cover, seek, skip, shuffle and
 repeat. The glow along the bottom takes its colors from the cover and changes
 with every track.
 
+The waveform follows that app's own sound, not everything your speakers play.
+When two apps play at once, the island shows the one you can hear, so music
+turned down to nothing in the background won't take over from a video you're
+watching.
+
 ### Downloads and conversion
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/downloads-dark.webp"><img src="assets/readme/downloads-light.webp" alt="A YouTube link pasted into the Shelf, its progress in the pill, then Downloaded" width="690"></picture></p>

@@ -25,15 +25,69 @@ public sealed partial class MediaService : IMediaSourceEx
     string pinned;          // user picked a session explicitly
     readonly Dictionary<string, Action> unhook = new();
     long recheck;
-    public MediaInfo Current { get; private set; }
+    public MediaInfo Current { get; internal set; }
     public IReadOnlyList<MediaInfo> Sessions => infos.Values.ToList();
     public double LastPlayingAt { get; private set; } = -1e9;
     public event Action Changed;
     public event Action<MediaInfo, MediaInfo> TrackChanged;
     public Func<IReadOnlyCollection<string>> Ignored = () => Array.Empty<string>();
-    public float Level => audio?.Peak ?? 0;
+    /// <summary>
+    /// The level the visualizer and glow follow: the shown app's own sound, not the whole output's. With
+    /// Spotify playing at 0% under a video, Spotify's visualizer moved with the video. When Isola can't tell
+    /// which audio sessions are the app's, it falls back to the output. Smoothed: fast attack, slow release.
+    /// </summary>
+    public float Level
+    {
+        get
+        {
+            var m = Current;
+            float p = LevelFrom(m == null ? null : AppPeak(m), OutputPeak());
+            level = p > level ? p : level * 0.82f + p * 0.18f;
+            return level;
+        }
+    }
+    float level;
+    internal static float LevelFrom(float? app, float output) => app ?? output;
 
-    public MediaService(IClock c, AudioService a) { clock = c; audio = a; }
+    /// <summary>An app's own sound level right now, or null when its audio sessions can't be told apart (tests replace it).</summary>
+    public Func<MediaInfo, float?> AppPeak;
+    /// <summary>The whole output's level right now (tests replace it).</summary>
+    public Func<float> OutputPeak;
+
+    // ---- which playing apps can be heard: one playing at 0% mustn't take the island from one you're listening to ----
+    readonly Dictionary<string, double> heardAt = new();
+    string heardSet = "";
+    long heardTimer;
+    /// <summary>An app counts as heard for this long after its sound last rose above silence (quiet passages don't count as stopping).</summary>
+    internal const double HeardFor = 3;
+    const float Silence = 0.002f;
+
+    bool? Heard(MediaInfo i)
+    {
+        if (AppPeak(i) == null) return null;   // can't tell
+        return heardAt.TryGetValue(i.SessionId, out var t) && clock.Now - t < HeardFor;
+    }
+
+    /// <summary>While two or more apps play, checks four times a second which of them can be heard, and re-picks when that changes.</summary>
+    void WatchHeard()
+    {
+        heardTimer = Ui.After(0.25, WatchHeard);
+        var playing = infos.Values.Where(i => i.Playing).ToList();
+        if (playing.Count < 2) { heardSet = ""; return; }
+        audio?.RefreshAppMeters(clock.Now);
+        double now = clock.Now;
+        foreach (var i in playing) if (AppPeak(i) is float p && p > Silence) heardAt[i.SessionId] = now;
+        string set = string.Join("|", playing.Where(i => Heard(i) == true).Select(i => i.SessionId).OrderBy(x => x));
+        if (set != heardSet) { heardSet = set; Log.D("media", "heard: " + (set.Length > 0 ? set : "none")); Choose(); }
+    }
+
+
+    public MediaService(IClock c, AudioService a)
+    {
+        clock = c; audio = a;
+        AppPeak = m => audio?.AppPeak(m.SessionId, m.AppName);
+        OutputPeak = () => audio?.PeakNow() ?? 0;
+    }
 
     public async Task StartAsync()
     {
@@ -43,6 +97,7 @@ public sealed partial class MediaService : IMediaSourceEx
             mgr.SessionsChanged += (_, _) => Ui.Post(Resync);
             mgr.CurrentSessionChanged += (_, _) => Ui.Post(Resync);
             Ui.Post(Resync);
+            Ui.Post(() => { audio?.RefreshAppMeters(clock.Now); WatchHeard(); });
             Log.I("media", "media session manager ready");
         }
         catch (Exception ex) { Log.E("media", "media sessions unavailable; Now Playing disabled", ex); }
@@ -205,7 +260,7 @@ public sealed partial class MediaService : IMediaSourceEx
     void Choose()
     {
         var ignored = Ignored();
-        var (pick, recheckAt) = Pick(Current, infos.Values.ToList(), pinned, SafeCurrentId(), i => IsIgnored(i, ignored), clock.Now);
+        var (pick, recheckAt) = Pick(Current, infos.Values.ToList(), pinned, SafeCurrentId(), i => IsIgnored(i, ignored), clock.Now, Heard);
         Ui.Cancel(ref recheck);
         if (!double.IsNaN(recheckAt)) recheck = Ui.After(Math.Max(0.05, recheckAt - clock.Now + 0.02), Choose);
         if (!ReferenceEquals(pick, Current))
@@ -224,6 +279,9 @@ public sealed partial class MediaService : IMediaSourceEx
     /// <summary>
     /// Which session to show: one the user picked; else whatever is playing
     /// (Windows' "current" is often a paused tab); else Windows' current.
+    /// Among those playing, one that can be heard comes first: Windows makes
+    /// a session "current" when its track changes, so Spotify playing at 0%
+    /// took the island from the video being watched at every new song.
     ///
     /// A session that has only just started playing doesn't take over from the
     /// one on screen until it has kept playing a moment (longer if it's only a
@@ -234,12 +292,17 @@ public sealed partial class MediaService : IMediaSourceEx
     /// newcomer is waiting, when to look again (NaN otherwise).
     /// </summary>
     internal static (MediaInfo pick, double recheckAt) Pick(MediaInfo current, IReadOnlyList<MediaInfo> all, string pinned,
-        string windowsCurrent, Func<MediaInfo, bool> ignored, double now)
+        string windowsCurrent, Func<MediaInfo, bool> ignored, double now, Func<MediaInfo, bool?> heard = null)
     {
+        heard ??= _ => null;
         MediaInfo want = null;
         if (pinned != null) want = all.FirstOrDefault(i => i.SessionId == pinned);
-        want ??= all.FirstOrDefault(i => i.Playing && !ignored(i) && !string.IsNullOrEmpty(i.Title) && i.SessionId == windowsCurrent);
-        want ??= all.FirstOrDefault(i => i.Playing && !ignored(i) && !string.IsNullOrEmpty(i.Title));
+        bool Plays(MediaInfo i) => i.Playing && !ignored(i) && !string.IsNullOrEmpty(i.Title);
+        foreach (bool? rank in new bool?[] { true, null, false })   // heard, can't tell, silent
+        {
+            want ??= all.FirstOrDefault(i => Plays(i) && heard(i) == rank && i.SessionId == windowsCurrent);
+            want ??= all.FirstOrDefault(i => Plays(i) && heard(i) == rank);
+        }
         if (want == null)
         {
             var c = all.FirstOrDefault(i => i.SessionId == windowsCurrent);
@@ -247,6 +310,9 @@ public sealed partial class MediaService : IMediaSourceEx
         }
         want ??= all.FirstOrDefault(i => !ignored(i) && !string.IsNullOrEmpty(i.Title));
         bool currentAlive = current != null && all.Contains(current) && !ignored(current);
+        // two apps both silent for a moment (a quiet scene): no reason to flip between them
+        if (currentAlive && Plays(current) && want != null && !ReferenceEquals(want, current) && want.SessionId != pinned && heard(want) == false && heard(current) == false)
+            return (current, double.NaN);
         if (currentAlive && want != null && !ReferenceEquals(want, current) && want.SessionId != pinned && want.Playing)
         {
             double settle = want.IsPlaceholder && !current.IsPlaceholder ? PlaceholderSettle : Settle;

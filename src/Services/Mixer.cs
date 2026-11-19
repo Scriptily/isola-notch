@@ -175,6 +175,11 @@ public sealed partial class AudioService
 
     (string, string) ProcName(uint pid)
     {
+        lock (procCache) return ProcNameLocked(pid);   // the mixer and the app meters both read it on workers
+    }
+
+    (string, string) ProcNameLocked(uint pid)
+    {
         if (procCache.TryGetValue(pid, out var c)) return c;
         string exe = Native.Win32.ProcessPath(pid) ?? "", name = "";
         try { if (exe.Length > 0) name = FileVersionInfo.GetVersionInfo(exe).FileDescription; } catch { }

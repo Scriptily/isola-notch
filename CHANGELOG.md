@@ -33,6 +33,10 @@ release notes.
 - Sliders couldn't be dragged with a finger.
 - Tooltips in Settings never appeared. Now the first one shows after a short
   pause, and the next ones show right away.
+- With two apps playing, a song changing in one you couldn't hear (Spotify at
+  0% under a YouTube video) took over the island. The island now shows the
+  app you can hear, and its waveform follows that app's sound instead of
+  everything the speakers play.
 
 ## [1.5.2] - 2026-11-18
 

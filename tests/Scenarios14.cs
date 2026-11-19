@@ -1,6 +1,7 @@
 using Isola.App;
 using Isola.Island;
 using Isola.Render;
+using Isola.Services;
 using Box = Isola.Render.Box;
 
 namespace Isola.Tests;
@@ -201,5 +202,56 @@ public static partial class Scenarios
         int rest = Width();
         float ratio = pressed / (float)rest;
         True(Math.Abs(ratio - 0.97f) < 0.006f, $"pressed {pressed} px, at rest {rest} px: {ratio:0.000}");
+    }
+
+    // ---- two players at once -------------------------------------------------------------------
+
+    static MediaInfo Playing(string app, string id, double since = 0) => new() { AppName = app, SessionId = id, Title = app + " track", Playing = true, PlayingSince = since };
+
+    [Scenario("with two apps playing, the island shows the one you can hear: Spotify at 0% under a video doesn't take over when its song changes")]
+    public static void TwoPlayersShowTheHeardOne()
+    {
+        var spotify = Playing("Spotify", "Spotify.exe"); var chrome = Playing("Chrome", "Chrome");
+        var all = new List<MediaInfo> { spotify, chrome };
+        Func<MediaInfo, bool> none = _ => false;
+        Func<MediaInfo, bool?> heard = i => i == chrome;   // the video is loud, Spotify is silent
+        // Windows makes Spotify "current" when its track changes
+        Eq("Chrome", MediaService.Pick(chrome, all, null, "Spotify.exe", none, 100, heard).pick.AppName, "the video stays on the island");
+        Eq("Chrome", MediaService.Pick(spotify, all, null, "Spotify.exe", none, 100, heard).pick.AppName, "and takes it back from a silent Spotify");
+        Eq("Spotify", MediaService.Pick(spotify, all, null, "Chrome", none, 100, i => i == spotify).pick.AppName, "Spotify up, the video muted: Spotify");
+        Eq("Chrome", MediaService.Pick(chrome, all, null, "Spotify.exe", none, 100, _ => false).pick.AppName, "both quiet for a moment: no flip");
+        chrome.Playing = false;
+        Eq("Spotify", MediaService.Pick(chrome, all, null, "Spotify.exe", none, 100, heard).pick.AppName, "pause the video: Spotify, silent or not, is what's playing");
+        chrome.Playing = true;
+        Eq("Spotify", MediaService.Pick(chrome, all, "Spotify.exe", "Chrome", none, 100, heard).pick.AppName, "picking one by hand still wins");
+    }
+
+    [Scenario("the visualizer follows the shown app's own sound, not everything the speakers play")]
+    public static void VisualizerFollowsTheShownApp()
+    {
+        var clock = new FakeClock();
+        var spotify = Playing("Spotify", "Spotify.exe"); var chrome = Playing("Chrome", "Chrome");
+        var ms = new MediaService(clock, null) { AppPeak = m => m == spotify ? 0f : 0.8f, OutputPeak = () => 0.9f };
+        ms.Current = chrome;
+        float l = 0; for (int i = 0; i < 30; i++) l = ms.Level;
+        True(Math.Abs(l - 0.8f) < 0.01f, $"the video's own level ({l:0.00})");
+        ms.Current = spotify;
+        for (int i = 0; i < 60; i++) l = ms.Level;
+        True(l < 0.01f, $"Spotify at 0% shows silence while the video plays loud ({l:0.00})");
+        ms.AppPeak = _ => null;
+        for (int i = 0; i < 30; i++) l = ms.Level;
+        True(Math.Abs(l - 0.9f) < 0.01f, $"an app whose sessions can't be told apart follows the output, as before ({l:0.00})");
+    }
+
+    [Scenario("a media session finds its app's audio sessions by exe, registered name or Store package")]
+    public static void MediaAppsMatchTheirAudio()
+    {
+        True(AudioService.AppMatches("Spotify.exe", "Spotify", @"C:\Users\a\AppData\Roaming\Spotify\Spotify.exe", "Spotify"), "Spotify (desktop)");
+        True(AudioService.AppMatches("SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify", "Spotify", @"C:\Program Files\WindowsApps\SpotifyAB.SpotifyMusic_1.2_x64__zpdnekdrzrea0\Spotify.exe", "Spotify"), "Spotify (Store)");
+        True(AudioService.AppMatches("Chrome", "Chrome", @"C:\Program Files\Google\Chrome\Application\chrome.exe", "Google Chrome"), "Chrome");
+        True(AudioService.AppMatches("MSEdge", "Edge", @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe", "Microsoft Edge"), "Edge");
+        True(AudioService.AppMatches("308046B0AF4A39CB", "Firefox", @"C:\Program Files\Mozilla Firefox\firefox.exe", "Firefox"), "Firefox, by name");
+        True(!AudioService.AppMatches("Chrome", "Chrome", @"C:\Users\a\AppData\Roaming\Spotify\Spotify.exe", "Spotify"), "Chrome isn't Spotify");
+        True(!AudioService.AppMatches("Spotify.exe", "Spotify", @"C:\Program Files\Google\Chrome\Application\chrome.exe", "Google Chrome"), "nor the other way round");
     }
 }
