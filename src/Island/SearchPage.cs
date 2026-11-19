@@ -252,7 +252,7 @@ public sealed class SearchPage : Page
         {
             // more than fit: the wheel scrolls, and a thin bar shows where you are
             var view = new Box(a.X + 14, y, listW, Visible * 46);
-            ux.Add("sr:scroll", view, null, 0, CursorKind.Arrow).Wheel = (d, hz) => { top = Math.Clamp(top - Math.Sign(d) * 2, 0, Math.Max(0, items.Count - isl.Cfg.SearchResults)); sel = Math.Clamp(sel, top, top + isl.Cfg.SearchResults - 1); isl.Host.RequestFrame(); };
+            var srScroll = ux.Add("sr:scroll", view, null, 0, CursorKind.Arrow); srScroll.Notched = true; srScroll.ScrollPx = 80; srScroll.Wheel = (d, hz) => { top = Math.Clamp(top - Math.Sign(d) * 2, 0, Math.Max(0, items.Count - isl.Cfg.SearchResults)); sel = Math.Clamp(sel, top, top + isl.Cfg.SearchResults - 1); isl.Host.RequestFrame(); };
             float frac = (float)isl.Cfg.SearchResults / items.Count, pos = (float)top / Math.Max(1, items.Count - isl.Cfg.SearchResults);
             float barH = Math.Max(24, view.H * frac);
             c.Fill(new Box(view.Right + 4, view.Y + (view.H - barH) * pos, 3, barH), Col.White.A(0.25f * t), 1.5f);

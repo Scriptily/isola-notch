@@ -138,7 +138,8 @@ public sealed unsafe partial class SettingsWindow
         if (!Alive || !Win32.IsWindowVisible(hwnd)) return double.PositiveInfinity;
         if (dirty || ux.Step(0)) return 0.002;   // poll the vsync waitable while animating
         if (loaderShown) return Math.Max(0, lastFrame + 1 / 30.0 - Ui.Clock.Now);   // a spinner or skeleton turns at 30 fps
-        return focusField != null ? Math.Max(0, lastFrame + 0.5 - Ui.Clock.Now) : double.PositiveInfinity;
+        double tip = ux.TipDue - Ui.Clock.Now;   // a tooltip waiting to show draws without the mouse moving
+        return Math.Max(0, Math.Min(tip, focusField != null ? lastFrame + 0.5 - Ui.Clock.Now : double.PositiveInfinity));
     }
 
     double lastStep;
@@ -202,6 +203,10 @@ public sealed unsafe partial class SettingsWindow
             case Win32.WM_MOUSELEAVE: ux.Leave(); dirty = true; return 0;
             case Win32.WM_LBUTTONDOWN: Win32.SetCapture(hwnd); if (!ux.Down(X(), Y())) { focusField = null; } dirty = true; return 0;
             case Win32.WM_LBUTTONUP: Win32.ReleaseCapture(); ux.Up(X(), Y()); dirty = true; return 0;
+            case Win32.WM_POINTERDOWN:
+            case Win32.WM_POINTERUPDATE:
+            case Win32.WM_POINTERUP:
+                return TouchPointer(m, w) ? 0 : null;
             case Win32.WM_MOUSEWHEEL:
             {
                 helpOpen = null;
@@ -232,6 +237,53 @@ public sealed unsafe partial class SettingsWindow
         }
         return null;
     }
+
+    // ---- a finger: taps press, sideways on a slider drags it, up and down scrolls the page ----
+    uint touchId; float touchX0, touchY0; int touchKind;   // 0 undecided, 1 dragging a control, 2 scrolling
+    readonly PagePan pan = new();
+
+    /// <summary>
+    /// Touch and pen, handled here instead of as Windows' stand-in mouse: dragged as a mouse, a finger
+    /// selected nothing and the page couldn't be scrolled, and the hover highlight stayed where it lifted.
+    /// </summary>
+    bool TouchPointer(uint m, nint w)
+    {
+        uint id = (uint)(w & 0xFFFF);
+        if (!Win32.GetPointerInfo(id, out var pi) || pi.pointerType == Win32.PT_MOUSE) return false;
+        var p = pi.ptPixelLocation; Win32.ScreenToClient(hwnd, ref p);
+        float x = p.X / scale, y = p.Y / scale;
+        double now = Ui.Clock.Now;
+        switch (m)
+        {
+            case Win32.WM_POINTERDOWN:
+                touchId = id; touchX0 = x; touchY0 = y; touchKind = 0;
+                ux.Slop = TouchInput.Slop; ux.Move(x, y);
+                if (!ux.Down(x, y)) focusField = null;
+                if (ux.Dragging != null) touchKind = 1;   // a slider took it
+                break;
+            case Win32.WM_POINTERUPDATE:
+                if (id != touchId) break;
+                if (touchKind == 0 && Math.Abs(x - touchX0) + Math.Abs(y - touchY0) > TouchInput.Decide)
+                {
+                    bool vertical = Math.Abs(y - touchY0) > Math.Abs(x - touchX0);
+                    if (!vertical && ux.PressedZone?.Drag != null) touchKind = 1;
+                    else { touchKind = 2; ux.CancelPress(); helpOpen = null; pan.Begin(scrollY, MaxScroll(), touchY0, now); }
+                }
+                if (touchKind == 1) ux.Move(x, y);
+                else if (touchKind == 2) { scrollTarget = pan.Move(y, now); ux.Snap("set:scroll", scrollTarget); }
+                break;
+            case Win32.WM_POINTERUP:
+                if (id != touchId) break;
+                if (touchKind == 2) { var (to, v) = pan.End(now); scrollTarget = to; ux.SetVelocity("set:scroll", v); }
+                else ux.Up(x, y);
+                ux.Slop = 0; ux.Leave(); touchId = 0;
+                break;
+        }
+        dirty = true;
+        return true;
+    }
+
+    float MaxScroll() { Win32.GetClientRect(hwnd, out var rc); return Math.Max(0, contentH - rc.Height / scale); }
 
     void Changed()
     {
@@ -327,6 +379,7 @@ public sealed unsafe partial class SettingsWindow
         contentH = measured;
         c.Unfade();
         HelpPopover(W, H);
+        TooltipLayer(W, H);
         ux.EndFrame();
     }
 
@@ -385,6 +438,29 @@ public sealed unsafe partial class SettingsWindow
         if (open) { helpAnchor = b; helpTitle = title; helpBody = body; }
     }
 
+    // ---- tooltips: the first waits 600 ms, the next ones along a row appear at once (see Ux.Tip) ----
+    string tipFor;
+    readonly string forcedTip = Environment.GetEnvironmentVariable("ISOLA_SETTINGS_TIP");   // screenshots
+
+    void TooltipLayer(float W, float H)
+    {
+        Ux.Zone z; bool animate;
+        if (forcedTip != null && ux.Find(forcedTip) is { Tooltip: { Length: > 0 } } f) { z = f; animate = false; }
+        else if (ux.Tip(Ui.Clock.Now) is { } t) (z, animate) = t;
+        else { tipFor = null; return; }
+        if (z.Id != tipFor) { tipFor = z.Id; ux.Forget("tip:in"); }
+        // the first one after a pause comes in from 97%; the rest just appear, as moving along a row does often
+        float appear = animate ? ux.AnimFrom("tip:in", 0, 1, SpringSpec.Content) : 1;
+        float w = canvas.Measure(z.Tooltip, 12, FontWeight.Medium).w + 18, h = 26;
+        float x = Math.Clamp(z.Box.CX - w / 2, 8, W - w - 8), y = z.Box.Bottom + 8;
+        if (y + h > H - 8) y = z.Box.Y - h - 8;
+        var b = new Box(x, y, w, h).Scale(0.97f + 0.03f * appear);
+        // a tooltip floats above the help popover, so it's a step lighter (depth in the dark comes from lightness)
+        canvas.Fill(b, Col.Hex(0x3a3a42, 0.98f * appear), 8);
+        canvas.Stroke(b, Col.White.A(0.12f * appear), 8, 1);
+        canvas.Text(z.Tooltip, b, 12, Col.White.A(0.92f * appear), FontWeight.Medium, HAlign.Center);
+    }
+
     void HelpPopover(float W, float H)
     {
         if (helpOpen == null || helpBody == null) return;
@@ -396,8 +472,8 @@ public sealed unsafe partial class SettingsWindow
         float x = Math.Clamp(helpAnchor.CX - 28, 230, W - cw - 16);
         float y = helpAnchor.Bottom + 8;
         if (y + ch > H - 12) y = helpAnchor.Y - 8 - ch;          // no room below: above
-        float appear = ux.Anim("help:in:" + helpOpen, 1, SpringSpec.Snappy);
-        var card = new Box(x, y + (1 - appear) * 6, cw, ch);
+        float appear = ux.AnimFrom("help:in:" + helpOpen, 0, 1, SpringSpec.Content);
+        var card = new Box(x, y, cw, ch).Scale(0.97f + 0.03f * appear);   // in from 97%, not from nothing
         canvas.DropShadow(18, Col.Black.A(0.45f * appear), 8, () => canvas.Fill(card, Col.Black, 12));
         canvas.Fill(card, Col.Hex(0x2a2a30, 0.98f * appear), 12);
         canvas.Stroke(card, Col.White.A(0.1f * appear), 12, 1);

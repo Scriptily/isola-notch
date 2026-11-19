@@ -1,0 +1,205 @@
+using Isola.App;
+using Isola.Island;
+using Isola.Render;
+using Box = Isola.Render.Box;
+
+namespace Isola.Tests;
+
+/// <summary>Touchscreens: what a finger does on the island and in Settings, and the motion that goes with it.</summary>
+public static partial class Scenarios
+{
+    /// <summary>Anything built from Ux zones, as a finger sees it, with a log of what reached it.</summary>
+    sealed class FakeTouchTarget : ITouchTarget
+    {
+        public readonly Ux Ux = new();
+        public Ux TouchUx => Ux;
+        public readonly List<string> Log = new();
+        public void MouseMove(float x, float y) => Ux.Move(x, y);
+        public void MouseDown(float x, float y) { if (!Ux.Down(x, y)) Log.Add("background down"); }
+        public void MouseUp(float x, float y) { if (!Ux.Up(x, y)) Log.Add("background up"); }
+        public void DragTo(float dx, float dy) => Log.Add($"tug {dy:0}");
+        public void DragEnd(float dx, float dy, float v) => Log.Add($"tug end {dy:0} at {v:0}");
+        public void Swipe(float dx, float dy) => Log.Add($"swipe {dx:0},{dy:0}");
+        public void TouchLifted() { Log.Add("lifted"); Ux.Leave(); }
+        public void Build(Action<Ux> zones) { Ux.BeginFrame(null); zones(Ux); Ux.EndFrame(); }
+    }
+
+    /// <summary>A finger from (x0, y0) to (x1, y1) in <paramref name="steps"/> moves, <paramref name="dt"/> apart.</summary>
+    static void Finger(TouchInput t, float x0, float y0, float x1, float y1, int steps = 6, double dt = 1 / 60.0, double t0 = 10)
+    {
+        t.Down(x0, y0, t0);
+        for (int i = 1; i <= steps; i++) t.Move(x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps, t0 + i * dt);
+        t.Up(x1, y1, t0 + steps * dt + 0.01);
+    }
+
+    [Scenario("a tap presses the control under it, and a fingertip just beside a control still presses it")]
+    public static void TouchTapsAndSlop()
+    {
+        var f = new FakeTouchTarget(); int taps = 0;
+        f.Build(u => u.Add("btn", new Box(100, 100, 30, 30), () => taps++));
+        var t = new TouchInput(f);
+        Finger(t, 115, 115, 115, 115, 0);
+        Eq(1, taps, "a tap on the button");
+        Finger(t, 137, 115, 137, 115, 0);   // 7 px right of its edge
+        Eq(2, taps, "a fingertip 7 px off its edge");
+        Finger(t, 160, 115, 160, 115, 0);   // 30 px off: that's not aiming at it
+        Eq(2, taps, "30 px away isn't a tap on it");
+        True(f.Ux.Slop == 0, "the slop is only for while a finger is down");
+        f.Ux.Move(137, 115);
+        True(f.Ux.HitTest(137, 115) == null, "a mouse 7 px off misses, as it always did");
+        True(f.Ux.Hot == null || f.Log.Contains("lifted"), "the finger leaves no hover behind");
+    }
+
+    [Scenario("a finger drags a slider sideways, scrolls a list up and down (1:1, a flick carries on), tugs the island's body and swipes")]
+    public static void TouchDragsScrollsTugsSwipes()
+    {
+        var f = new FakeTouchTarget();
+        float slider = -1; bool final = false; float scrolled = 0; int clicks = 0;
+        f.Build(u =>
+        {
+            u.Add("list", new Box(0, 200, 300, 200), null, 0).Wheel = (d, h) => scrolled += -d / 120f * 50;
+            u.Add("row", new Box(0, 220, 300, 40), () => clicks++);
+            var s = u.Add("vol", new Box(20, 100, 200, 20), null); s.Drag = (x, y, fin) => { slider = (x - 20) / 200; final |= fin; };
+        });
+        var t = new TouchInput(f);
+        t.Down(40, 110, 1); for (int i = 1; i <= 6; i++) t.Move(40 + 20 * i, 111, 1 + i / 60.0);
+        True(Math.Abs(slider - 0.7f) < 0.01f && !final, $"the slider follows the finger while it's down ({slider:0.00})");
+        t.Up(160, 111, 1.2);
+        True(final, "and is let go when the finger lifts");
+        // up 120 px over the list, starting on a row: the list scrolls, the row isn't clicked
+        t.Down(150, 380, 5); for (int i = 1; i <= 6; i++) t.Move(150, 380 - 20 * i, 5 + i * 0.05);
+        True(Math.Abs(scrolled - 120) < 1, $"the list follows the finger 1:1 ({scrolled:0})");
+        t.Up(150, 260, 5.31);
+        Eq(0, clicks, "starting on a row and scrolling doesn't click it");
+        scrolled = 0;
+        Finger(t, 150, 380, 150, 300, 4, 1 / 120.0);
+        True(scrolled > 80 + 100, $"a quick flick carries on past where the finger stopped ({scrolled:0} for 80 px)");
+        scrolled = 0;
+        t.Down(150, 380, 20); t.Move(150, 340, 20.02); t.Move(150, 300, 20.04); t.Up(150, 300, 20.3);
+        True(Math.Abs(scrolled - 80) < 1, $"a finger that stopped before lifting doesn't throw ({scrolled:0})");
+        // on the body (no control, no list): a vertical drag tugs, a sideways one swipes
+        f.Log.Clear();
+        Finger(t, 260, 40, 260, 100);
+        True(f.Log.Contains("tug 60") && f.Log.Any(l => l.StartsWith("tug end 60")), "a drag down the body tugs it: " + string.Join(", ", f.Log));
+        f.Log.Clear();
+        Finger(t, 260, 40, 180, 44);
+        True(f.Log.Contains("swipe -80,4"), "sideways is a swipe: " + string.Join(", ", f.Log));
+    }
+
+    [Scenario("search results scroll a step per 80 px of finger travel, as a wheel notch does")]
+    public static void TouchScrollsNotchedLists()
+    {
+        var f = new FakeTouchTarget(); int steps = 0;
+        f.Build(u => { var z = u.Add("sr", new Box(0, 0, 300, 400), null, 0); z.Notched = true; z.ScrollPx = 80; z.Wheel = (d, h) => steps += d < 0 ? 1 : -1; });
+        var t = new TouchInput(f);
+        t.Down(100, 350, 1); for (int i = 1; i <= 10; i++) t.Move(100, 350 - 25 * i, 1 + i * 0.05); t.Up(100, 100, 1.6);
+        Eq(3, steps, "250 px up is three steps down");
+    }
+
+    [Scenario("an island opened with a tap stays open (a lifted finger isn't the pointer leaving), then closes when left alone")]
+    public static void TouchKeepsTheIslandOpen()
+    {
+        var (isl, host, clock) = NewIsland();
+        Eq(Mode.Rest, isl.Mode, "at rest");
+        var t = new TouchInput(isl);
+        t.Down(450, 20, clock.Now); t.Up(450, 20, clock.Now + 0.08);
+        clock.Advance(0.5, isl);
+        Eq(Mode.Expanded, isl.Mode, "a tap opens it");
+        clock.Advance(3, isl);
+        Eq(Mode.Expanded, isl.Mode, "still open 3 s later, though no pointer is over it");
+        True(isl.Ux.TouchMode, "the island knows the last input was a finger");
+        clock.Advance(Island.Island.TouchIdleClose, isl);
+        Eq(Mode.Rest, isl.Mode, "left alone, it closes");
+    }
+
+    [Scenario("released from a tug, the island keeps the speed it was really moving at (the finger's, through the rubber band)")]
+    public static void TugReleaseKeepsItsSpeed()
+    {
+        var (isl, host, clock) = NewIsland();
+        isl.DragTo(0, 30);
+        isl.DragEnd(0, 30, 600);   // not far enough to open search
+        float want = 600 * Island.Island.RubberSlope(30, 140);
+        True(Math.Abs(isl.PullVelocity - want) < 1, $"starts at {want:0} DIP/s, got {isl.PullVelocity:0}");
+        True(isl.PullVelocity > 600 * 0.4 && isl.PullVelocity < 600, "more than the old 40% hand-off, less than the finger's own speed (it was banded)");
+    }
+
+    [Scenario("a page scrolled by finger follows 1:1, rubber-bands past its ends (never past 64 px) and flings at the finger's speed")]
+    public static void PagePanFollowsBandsAndFlings()
+    {
+        var p = new PagePan();
+        p.Begin(100, 500, 400, 0);
+        Eq(160f, p.Move(340, 0.05), "60 px up scrolls 60 px");
+        p.Begin(0, 500, 300, 1);
+        float band = p.Move(500, 1.2);   // pulled 200 px down at the top
+        True(band < 0 && band > -64, $"past the top it gives a little ({band:0.0})");
+        True(p.Move(1300, 1.4) > -64, "and never more than 64 px however far");
+        True(Math.Abs(p.Move(305, 1.5)) < 0.01f, "the first 12 px past an end don't move it at all");
+        p.Move(420, 1.6);
+        var (to, v) = p.End(1.8);
+        Eq(0f, to, "let go past the top, it settles at the top");
+        p.Begin(200, 500, 400, 2);
+        p.Move(380, 2.016); p.Move(360, 2.032);   // flicking up fast
+        (to, v) = p.End(2.04);
+        True(v > 600 && to > 240 + 100, $"a flick keeps going ({v:0} px/s, heading for {to:0})");
+        p.Begin(200, 500, 400, 3); p.Move(360, 3.05);
+        (to, v) = p.End(3.4);
+        True(v == 0 && to == 240, "stopped before lifting: it stays");
+    }
+
+    [Scenario("tooltips: the first waits 600 ms, the next ones along a row appear at once, and after a pause they wait again")]
+    public static void TooltipsWarmUp()
+    {
+        var u = new Ux();
+        u.BeginFrame(null);
+        u.Add("a", new Box(0, 0, 40, 40), () => { }).Tooltip = "Copy";
+        u.Add("b", new Box(50, 0, 40, 40), () => { }).Tooltip = "Open";
+        u.Add("c", new Box(100, 0, 40, 40), () => { });
+        u.EndFrame();
+        u.Move(20, 20);
+        True(u.Tip(0) == null, "not at once");
+        True(u.Tip(0.3) == null, "not at 300 ms");
+        True(Math.Abs(u.TipDue - 0.6) < 1e-9, "due at 600 ms, so the window wakes for it");
+        var t = u.Tip(0.61);
+        True(t?.zone.Id == "a" && t.Value.animate, "the first shows at 600 ms and animates in");
+        u.Move(70, 20);
+        t = u.Tip(0.7);
+        True(t?.zone.Id == "b" && !t.Value.animate, "the next one shows at once, without animating");
+        u.Move(120, 20); True(u.Tip(0.8) == null, "a control without a tip shows none");
+        u.Move(20, 20);
+        True(u.Tip(0.95)?.zone.Id == "a", "back within 300 ms: at once");
+        u.Move(500, 500); u.Tip(1.0);
+        u.Move(20, 20);
+        True(u.Tip(1.5) == null && u.Tip(1.8) == null && u.Tip(2.11) != null, "after a pause, the wait again");
+        u.Down(20, 20);
+        True(u.Tip(1.7) == null, "never while pressing");
+    }
+
+    [Scenario("the setup wizard slides forward pages in from the right and back pages in from the left")]
+    public static void WizardSlidesByDirection()
+    {
+        int[] order = { 0, 1, 2, 3 };
+        Eq(1, SetupWizard.SlideDir(order, 0, 1), "Next");
+        Eq(-1, SetupWizard.SlideDir(order, 1, 0), "Back");
+        Eq(0, SetupWizard.SlideDir(order, -1, 0), "the first page just appears");
+        Eq(1, SetupWizard.SlideDir(order, 5, 0), "from the replace-the-Store-copy page to Welcome is forward");
+    }
+
+    [Scenario("a press takes 3% off a control, whatever its size")]
+    public static void PressesShrinkThreePercent()
+    {
+        using var o = new Offscreen(440, 120);
+        var u = new Ux();
+        void Frame() { o.Draw(c => { u.BeginFrame(c); u.Pill("p", new Box(20, 40, 400, 30), "Go", () => { }, Col.White); u.EndFrame(); }); u.Step(1 / 60.0); }
+        Frame();
+        u.Move(220, 55); u.Down(220, 55);
+        for (int i = 0; i < 60; i++) Frame();
+        float p = u.PressT("p");
+        True(p > 0.99f, $"held long enough to settle ({p:0.00})");
+        int Width() { var col = o.AlphaRow(55); int n = 0; foreach (var a in col) if (a > 20) n++; return n; }
+        int pressed = Width();
+        u.Up(220, 55); for (int i = 0; i < 60; i++) Frame();
+        int rest = Width();
+        float ratio = pressed / (float)rest;
+        True(Math.Abs(ratio - 0.97f) < 0.006f, $"pressed {pressed} px, at rest {rest} px: {ratio:0.000}");
+    }
+}

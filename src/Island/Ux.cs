@@ -25,6 +25,11 @@ public sealed class Ux
         public CursorKind Cursor = CursorKind.Hand;
         public bool Horizontal;   // also takes sideways scrolling (otherwise that falls through to tab swiping)
         public string Tooltip;
+        /// <summary>How far one wheel notch (120) scrolls this zone, in DIPs: a finger scrolls it at the same rate.</summary>
+        public float ScrollPx = 50;
+        /// <summary>Scrolls by steps whatever the delta (search results): a finger sends a notch every ScrollPx.</summary>
+        public bool Notched;
+        internal float PanRest;
     }
 
     readonly List<Zone> building = new();
@@ -126,7 +131,10 @@ public sealed class Ux
     public float PressT(string id) => Anim("press:" + id, Pressed == id && Hot == id ? 1 : 0, SpringSpec.Press);
 
     // ---- input -------------------------------------------------------------
-    /// <summary>Topmost interactive zone under the point. Wheel-only zones (scroll areas) never take clicks.</summary>
+    /// <summary>
+    /// Topmost interactive zone under the point. Wheel-only zones (scroll areas) never take clicks. With
+    /// <see cref="Slop"/> set (a finger is down), a point just outside every control goes to the nearest one.
+    /// </summary>
     public Zone HitTest(float x, float y)
     {
         for (int i = live.Count - 1; i >= 0; i--)
@@ -135,8 +143,82 @@ public sealed class Ux
             if (z.Click == null && z.Drag == null && z.RightClick == null) continue;
             if (z.Box.Contains(x, y)) return z;
         }
+        if (Slop <= 0) return null;
+        Zone best = null; float bestD = Slop;
+        for (int i = live.Count - 1; i >= 0; i--)
+        {
+            var z = live[i];
+            if (z.Click == null && z.Drag == null) continue;
+            float dx = Math.Max(0, Math.Max(z.Box.X - x, x - z.Box.Right)), dy = Math.Max(0, Math.Max(z.Box.Y - y, y - z.Box.Bottom));
+            float d = MathF.Sqrt(dx * dx + dy * dy);
+            if (d <= bestD) { best = z; bestD = d; }
+        }
+        return best;
+    }
+
+    /// <summary>A fingertip covers more than a pointer: while one is down, controls take presses this far outside them.</summary>
+    public float Slop;
+    /// <summary>
+    /// The last input was a finger (until the mouse really moves). Controls that otherwise appear only on
+    /// hover (a shelf item's remove button, a note's delete) stay visible: a finger can't hover to find them.
+    /// </summary>
+    public bool TouchMode;
+    public Zone PressedZone => Pressed == null ? null : live.FirstOrDefault(q => q.Id == Pressed);
+    /// <summary>A zone by id, from this frame if it's been added yet, else the last.</summary>
+    public Zone Find(string id) => building.FirstOrDefault(q => q.Id == id) ?? live.FirstOrDefault(q => q.Id == id);
+    /// <summary>The topmost scroll area under the point, if any.</summary>
+    public Zone ScrollZoneAt(float x, float y)
+    {
+        for (int i = live.Count - 1; i >= 0; i--) if (live[i].Wheel != null && live[i].Box.Contains(x, y)) return live[i];
         return null;
     }
+    /// <summary>A finger moved <paramref name="dy"/> DIPs over a scroll area: the content follows it (down shows what's above).</summary>
+    public void Pan(Zone z, float dy)
+    {
+        if (z?.Wheel == null || dy == 0) return;
+        if (!z.Notched) z.Wheel(dy * 120 / z.ScrollPx, false);
+        else
+        {
+            z.PanRest += dy;
+            while (Math.Abs(z.PanRest) >= z.ScrollPx) { float s = Math.Sign(z.PanRest); z.Wheel(s * 120, false); z.PanRest -= s * z.ScrollPx; }
+        }
+        RequestFrame();
+    }
+    /// <summary>Puts a spring at <paramref name="v"/> without animating (a finger is holding it there).</summary>
+    public void Snap(string key, double v) { if (springs.TryGetValue(key, out var s)) s.Snap(v); RequestFrame(); }
+    /// <summary>Sets a spring moving at <paramref name="v"/> per second (a fling).</summary>
+    public void SetVelocity(string key, double v) { if (springs.TryGetValue(key, out var s)) s.Velocity = v; RequestFrame(); }
+
+    // ---- tooltips: the first waits, the ones after it show at once ----------
+    string tipId; double tipSince; double tipCoolUntil = -1; bool tipShown, tipInstant;
+    /// <summary>The first tooltip waits this long, so tips don't flash while the pointer passes over controls.</summary>
+    public const double TipDelay = 0.6;
+    /// <summary>After a tip closes, the next one within this long shows at once.</summary>
+    public const double TipWarm = 0.3;
+    /// <summary>
+    /// The tooltip to draw now, if any, and whether it should animate in (only the first after a pause
+    /// does; moving along a row of controls, each tip just appears). Never while pressing, or for touch.
+    /// </summary>
+    public (Zone zone, bool animate)? Tip(double now)
+    {
+        var z = Hot == null || !MouseInside || Pressed != null ? null : live.FirstOrDefault(q => q.Id == Hot && !string.IsNullOrEmpty(q.Tooltip));
+        if (z == null)
+        {
+            if (tipShown) tipCoolUntil = now + TipWarm;
+            tipShown = false; tipId = null;
+            return null;
+        }
+        if (z.Id != tipId)
+        {
+            tipInstant = tipShown || now < tipCoolUntil;
+            tipId = z.Id; tipSince = now; tipShown = false;
+        }
+        if (!tipInstant && now - tipSince < TipDelay) return null;
+        tipShown = true;
+        return (z, !tipInstant);
+    }
+    /// <summary>When a waiting tooltip is due (to wake for it), or never.</summary>
+    public double TipDue => tipId != null && !tipShown && !tipInstant ? tipSince + TipDelay : double.PositiveInfinity;
 
     void RecomputeHot()
     {
@@ -230,7 +312,7 @@ public sealed class Ux
         float h = HoverT(id), p = PressT(id);
         // the highlight stays inside the button's own footprint (plus a hair of
         // glow), so a button near an edge never bleeds past the island
-        float s = 1 + 0.04f * h - 0.12f * p;
+        float s = (1 + 0.04f * h) * (1 - 0.03f * p);   // a press takes 3% off, hovered or not
         var bg = accent ?? Col.White;
         if (accent.HasValue) C.Circle(cx, cy, size / 2 * s * (1.08f + 0.04f * h), accent.Value.A(0.14f + 0.12f * h));
         C.Circle(cx, cy, size / 2 * s, bg.A(accent.HasValue ? 0.22f + 0.12f * h : 0.0f + 0.13f * h + 0.08f * p));
@@ -264,7 +346,7 @@ public sealed class Ux
     {
         Add(id, b, click, b.H / 2);
         float h = HoverT(id), p = PressT(id);
-        float s = 1 - 0.05f * p;
+        float s = 1 - 0.03f * p;
         var bb = b.Scale(s);
         C.Fill(bb, tint.A(selected ? 0.9f : 0.16f + 0.12f * h), bb.H / 2);
         var fg = selected ? Col.Black : Col.White;

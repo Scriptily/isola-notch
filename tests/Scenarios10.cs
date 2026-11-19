@@ -45,6 +45,16 @@ public static partial class Scenarios
             try { return Enumerable.Range(0, h).Select(y => Marshal.ReadByte(m.Bits, y * (int)m.Pitch + x * 4 + 3)).ToArray(); }
             finally { read.Unmap(); }
         }
+        /// <summary>Alpha (0..255) of each pixel along one row.</summary>
+        public byte[] AlphaRow(int y)
+        {
+            using var read = Ctx.CreateBitmap(new SizeI(w, h), IntPtr.Zero, 0,
+                new BitmapProperties1(new Vortice.DCommon.PixelFormat(Format.B8G8R8A8_UNorm, Vortice.DCommon.AlphaMode.Premultiplied), 96, 96, BitmapOptions.CpuRead | BitmapOptions.CannotDraw));
+            read.CopyFromBitmap(Target);
+            var m = read.Map(MapOptions.Read);
+            try { return Enumerable.Range(0, w).Select(x => Marshal.ReadByte(m.Bits, y * (int)m.Pitch + x * 4 + 3)).ToArray(); }
+            finally { read.Unmap(); }
+        }
         /// <summary>The lines of text drawn: runs of rows with any ink in them.</summary>
         public int InkLines()
         {

@@ -149,6 +149,15 @@ files come first. Type `help` to see everything.
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/commands-dark.png"><img src="assets/readme/commands-light.png" alt="The help list in the launcher" width="560"></picture></p>
 
+### Touchscreens
+
+On a touchscreen laptop, tap the island to open it. It stays open until you
+leave it alone for a few seconds or swipe it up. Drag sliders and the song's
+progress bar with a finger, scroll any list by dragging it, and swipe sideways
+to change tabs or skip a song. Pull the island down to search. A tap that
+lands just beside a button still presses it, and buttons that normally appear
+on hover stay visible after a touch. Settings scrolls with a finger too.
+
 ### Settings
 
 Everything is in Settings (the gear on the dashboard, or the tray icon) and
@@ -314,6 +323,8 @@ displays, clocks, Bluetooth and Home Assistant; see
 
 * A window that Task Manager sets to "Always on top" can cover the island.
   Only apps signed for UI Access can sit above those.
+* The touch keyboard doesn't open by itself for Isola's search and text
+  boxes. On a tablet with no keyboard attached, open it from the taskbar.
 * Windows only. There's no macOS or Linux version.
 
 ## Support Isola

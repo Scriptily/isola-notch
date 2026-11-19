@@ -352,6 +352,11 @@ public sealed unsafe partial class SetupWizard
             c.Circle(dx + i * 18, 70, i == at ? 3.5f : 2.5f, Col.White.A(i == at ? 0.9f : i < at ? 0.5f : 0.2f));
 
         var area = new Box(48, 92, W - 96, H - 92 - 76);
+        // a step forward slides the new page in from the right, a step back from the left, so the motion says which way you went
+        if (page != shownPage) { slideFrom = SlideDir(order, shownPage, page); shownPage = page; ux.Forget("wiz:slide"); }
+        float slide = ux.AnimFrom("wiz:slide", slideFrom, 0, SpringSpec.Smooth);
+        bool sliding = Math.Abs(slide) > 0.002f;
+        if (sliding) { area = new Box(area.X + slide * 56, area.Y, area.W, area.H); c.Push(null, 1 - Math.Min(1, Math.Abs(slide)) * 0.7f); }
         switch (page)
         {
             case 0: Welcome(c, area); break;
@@ -361,8 +366,19 @@ public sealed unsafe partial class SetupWizard
             case 4: Maintain(c, area); break;
             case PReplace: Replace(c, area); break;
         }
+        if (sliding) c.Pop();
         Buttons(c, W, H);
         ux.EndFrame();
+    }
+
+    int shownPage = -1; float slideFrom;
+
+    /// <summary>1 when <paramref name="to"/> comes after <paramref name="from"/> in the flow (it slides in from the right), -1 before, 0 for the first page.</summary>
+    internal static int SlideDir(int[] order, int from, int to)
+    {
+        if (from < 0 || from == to) return 0;
+        int a = from == PReplace ? -1 : Array.IndexOf(order, from), b = to == PReplace ? -1 : Array.IndexOf(order, to);
+        return Math.Sign(b - a);
     }
 
     void Title(Canvas c, Box a, string title, string sub)

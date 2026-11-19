@@ -7,6 +7,33 @@ the number of changes in a release that only fixes and adjusts things, so
 1.4.0 with two fixes is 1.4.2. Each release's section below is also its GitHub
 release notes.
 
+## [1.6.0] - 2026-11-19
+
+### Added
+
+- Touchscreen support. Tap the island to open it, drag sliders and the
+  progress bar, scroll lists by dragging, swipe to change tabs or songs, and
+  pull the island down to search. A tap just beside a button still presses
+  it, and buttons that only showed on hover stay visible after a touch.
+  Settings scrolls with a finger, stretching a little at either end.
+
+### Changed
+
+- Pressed buttons shrink a little less (to 97%), the same amount everywhere.
+- New items on the Shelf and the help popovers in Settings fade in from 97%
+  instead of growing from much smaller.
+- The setup wizard slides each new page in from the right, and from the left
+  when you go back.
+- When you let go of the island after pulling it, it springs back at the
+  speed it was actually moving.
+
+### Fixed
+
+- An island opened with a tap closed again a second later.
+- Sliders couldn't be dragged with a finger.
+- Tooltips in Settings never appeared. Now the first one shows after a short
+  pause, and the next ones show right away.
+
 ## [1.5.2] - 2026-11-18
 
 ### Changed

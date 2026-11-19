@@ -60,7 +60,7 @@ public abstract class Page
     public virtual bool WantsKeyboard => false;
 }
 
-public sealed partial class Island
+public sealed partial class Island : ITouchTarget
 {
     public Config Cfg;
     public readonly IIslandHost Host;
@@ -793,7 +793,8 @@ public sealed partial class Island
         // judge by where the flick was heading, not just where it stopped
         float projected = dy + velocityY * 0.12f;
         pull.To(0, SpringSpec.Wobbly);
-        pull.Velocity = Math.Clamp(velocityY * 0.4, -800, 800);
+        // the island keeps the speed it was really moving at: the finger's speed through the rubber band's slope there
+        pull.Velocity = Math.Clamp(velocityY * RubberSlope(dy, 140), -1500, 1500);
         Ux.CancelPress();
         if (projected > 46) { Log.D("island", $"dragged down {dy:0} (projected {projected:0}) -> search"); OpenSearch(); }
         else if (dy < -10 || projected < -24)
@@ -810,6 +811,34 @@ public sealed partial class Island
         const float c = 0.55f;
         float a = Math.Abs(x);
         return Math.Sign(x) * (a * dim * c) / (dim + c * a);
+    }
+    /// <summary>How fast the rubber-banded island moves per unit of pointer movement at <paramref name="x"/>.</summary>
+    internal static float RubberSlope(float x, float dim)
+    {
+        const float c = 0.55f;
+        float d = dim + c * Math.Abs(x);
+        return c * dim * dim / (d * d);
+    }
+    internal double PullVelocity => pull.Velocity;
+
+    Ux ITouchTarget.TouchUx => Ux;
+
+    /// <summary>An island opened by a tap stays open this long after the last touch (touch has no hover to leave).</summary>
+    internal const double TouchIdleClose = 8;
+
+    /// <summary>
+    /// A finger lifted. That isn't the pointer leaving: treated as one, an island opened with a tap
+    /// closed a second later. It stays until it's left alone for a while, swiped up, or closed.
+    /// </summary>
+    public void TouchLifted()
+    {
+        Hovering = false;
+        Ux.Leave();   // no hover highlight left behind where the finger was
+        Ui.Cancel(ref hoverTimer);
+        Ui.Cancel(ref collapseTimer);
+        if (Mode is Mode.Peek or Mode.Expanded)
+            collapseTimer = Ui.After(TouchIdleClose, () => { if (!Hovering && !KeyboardTaken && Mode is Mode.Peek or Mode.Expanded) CloseToRest("left alone after touch"); });
+        MarkActive();
     }
 
     /// <summary>Touch / pen gesture recognized by the host: a swipe in DIPs (dx, dy) or a tap.</summary>

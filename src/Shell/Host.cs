@@ -51,7 +51,7 @@ public sealed unsafe partial class Host : IIslandHost
     bool keyboard;
     long origEx;
     // touch / pen
-    uint pointerId; POINT pointerStart; double pointerT; bool pointerMoved;
+    uint pointerId; TouchInput touch; Island.Island touchFor; nint lastMoveL;
     POINT mouseDown; bool mouseDownBg;
 
     static readonly Dictionary<nint, Host> byHwnd = new();
@@ -272,6 +272,8 @@ public sealed unsafe partial class Host : IIslandHost
                 return null;
             case Win32.WM_MOUSEMOVE:
             {
+                // the mouse is back once it really moves (Windows also sends a move when a window changes shape under a still cursor)
+                if (l != lastMoveL) { lastMoveL = l; if (Island != null) Island.Ux.TouchMode = false; }
                 if (!tracking)
                 {
                     var tme = new TRACKMOUSEEVENT { cbSize = (uint)sizeof(TRACKMOUSEEVENT), dwFlags = Win32.TME_LEAVE, hwndTrack = Input };
@@ -377,28 +379,13 @@ public sealed unsafe partial class Host : IIslandHost
         var p = pi.ptPixelLocation; Win32.ScreenToClient(Input, ref p);
         float x = p.X / Scale, y = p.Y / Scale;
         var isl = Island; if (isl == null) return true;
+        if (touchFor != isl) { touch = new TouchInput(isl); touchFor = isl; }
         double now = Ui.Clock.Now;
         switch (m)
         {
-            case Win32.WM_POINTERDOWN:
-                pointerId = id; pointerStart = p; pointerT = now; pointerMoved = false;
-                isl.MouseMove(x, y);
-                isl.MouseDown(x, y);
-                break;
-            case Win32.WM_POINTERUPDATE:
-                if (id != pointerId) break;
-                if (Math.Abs(p.X - pointerStart.X) + Math.Abs(p.Y - pointerStart.Y) > 12 * Scale) pointerMoved = true;
-                if (isl.Ux.Dragging != null) isl.MouseMove(x, y);
-                break;
-            case Win32.WM_POINTERUP:
-                if (id != pointerId) break;
-                float dx = (p.X - pointerStart.X) / Scale, dy = (p.Y - pointerStart.Y) / Scale;
-                if (pointerMoved && isl.Ux.Dragging == null) { isl.Ux.CancelPress(); isl.Ux.Up(-1e4f, -1e4f); isl.Swipe(dx, dy); }
-                else isl.MouseUp(x, y);
-                // a finger leaving is not a hover: collapse like the pointer left
-                isl.MouseLeave();
-                pointerId = 0;
-                break;
+            case Win32.WM_POINTERDOWN: pointerId = id; touch.Down(x, y, now); break;
+            case Win32.WM_POINTERUPDATE: if (id == pointerId) touch.Move(x, y, now); break;
+            case Win32.WM_POINTERUP: if (id == pointerId) { touch.Up(x, y, now); pointerId = 0; } break;
         }
         return true;
     }

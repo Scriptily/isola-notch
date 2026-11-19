@@ -145,7 +145,7 @@ public sealed partial class DashboardPage
             ux.Pill(id + ":retry", new Box(right - 84, cy - 13, 84, 26), "Try again", () => { try { isl.Svc.Downloads.Retry(j); } catch (Exception ex) { Log.W("downloads", ex.Message); } }, Col.White, '\0', false, 11.5f);
             right -= 90;
         }
-        if (panel && !j.Active && h > 0.3f) { ux.IconButton(id + ":x", right - 11, cy, 22, Glyph.Delete, () => isl.Svc.Downloads.Remove(j), null, 10); right -= 26; }
+        if (panel && !j.Active && (h > 0.3f || ux.TouchMode)) { ux.IconButton(id + ":x", right - 11, cy, 22, Glyph.Delete, () => isl.Svc.Downloads.Remove(j), null, 10); right -= 26; }
         var text = new Box(row.X + 42, row.Y, right - row.X - 46, row.H);
         c.Text(j.Label, new Box(text.X, row.Y + 5, text.W, 18), 12.5f, Col.White.A(0.92f * t), FontWeight.SemiBold);
         c.Text(Describe(j), new Box(text.X, row.Y + 22, text.W, 16), 11, (j.State == "failed" ? Orange : Col.White.A(0.55f)).A(t), FontWeight.Medium);

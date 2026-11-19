@@ -223,7 +223,7 @@ public sealed partial class DashboardPage : Page
             float h = ux.HoverT("tab:" + tb.Id), p = ux.PressT("tab:" + tb.Id);
             bool sel = k == isl.Tab;
             if (!sel && h > 0.01f) c.Fill(b, Col.White.A(0.07f * h * t), stripH / 2);
-            float s = 1 - 0.1f * p;
+            float s = 1 - 0.03f * p;
             c.Icon(tb.Glyph, b.X + iconW / 2, b.CY, 15 * s, Col.White.A((sel ? 1f : 0.55f + 0.35f * h) * t));
             // the label fades in as its tab opens up (and out as it closes)
             float open = Math.Clamp((animW[k] - iconW) / Math.Max(1, c.Measure(tb.Label, 12.5f, FontWeight.SemiBold).w + 14), 0, 1);
@@ -380,7 +380,7 @@ public sealed partial class DashboardPage : Page
         if (isl.Clock.Now - lastMixer > 1.0) { au.RefreshMixerAsync(() => isl.Host.RequestFrame()); lastMixer = isl.Clock.Now; }
         float sc = ux.Anim("scroll:sound", scroll.GetValueOrDefault("sound"), ScrollSpring, 0.05);
         var view = p.Inset(0, -4);
-        ux.Add("sound:scroll", view, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["sound"] = Math.Clamp(scroll.GetValueOrDefault("sound") - d / 120f * 40, 0, Math.Max(0, contentH - view.H)); isl.Host.RequestFrame(); };
+        var soundScroll = ux.Add("sound:scroll", view, null, 0, CursorKind.Arrow); soundScroll.ScrollPx = 40; soundScroll.Wheel = (d, h) => { scroll["sound"] = Math.Clamp(scroll.GetValueOrDefault("sound") - d / 120f * 40, 0, Math.Max(0, contentH - view.H)); isl.Host.RequestFrame(); };
         c.FadeClip(view, sc > 0.5f, sc < contentH - view.H - 0.5f);
         float y = p.Y - sc;
         c.Text("OUTPUT", new Box(p.X, y, 200, 16), 10.5f, Col.White.A(0.45f * t), FontWeight.Bold);
@@ -521,7 +521,7 @@ public sealed partial class DashboardPage : Page
         var disc = Col.Legible(tint, 0.18f);
         float h = ux.HoverT(id), p = ux.PressT(id);
         float onT = ux.Anim(id + ":on", on ? 1 : 0, SpringSpec.Snappy);
-        var bb = b.Scale(1 - 0.035f * p);
+        var bb = b.Scale(1 - 0.03f * p);
         float alpha = t * (dead ? 0.45f : 1);
         const float R = 18, P = 12;
 
@@ -583,7 +583,7 @@ public sealed partial class DashboardPage : Page
                 string mid = id + ":mode";
                 ux.Add(mid, mb, () => { int i = modes.IndexOf(e.State); ha.SetHvacMode(e, modes[(i + 1) % modes.Count]); }, 12);
                 float mh = ux.HoverT(mid), mp = ux.PressT(mid);
-                var mbb = mb.Scale(1 - 0.05f * mp);
+                var mbb = mb.Scale(1 - 0.03f * mp);
                 // a dark pill on the light tile, a light one on the dark tile
                 c.Fill(mbb, Col.Mix(Col.White.A(0.16f + 0.08f * mh), Col.Gray(0.12f, 0.88f + 0.1f * mh), onT).A(alpha), 12);
                 c.Text(Pretty(e.State), mbb, 11, Col.White.A(alpha), FontWeight.SemiBold, HAlign.Center);
@@ -617,7 +617,7 @@ public sealed partial class DashboardPage : Page
         var b = Box.Centered(cx, cy, 28, 28);
         ux.Add(id, b, click, 14);
         float h = ux.HoverT(id), p = ux.PressT(id);
-        float s = 1 - 0.12f * p;
+        float s = 1 - 0.03f * p;
         c.Circle(cx, cy, 14 * s, Col.Mix(Col.White.A(0.10f + 0.10f * h), Col.Gray(0.1f, 0.07f + 0.08f * h), onT).A(alpha));
         c.Icon(glyph, cx, cy, 12 * s, Col.Mix(Col.White, Col.Gray(0.1f), onT).A(alpha));
     }
@@ -727,7 +727,7 @@ public sealed partial class DashboardPage : Page
         if (done > 0) ux.Pill("notes:clear", new Box(p.Right - 92, p.Y + 42, 92, 22), "Clear done", notes.ClearDone, Col.White, '\0', false, 11);
         var list = new Box(p.X, p.Y + 70, p.W, p.H - 70);
         float sc = ux.Anim("scroll:notes", scroll.GetValueOrDefault("notes"), ScrollSpring, 0.05);
-        ux.Add("notes:scroll", list, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["notes"] = Math.Clamp(scroll.GetValueOrDefault("notes") - d / 120f * 40, 0, Math.Max(0, notes.Items.Count * 38 - list.H)); isl.Host.RequestFrame(); };
+        var notesScroll = ux.Add("notes:scroll", list, null, 0, CursorKind.Arrow); notesScroll.ScrollPx = 40; notesScroll.Wheel = (d, h) => { scroll["notes"] = Math.Clamp(scroll.GetValueOrDefault("notes") - d / 120f * 40, 0, Math.Max(0, notes.Items.Count * 38 - list.H)); isl.Host.RequestFrame(); };
         if (notes.Items.Count == 0) { c.Text("Nothing here yet. Type above and press Enter.", list.Inset(0, 30), 12, Col.White.A(0.4f * t), FontWeight.Normal, HAlign.Center, VAlign.Top); return; }
         c.FadeClip(list, sc > 0.5f, sc < notes.Items.Count * 38 - list.H - 0.5f);
         float y = list.Y - sc;
@@ -753,7 +753,7 @@ public sealed partial class DashboardPage : Page
                 float slide = i == 0 ? added * 14 : 0;
                 c.Text(n.Text, new Box(row.X + 34 - slide, row.Y, row.W - 80, row.H), 13, Col.White.A((n.Done ? 0.4f : 0.92f) * t), FontWeight.Normal);
                 if (n.Done) c.Line(row.X + 34, row.CY + 1, row.X + 34 + Math.Min(row.W - 80, c.Measure(n.Text, 13).w) * dt, row.CY + 1, Col.White.A(0.4f * t), 1.2f);
-                if (h > 0.05f) ux.IconButton(rid + ":del", row.Right - 18, row.CY, 26, Glyph.Delete, () => notes.Remove(nn), null, 11);
+                if (h > 0.05f || ux.TouchMode) ux.IconButton(rid + ":del", row.Right - 18, row.CY, 26, Glyph.Delete, () => notes.Remove(nn), null, 11);
             }
             y += 38;
         }
@@ -813,8 +813,10 @@ public sealed partial class DashboardPage : Page
             if (cell.Bottom < grid.Y || cell.Y > grid.Bottom) continue;
             string id = "shelf:" + it.Kind + it.Path + it.Text.GetHashCode() + it.Added.Ticks;
             float h = ux.HoverT(id), pr = ux.PressT(id);
-            float appear = ux.AnimFrom(id + ":in", 0, 1, SpringSpec.Wobbly);
-            var cb = cell.Scale((0.85f + 0.15f * appear) * (1 - 0.05f * pr));
+            // a new item fades in from 97%: grown from far smaller, it looked cartoonish
+            float appear = ux.AnimFrom(id + ":in", 0, 1, SpringSpec.Content);
+            var cb = cell.Scale((0.97f + 0.03f * appear) * (1 - 0.03f * pr));
+            if (appear < 0.999f) c.Push(null, appear);
             c.Fill(cb, Col.White.A((0.06f + 0.06f * h) * t), 14);
             switch (it.Kind)
             {
@@ -850,6 +852,7 @@ public sealed partial class DashboardPage : Page
                 c.Text(shelfFlash, cb, 12, Col.Hex(0x34c759).A(t), FontWeight.SemiBold, HAlign.Center);
                 isl.Host.RequestFrame();
             }
+            if (appear < 0.999f) c.Pop();
             var ii = it; string iid = id;
             var z = ux.Add(id, cb, () => Flash(iid, shelf.Activate(ii)), 14);
             z.RightClick = () => Flash(iid, shelf.Secondary(ii));
@@ -859,9 +862,9 @@ public sealed partial class DashboardPage : Page
                 ux.CancelPress();
                 if (ii.Kind is "text" or "link") isl.Host.StartTextDrag(ii.Text); else isl.Host.StartFileDrag(new[] { ii.Path });
             };
-            if (h > 0.4f) ux.IconButton(id + ":x", cb.Right - 12, cb.Y + 12, 20, Glyph.Close, () => shelf.Remove(ii), null, 9);
+            if (h > 0.4f || ux.TouchMode) ux.IconButton(id + ":x", cb.Right - 12, cb.Y + 12, 20, Glyph.Close, () => shelf.Remove(ii), null, 9);
             // a video or a song can be converted, right from the shelf
-            if (h > 0.4f && isl.Cfg.Downloads && isl.Svc?.Downloads != null && ii.Kind == "file" && Downloads.IsMedia(ii.Path) && ii.Exists)
+            if ((h > 0.4f || ux.TouchMode) && isl.Cfg.Downloads && isl.Svc?.Downloads != null && ii.Kind == "file" && Downloads.IsMedia(ii.Path) && ii.Exists)
                 ux.IconButton(id + ":conv", cb.X + 12, cb.Y + 12, 20, Glyph.Convert, () => { convertFor = ii; isl.Host.RequestFrame(); }, null, 9);
         }
         c.Unfade();
@@ -900,7 +903,7 @@ public sealed partial class DashboardPage : Page
         float sc = ux.Anim("scroll:clip", scroll.GetValueOrDefault("clip"), ScrollSpring, 0.05);
         float rowH = 44;
         float total = cb.Items.Sum(i => i.Kind == "image" ? 84f : rowH);
-        ux.Add("clip:scroll", list, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["clip"] = Math.Clamp(scroll.GetValueOrDefault("clip") - d / 120f * 44, 0, Math.Max(0, total - list.H)); isl.Host.RequestFrame(); };
+        var clipScroll = ux.Add("clip:scroll", list, null, 0, CursorKind.Arrow); clipScroll.ScrollPx = 44; clipScroll.Wheel = (d, h) => { scroll["clip"] = Math.Clamp(scroll.GetValueOrDefault("clip") - d / 120f * 44, 0, Math.Max(0, total - list.H)); isl.Host.RequestFrame(); };
         c.FadeClip(list, sc > 0.5f, sc < total - list.H - 0.5f);
         float y = list.Y - sc;
         foreach (var item in cb.Items.ToList())
@@ -1064,7 +1067,7 @@ public sealed partial class DashboardPage : Page
         var area = new Box(p.X, y, p.W, p.Bottom - y);
         c.ClipRect(area);
         float sc = ux.Anim("scroll:dev", scroll.GetValueOrDefault("dev"), ScrollSpring, 0.05);
-        ux.Add("dev:scroll", area, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["dev"] = Math.Clamp(scroll.GetValueOrDefault("dev") - d / 120f * 40, 0, Math.Max(0, list.Count * 34 - area.H)); isl.Host.RequestFrame(); };
+        var devScroll = ux.Add("dev:scroll", area, null, 0, CursorKind.Arrow); devScroll.ScrollPx = 40; devScroll.Wheel = (d, h) => { scroll["dev"] = Math.Clamp(scroll.GetValueOrDefault("dev") - d / 120f * 40, 0, Math.Max(0, list.Count * 34 - area.H)); isl.Host.RequestFrame(); };
         y -= sc;
         // the watcher is still listing paired devices: rows in their shape
         if (list.Count == 0 && !bt.Enumerated)
