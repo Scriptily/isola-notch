@@ -17,9 +17,29 @@ release notes.
   island, with one notice when they're ready, updated or removed.
 - A title too long for the island slides slowly back and forth so you can
   read it, its edges fading where there's more.
+- A Recent tab lists every notification, call and notice the island showed
+  since Isola started.
+- The Weather tab switches between the next hours and the next days. Days
+  show their high and low, rain chances show in blue, and clicking an hour
+  or a day opens its details: feels like, rain, humidity, wind, UV and, for
+  today, sunrise and sunset.
+- A download, timer, update or tool download in progress also shows when you
+  hover over the island or open it, not only in the pill.
 
 ### Changed
 
+- The pill shows the song's artist after the title, in grey: "The Break Up -
+  mgk". A new song pops up with every artist for a moment, then tucks back
+  into one line, and the pill crossfades from one song to the next.
+- A notification that arrives while the island is open drops in as a banner
+  at its top instead of waiting until you close it. Clicking a notification
+  or a call dismisses it, and hovering keeps it on screen.
+- Every list, and Settings, shows a scroll bar when it has more to show. It
+  stays dim until the pointer is over the list, and the list makes room for it.
+- Weather icons follow the real sunrise and sunset instead of a fixed 6 am
+  and 7 pm.
+- The tabs scroll sideways when they don't all fit, and the open island never
+  grows wider than its screen.
 - Choosing which player to show works for any number of them. The one you
   can hear comes first, and of two you can hear, the one started last.
   Pausing the one on the island keeps it there, and a player picked by hand
@@ -45,6 +65,12 @@ release notes.
 - Switching to Spotify with the island open squeezed its volume row against
   the controls until the island was closed and opened again.
 - Tooltips in Settings waited for the mouse to move before they appeared.
+- The Shelf's "Keep what's on the clipboard" did nothing for copied files and
+  pictures; it keeps those now, and says so when the clipboard is empty.
+- Pressing Tab in search typed a tab instead of moving to the result's actions.
+- Sliding titles and scrolling lists moved in visible steps; they glide now.
+- The glow faded to the theme's colors while a song popup slid away into the
+  hidden island.
 
 ## [1.6.0] - 2026-11-19
 

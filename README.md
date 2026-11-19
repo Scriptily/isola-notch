@@ -134,7 +134,9 @@ Click the island and scroll sideways through the tabs:
 * **Home**: tiles for the [Home Assistant](https://www.home-assistant.io/)
   lights, scenes, climate, fans and locks you pick. The tab shows up only while
   Home Assistant is reachable
-* **Weather** from Home Assistant or [Open-Meteo](https://open-meteo.com/)
+* **Weather** from Home Assistant or [Open-Meteo](https://open-meteo.com/):
+  the next hours or days, with highs, lows and rain. Click an hour or a day
+  for its details
 * **Notes** and to-dos
 * **Shelf**: drop files, text, links or images on the island to park them,
   then drag them back out anywhere. Its bar downloads from a link (see
@@ -143,6 +145,8 @@ Click the island and scroll sideways through the tabs:
 * **Timer**: tap a length or type one (`7m`, `1:30`, `1h 20m`). It counts down
   in the pill and keeps running through a restart
 * **Devices**: Bluetooth on and off, and what's connected
+* **Recent**: every notification, call and notice the island showed since
+  Isola started
 
 ### Search and commands
 
