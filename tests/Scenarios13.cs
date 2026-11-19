@@ -74,13 +74,19 @@ public static partial class Scenarios
         try
         {
             var tools = new DownloadTools(dir, clock, gh);
-            var fetched = new List<string>();
-            tools.Fetched += (name, ver, update) => fetched.Add($"{name} {ver} {(update ? "updated" : "new")}");
+            var fetched = new List<List<string>>();
+            bool sawFetching = false;
+            tools.Changed += () => sawFetching |= tools.Fetching != null;
+            tools.Fetched += got => fetched.Add(got.Select(g => $"{g.name} {g.version} {(g.update ? "updated" : "new")}").ToList());
             True(!tools.Ready, "nothing at first");
             True(Wait(tools.CheckAsync(true)), $"all fetched ({tools.Status})");
             clock.Advance(0.05);
-            Eq(3, fetched.Count(f => f.EndsWith(" new")), "the island hears each tool arrive: " + string.Join(", ", fetched));
+            Eq(1, fetched.Count, "one notice for the whole batch, not one per tool covering the next one's progress");
+            Eq(3, fetched[0].Count(f => f.EndsWith(" new")), "naming all three: " + string.Join(", ", fetched[0]));
+            True(sawFetching, "while they downloaded, the island could show which");
             True(tools.Fetching == null, "and that nothing is downloading any more");
+            Eq("Downloads are ready", Alerts.ToolsFetched(new[] { ("yt-dlp", "1", false), ("FFmpeg", "9", false) }).Title, "first time: ready");
+            Eq("yt-dlp, FFmpeg and QuickJS", Alerts.ToolsFetched(new[] { ("yt-dlp", "1", false), ("FFmpeg", "9", false), ("QuickJS", "0.1", false) }).Subtitle, "listing them");
             Eq("yt-dlp v1", File.ReadAllText(Path.Combine(dir, "yt-dlp.exe")), "yt-dlp as published");
             Eq("v9:ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe", File.ReadAllText(Path.Combine(dir, "ffmpeg.exe")), "ffmpeg.exe out of the zip");
             True(!File.Exists(Path.Combine(dir, "ffprobe.exe")) && !File.Exists(Path.Combine(dir, "ffplay.exe")), "and nothing else from it (100 MB each)");
@@ -97,7 +103,9 @@ public static partial class Scenarios
             Wait(tools.CheckAsync(false));
             Eq("yt-dlp v2", File.ReadAllText(Path.Combine(dir, "yt-dlp.exe")), "updated");
             clock.Advance(0.05);
-            Eq("yt-dlp 2026.11.20 updated", fetched.Last(), "and is told it was an update");
+            Eq("yt-dlp 2026.11.20 updated", string.Join(",", fetched.Last()), "and is told it was an update");
+            var upd = Alerts.ToolsFetched(new[] { ("yt-dlp", "2026.11.20", true) });
+            True(upd.Title == "yt-dlp updated" && upd.Subtitle == "2026.11.20", "one update: its name and version");
             Eq("2026.11.20", new DownloadTools(dir, clock, gh).VersionOf("yt-dlp"), "and remembered across restarts");
             // not while a download is using it
             tools.InUse = () => true;

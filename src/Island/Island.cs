@@ -214,10 +214,21 @@ public sealed partial class Island : ITouchTarget
         Mode.Peek => P.Peek,
         Mode.Expanded => P.Dashboard,
         Mode.Search => P.Search,
-        Mode.Alert => P.AlertPage,
+        Mode.Alert => AlertPageNow(),
         Mode.Hud => P.Hud,
         _ => null,
     };
+
+    // Two alert pages take turns: a notice replacing another crossfades from the old one, instead of
+    // the old page redrawing with the new text while it faded (it looked like the text just changed).
+    string alertPageFor; bool alertFlip;
+    internal Page ShownPage => PageFor(Mode);
+    Page AlertPageNow()
+    {
+        string k = CurrentAlert?.Key ?? "";
+        if (k != alertPageFor) { alertPageFor = k; alertFlip = !alertFlip; }
+        return alertFlip ? P.AlertPage2 : P.AlertPage;
+    }
 
     /// <summary>Opens the Shelf tab on its Downloads panel (after starting one from search, or the "downloads" command).</summary>
     public void ShowDownloads()
@@ -1149,8 +1160,9 @@ public sealed partial class Island : ITouchTarget
     float Beat()
     {
         var m = Svc?.Media;
-        // a small floor keeps the edge visualizer breathing when playback is silent here
-        float target = ReactiveShowing() ? Math.Clamp(0.12f + m.Level * 1.6f, 0, 1) : 0;
+        // a small floor keeps it breathing between beats, but only while sound plays: silent, it lies still
+        float lv = ReactiveShowing() ? m.Level : 0;
+        float target = ReactiveShowing() && m.Sounding ? Math.Clamp(0.12f + lv * 1.6f, 0, 1) : 0;
         // fast attack, slower release, like a VU needle
         beatSmooth = target > beatSmooth ? beatSmooth + (target - beatSmooth) * 0.6f : beatSmooth + (target - beatSmooth) * 0.12f;
         if (beatSmooth < 0.002f) beatSmooth = 0;

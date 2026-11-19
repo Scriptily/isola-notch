@@ -62,8 +62,11 @@ public sealed class DownloadTools
     public string Fetching { get; private set; }
     /// <summary>Whether <see cref="Fetching"/> replaces an older copy (an update) rather than getting it the first time.</summary>
     public bool FetchingUpdate { get; private set; }
-    /// <summary>A tool finished downloading: its name, version, and whether it replaced an older one.</summary>
-    public event Action<string, string, bool> Fetched;
+    /// <summary>
+    /// Tools finished downloading in one check: each one's name, version, and whether it replaced an older
+    /// copy. Once per batch: a notice per tool covered the island while the next one downloaded.
+    /// </summary>
+    public event Action<IReadOnlyList<(string name, string version, bool update)>> Fetched;
     public DateTime LastCheck { get; private set; }
     long timer;
 
@@ -109,6 +112,7 @@ public sealed class DownloadTools
         {
             Directory.CreateDirectory(Dir);
             bool fresh = !Ready;
+            var landed = new List<(string, string, bool)>();
             for (int i = 0; i < All.Length; i++)
             {
                 var t = All[i];
@@ -120,14 +124,14 @@ public sealed class DownloadTools
                 if (Has(t) && InUse()) { Log.I("tools", $"{t.Name} {ver} waits: a download is using it"); continue; }
                 Log.I("tools", $"{t.Name}: {(Has(t) ? "updating to" : "getting")} {ver} ({size / 1_000_000} MB)");
                 bool update = Has(t);
-                Fetching = t.Name; FetchingUpdate = update;
-                try { await FetchAsync(t, ver, url, sha, size, (double)i / All.Length, 1.0 / All.Length, true, ct).ConfigureAwait(false); }
-                finally { Fetching = null; }
-                string name = t.Name, v = ver;
-                Ui.Post(() => Fetched?.Invoke(name, v, update));
+                Fetching = t.Name; FetchingUpdate = update;   // stays set between tools, so the island's activity doesn't flicker
+                await FetchAsync(t, ver, url, sha, size, (double)i / All.Length, 1.0 / All.Length, true, ct).ConfigureAwait(false);
+                landed.Add((t.Name, ver, update));
             }
             LastCheck = DateTime.Now;
+            Fetching = null;
             Set(Ready ? Summary() : "Not installed yet");
+            if (landed.Count > 0) Ui.Post(() => Fetched?.Invoke(landed));
             return Ready;
         }
         catch (OperationCanceledException) { Set(Ready ? Summary() : "Stopped"); return Ready; }
@@ -137,7 +141,7 @@ public sealed class DownloadTools
             Set(ex is ToolsException ? ex.Message : "Couldn't get the tools. Check your connection and try again.");
             return Ready;
         }
-        finally { Busy = false; Ui.Post(() => Changed?.Invoke()); }
+        finally { Busy = false; Fetching = null; Ui.Post(() => Changed?.Invoke()); }
     }
 
     sealed class ToolsException(string m) : Exception(m);

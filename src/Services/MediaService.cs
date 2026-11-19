@@ -43,10 +43,19 @@ public sealed partial class MediaService : IMediaSourceEx
             var m = Current;
             float p = LevelFrom(m == null ? null : AppPeak(m), OutputPeak());
             level = p > level ? p : level * 0.82f + p * 0.18f;
+            if (p > Silence) lastSoundAt = clock.Now;
             return level;
         }
     }
     float level;
+    double lastSoundAt = double.NegativeInfinity;
+    /// <summary>How long without sound before the visualizer settles (a gap between songs is shorter).</summary>
+    internal const double QuietFor = 1.2;
+    /// <summary>
+    /// Sound has come from what's shown within <see cref="QuietFor"/>. Spotify "playing" at 0% in its own
+    /// app sends nothing, and its visualizer kept dancing anyway: it moved whenever something was playing.
+    /// </summary>
+    public bool Sounding => clock.Now - lastSoundAt < QuietFor;
     internal static float LevelFrom(float? app, float output) => app ?? output;
 
     /// <summary>An app's own sound level right now, or null when its audio sessions can't be told apart (tests replace it).</summary>

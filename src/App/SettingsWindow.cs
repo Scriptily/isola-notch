@@ -461,23 +461,29 @@ public sealed unsafe partial class SettingsWindow
         canvas.Text(z.Tooltip, b, 12, Col.White.A(0.92f * appear), FontWeight.Medium, HAlign.Center);
     }
 
+    string helpShown;   // the popover still on screen: the open one, or the one fading out
+
     void HelpPopover(float W, float H)
     {
-        if (helpOpen == null || helpBody == null) return;
+        if (helpOpen != null) helpShown = helpOpen;
+        if (helpShown == null || helpBody == null) return;
+        bool closing = helpOpen == null;
         // anywhere else closes it, as a popover does
-        ux.Add("help:dismiss", new Box(0, 0, W, H), () => { helpOpen = null; dirty = true; }, 0, CursorKind.Arrow);
+        if (!closing) ux.Add("help:dismiss", new Box(0, 0, W, H), () => { helpOpen = null; dirty = true; }, 0, CursorKind.Arrow);
         const float cw = 340, pad = 16;
         float bodyH = canvas.Measure(helpBody, 12, FontWeight.Normal, cw - 2 * pad, true).h;
         float ch = pad + 20 + 6 + bodyH + pad;
         float x = Math.Clamp(helpAnchor.CX - 28, 230, W - cw - 16);
         float y = helpAnchor.Bottom + 8;
         if (y + ch > H - 12) y = helpAnchor.Y - 8 - ch;          // no room below: above
-        float appear = ux.AnimFrom("help:in:" + helpOpen, 0, 1, SpringSpec.Content);
+        // closing, it shrinks back to 97% and fades, quicker than it came (it vanished at once)
+        float appear = ux.AnimFrom("help:in:" + helpShown, 0, closing ? 0 : 1, closing ? SpringSpec.Snappy : SpringSpec.Content);
+        if (closing && appear < 0.02f) { ux.Forget("help:in:" + helpShown); helpShown = null; return; }
         var card = new Box(x, y, cw, ch).Scale(0.97f + 0.03f * appear);   // in from 97%, not from nothing
         canvas.DropShadow(18, Col.Black.A(0.45f * appear), 8, () => canvas.Fill(card, Col.Black, 12));
         canvas.Fill(card, Col.Hex(0x2a2a30, 0.98f * appear), 12);
         canvas.Stroke(card, Col.White.A(0.1f * appear), 12, 1);
-        ux.Add("help:card", card, () => { }, 12, CursorKind.Arrow);
+        if (!closing) ux.Add("help:card", card, () => { }, 12, CursorKind.Arrow);
         canvas.Text(helpTitle, new Box(card.X + pad, card.Y + pad, cw - 2 * pad, 20), 13.5f, Col.White.A(appear), FontWeight.SemiBold);
         canvas.Text(helpBody, new Box(card.X + pad, card.Y + pad + 26, cw - 2 * pad, bodyH + 2), 12, Col.White.A(0.78f * appear), FontWeight.Normal, HAlign.Left, VAlign.Top, true);
     }

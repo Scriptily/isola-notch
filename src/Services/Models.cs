@@ -45,6 +45,8 @@ public interface IMediaSource
     void ToggleShuffle(); void CycleRepeat();
     void Select(string sessionId);
     float Level { get; }                 // output peak 0..1, for the waveform
+    /// <summary>Sound has come from what's shown in the last moment: the visualizer moves only then.</summary>
+    bool Sounding => true;
 }
 
 public enum HudKind { Volume, Brightness, CapsLock, Layout, Mute, Mic }

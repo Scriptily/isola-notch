@@ -226,7 +226,7 @@ public sealed unsafe partial class App
         svc.Tools.Start();
         svc.Updates.Found += v => island.Alert(Alerts.UpdateFound(Updater.Short(v)));
         svc.Updates.Changed += () => island.Host.RequestFrame();
-        svc.Tools.Fetched += (name, ver, update) => { if (cfg.Downloads) island.Alert(Alerts.ToolFetched(name, ver, update)); };
+        svc.Tools.Fetched += got => { if (cfg.Downloads) island.Alert(Alerts.ToolsFetched(got)); };
         // a moment of "Installing v..." on the island first (the setup waits for Isola to close anyway)
         svc.Updates.Installing += v => { Log.I("update", "handing over to the installer"); island.Host.RequestFrame(); Ui.After(Updater.ShowInstallingFor, () => { Log.Flush(); quit = true; }); };
         svc.Updates.Start();

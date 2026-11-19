@@ -16,7 +16,7 @@ public sealed class Pages
     public readonly IdlePage Idle = new();
     public readonly CompactPage Compact = new();
     public readonly PeekPage Peek = new();
-    public readonly AlertPage AlertPage = new();
+    public readonly AlertPage AlertPage = new(), AlertPage2 = new();
     public readonly HudPage Hud = new();
     public readonly DashboardPage Dashboard;
     public readonly SearchPage Search = new();
@@ -210,10 +210,9 @@ public static class Paint
         // two out-of-step oscillators per bar, so it never looks like a loop
         float wob = (float)(0.5 + 0.3 * Math.Sin(now * (5.1 + i * 1.3) + ph) + 0.2 * Math.Sin(now * (8.3 - i * 0.7) + ph * 2.1));
         float shape = 1 - Math.Abs(i - (bars - 1) / 2f) / bars * 0.9f;
-        // Always alive while playing (as Apple's is), taller with the real
-        // loudness; flat dots when paused. Playback can be silent here while
-        // "playing" - Spotify's own volume at 0% (a real case),
-        // or playing on another device - so the motion alone carries it then.
+        // Alive while sound plays, taller with the real loudness; still dots when
+        // paused or silent (callers pass playing=false then: Spotify "playing" at
+        // 0% in its own app sends nothing, and the bars used to dance anyway).
         // The old formula leaned on the level: at level 0 the middle bar swung
         // 1.7 DIP, less than its own 2.4 DIP width: five still dots.
         float lv = playing ? Math.Clamp(0.22f + 0.38f * wob * shape + level * 1.3f * wob * shape, 0.15f, 1f) : 0.14f;
@@ -498,7 +497,9 @@ public sealed class CompactPage : Page
         Paint.Art(c, m, art, 6, t);
         var accent = m.Palette is { Length: > 0 } ? Col.Legible(m.Palette[0]) : Col.Hex(0x7aa2ff);
         c.Text(m.Title, new Box(a.X + 38, a.Y, a.W - 38 - 48, a.H), 12.5f, Col.White.A(0.78f * t), FontWeight.Medium);
-        Paint.Waveform(c, new Box(a.Right - 38, a.CY - 8, 22, 16), isl.Svc.Media.Level, m.Playing, now, accent.A(t));
+        var md = isl.Svc.Media;
+        float lvl = md.Level;   // read first: it notes whether sound is flowing
+        Paint.Waveform(c, new Box(a.Right - 38, a.CY - 8, 22, 16), lvl, m.Playing && md.Sounding, now, accent.A(t));
     }
 }
 
@@ -607,7 +608,8 @@ public sealed class PeekPage : Page
             // only a picture of the sound: it used to light up on hover like a
             // button, and read as a "more" menu
             var wb = new Box(a.Right - pad - 30, art.Y - 2, 38, 30);
-            Paint.Waveform(c, new Box(wb.CX - 9, wb.CY - 7, 18, 14), media.Level, m.Playing, now, accent.A(t), 4);
+            float wl = media.Level;
+            Paint.Waveform(c, new Box(wb.CX - 9, wb.CY - 7, 18, 14), wl, m.Playing && media.Sounding, now, accent.A(t), 4);
         }
 
         // scrubber: drag to seek; shows the drag position while held
@@ -666,7 +668,7 @@ public sealed class AlertPage : Page
 
     public override void Draw(Island isl, Canvas c, Ux ux, Box a, float t)
     {
-        var al = isl.CurrentAlert ?? cur;
+        var al = cur ?? isl.CurrentAlert;   // its own notice: fading out, it keeps showing the old one
         if (al == null) return;
         float bump = isl.Ux.Anim("alertbump", 0, SpringSpec.Wobbly);
         float iconS = al.Kind == "call" ? 48 : 40;

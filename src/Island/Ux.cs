@@ -192,7 +192,7 @@ public sealed class Ux
     // ---- tooltips: the first waits, the ones after it show at once ----------
     string tipId; double tipSince; double tipCoolUntil = -1; bool tipShown, tipInstant;
     /// <summary>The first tooltip waits this long, so tips don't flash while the pointer passes over controls.</summary>
-    public const double TipDelay = 0.6;
+    public const double TipDelay = 0.4;   // 600 ms felt slow in use
     /// <summary>After a tip closes, the next one within this long shows at once.</summary>
     public const double TipWarm = 0.3;
     /// <summary>

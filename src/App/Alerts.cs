@@ -181,11 +181,18 @@ public static class Alerts
         Key = "update-found", Kind = "info", Title = $"Isola {version} is available", Subtitle = "Downloading it now", Glyph = Glyph.Download, Accent = Col.Hex(0x34c759), Seconds = 3,
     };
 
-    /// <summary>yt-dlp, FFmpeg or QuickJS finished downloading: the first time, downloads can start; later, it's an update.</summary>
-    public static Alert ToolFetched(string name, string version, bool update) => new()
+    /// <summary>
+    /// The download tools that just arrived, in one notice: the first time, downloads are ready; later,
+    /// what was updated (one tool by name and version, several by name).
+    /// </summary>
+    public static Alert ToolsFetched(IReadOnlyList<(string name, string version, bool update)> got)
     {
-        Key = "tool:" + name, Kind = "info", Title = update ? $"{name} updated" : $"{name} is ready", Subtitle = Cap(version, 28), Glyph = Glyph.Check, Accent = Col.Hex(0x34c759), Seconds = 3,
-    };
+        static string Names(IEnumerable<string> n) { var l = n.ToList(); return l.Count == 1 ? l[0] : string.Join(", ", l.Take(l.Count - 1)) + " and " + l[^1]; }
+        bool updates = got.All(g => g.update);
+        string title = !updates ? "Downloads are ready" : got.Count == 1 ? $"{got[0].name} updated" : "Download tools updated";
+        string sub = updates && got.Count == 1 ? got[0].version : Names(got.Select(g => g.name));
+        return new() { Key = "tools", Kind = "info", Title = title, Subtitle = Cap(sub, 40), Glyph = Glyph.Check, Accent = Col.Hex(0x34c759), Seconds = 3 };
+    }
 
     public static Alert Updated(string version) => new()
     {

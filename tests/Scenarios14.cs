@@ -159,18 +159,18 @@ public static partial class Scenarios
         u.Move(20, 20);
         True(u.Tip(0) == null, "not at once");
         True(u.Tip(0.3) == null, "not at 300 ms");
-        True(Math.Abs(u.TipDue - 0.6) < 1e-9, "due at 600 ms, so the window wakes for it");
-        var t = u.Tip(0.61);
-        True(t?.zone.Id == "a" && t.Value.animate, "the first shows at 600 ms and animates in");
+        True(Math.Abs(u.TipDue - 0.4) < 1e-9, "due at 400 ms, so the window wakes for it");
+        var t = u.Tip(0.41);
+        True(t?.zone.Id == "a" && t.Value.animate, "the first shows at 400 ms and animates in");
         u.Move(70, 20);
-        t = u.Tip(0.7);
+        t = u.Tip(0.5);
         True(t?.zone.Id == "b" && !t.Value.animate, "the next one shows at once, without animating");
-        u.Move(120, 20); True(u.Tip(0.8) == null, "a control without a tip shows none");
+        u.Move(120, 20); True(u.Tip(0.6) == null, "a control without a tip shows none");
         u.Move(20, 20);
-        True(u.Tip(0.95)?.zone.Id == "a", "back within 300 ms: at once");
+        True(u.Tip(0.75)?.zone.Id == "a", "back within 300 ms: at once");
         u.Move(500, 500); u.Tip(1.0);
         u.Move(20, 20);
-        True(u.Tip(1.5) == null && u.Tip(1.8) == null && u.Tip(2.11) != null, "after a pause, the wait again");
+        True(u.Tip(1.5) == null && u.Tip(1.8) == null && u.Tip(1.91) != null, "after a pause, the wait again");
         u.Down(20, 20);
         True(u.Tip(1.7) == null, "never while pressing");
     }
@@ -389,5 +389,41 @@ public static partial class Scenarios
         upd.CheckAsync(true).Wait();
         isl.Svc.Updates = upd;
         Eq("update", CompactPage.Pick(isl), "the island's live activity is the update");
+    }
+
+    [Scenario("the visualizer lies still once the shown app has been silent a moment (Spotify at 0% in its own app), and moves again with sound")]
+    public static void VisualizerStillWhenSilent()
+    {
+        var clock = new FakeClock();
+        var spotify = Playing("Spotify", "Spotify.exe");
+        float peak = 0.6f;
+        var ms = new MediaService(clock, null) { AppPeak = _ => peak, OutputPeak = () => 0 };
+        ms.Current = spotify;
+        _ = ms.Level;
+        True(ms.Sounding, "playing with sound: it moves");
+        peak = 0;
+        clock.Now += 0.5; _ = ms.Level;
+        True(ms.Sounding, "half a second of quiet (a gap between songs) doesn't stop it");
+        clock.Now += MediaService.QuietFor; _ = ms.Level;
+        True(!ms.Sounding, "silent for longer: it lies still");
+        peak = 0.3f; _ = ms.Level;
+        True(ms.Sounding, "sound again: it moves at once");
+        var flat = Paint.BarHeight(new Box(0, 0, 22, 16), 2, 5, 0, false, 1.0);
+        True(Paint.BarHeight(new Box(0, 0, 22, 16), 2, 5, 0, false, 1.7) == flat, "and its bars don't move while still");
+    }
+
+    [Scenario("a notice replacing another crossfades from the old one: the old page keeps its own text while it fades")]
+    public static void NoticesCrossfade()
+    {
+        var (isl, host, clock) = NewIsland();
+        isl.Alert(new Alert { Key = "one", Kind = "info", Title = "First", Seconds = 5 });
+        clock.Advance(0.3, isl);
+        var first = isl.ShownPage;
+        isl.Alert(new Alert { Key = "two", Kind = "info", Title = "Second", Seconds = 5 });
+        for (int i = 0; i < 120 && isl.CurrentAlert?.Key != "two"; i++) clock.Advance(0.05, isl);   // the first is hurried along, then the second shows
+        Eq("two", isl.CurrentAlert?.Key, "the second notice shows");
+        var second = isl.ShownPage;
+        True(first != null && second != null && !ReferenceEquals(first, second), "the new notice is drawn by the other alert page");
+        True(first.Key.Contains(":one:") && second.Key.Contains(":two:"), $"each keeps its own notice ({first.Key} / {second.Key})");
     }
 }
