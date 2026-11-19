@@ -211,6 +211,7 @@ public sealed unsafe partial class App
 
         svc.Updates = new Updater(clock) { Cfg = () => cfg };
         svc.Feedback = new Feedback(Paths.FeedbackState);
+        svc.Web = new WebAnswers();
         svc.Tools = new DownloadTools(Paths.DownloadTools, clock) { Enabled = () => cfg.Downloads };
         svc.Downloads = new Downloads(Paths.DownloadsHistory, svc.Tools) { Cfg = () => cfg, Shelf = svc.Shelf };
         int downloading = 0;

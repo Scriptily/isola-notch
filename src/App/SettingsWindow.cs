@@ -704,6 +704,8 @@ public sealed unsafe partial class SettingsWindow
         L.Header("Search");
         Toggle(L, "search", "Search apps and files", svc.Search?.UsingEverything == true ? "Through Everything" : "Everything isn't running: the built-in index of apps and your folders", work.Search, v => work.Search = v);
         Slider(L, "results", "Results to show", null, work.SearchResults, 3, 12, v => $"{v:0}", v => work.SearchResults = (int)v, 1);
+        Toggle(L, "webans", "Web suggestions and answers", "Suggestions as you type, and definitions, translations and Wikipedia right in search. What you type is sent to Google, the dictionary and Wikipedia; file paths never are",
+            work.WebAnswers, v => work.WebAnswers = v);
         L.Header("Shortcuts");
         Text(L, "hks", "Open search", "e.g. Alt+Space, Ctrl+Shift+Space", work.SearchHotkey, v => { if (Hotkey.TryParse(v, out _, out _)) work.SearchHotkey = v; }, "Alt+Space", false, 200);
         Text(L, "hkt", "Show / hide the island", null, work.ToggleHotkey, v => { if (Hotkey.TryParse(v, out _, out _)) work.ToggleHotkey = v; }, "Ctrl+Alt+I", false, 200);

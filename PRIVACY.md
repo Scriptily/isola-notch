@@ -41,6 +41,9 @@ Isola connects only to these, and only for the reason given:
 | Isola's feedback service, on [Cloudflare](https://www.cloudflare.com/privacypolicy/) | only when you press Send feedback | your subject and description, Feature request or Bug, your feedback ID (a one-way 16-digit number made from this computer, shown as @User and the digits, the same in every app by this developer; Windows' machine ID itself never leaves it, and a second one-way number lets the service tell computers apart), the Isola and Windows versions, your time zone's offset from UTC, whether it's the Store or GitHub version, and the log only if you tick Attach logs (with your account and computer names, folders, addresses, emails and tokens removed first). It's kept in a private database that only the developer, and anyone they give access to Isola's reports, can open (each with a password and a code from their phone); your IP address is kept only as a salted hash, to limit how often reports can be sent | don't send feedback |
 | Isola's feedback service | when you open Settings -> Feedback (at most once a minute) | nothing about you: it only asks whether feedback is open, so the page can say when it's paused | don't open the Feedback page |
 | [GitHub](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement) | with downloads on: the first time you download, then once a day | requests for the latest releases of yt-dlp, FFmpeg (Gyan's builds) and QuickJS, and their files; nothing about you | Settings -> Downloads |
+| [Google](https://policies.google.com/privacy) | with Settings -> Search & Keys -> Web suggestions and answers on (it's off at first): a moment after you stop typing in search | what you typed, for search suggestions, and for translations when you ask for one (`translate ... to ...`, `... in Spanish`); never a file or folder path or a file name | Settings -> Search & Keys -> Web suggestions and answers |
+| [Free Dictionary API](https://dictionaryapi.dev/) | with web answers on, when you ask what a word means (`... meaning`, `define ...`) | the word | the same setting |
+| [Wikipedia](https://foundation.wikimedia.org/wiki/Policy:Privacy_policy) | with web answers on, when you ask who or what something is (`who is ...`, `what is ...`) | what you asked about | the same setting |
 | The site a link points to | only when you download from a link | the link, to that site (yt-dlp downloads it as your browser would, without your sign-ins or cookies) | don't download |
 
 Each of these services sees your IP address when Isola connects, as with any
@@ -63,6 +66,13 @@ chime for each app, so each notification appears once. It saves the original
 settings first and puts them back when it stops showing notifications, when it
 quits, when you sign out, if it crashes, and when you uninstall it. You can turn
 this off in Settings -> Notifications & Sounds -> Hide Windows' own popups and chime.
+
+While one of Isola's sounds plays over music or a video, it turns that app's
+own volume down for a moment and back up after, the way a phone does. Windows'
+volume and other apps aren't touched. It always puts the app back where it
+was, also after a crash (on its next start), and leaves alone a volume you
+change meanwhile. Turn it off in Settings -> Notifications & Sounds -> Lower
+the media for sounds.
 
 With "Start with Windows" on, it adds a sign-in task and a startup entry for
 your account. The uninstaller removes them, and can remove your data too.

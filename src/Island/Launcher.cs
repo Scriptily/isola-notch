@@ -22,6 +22,8 @@ public sealed class LItem
     public bool Confirm;              // destructive: Enter twice
     public SearchResult File;         // when it came from Everything
     public bool Answer;               // calculator / conversion / time: pinned to the top
+    public WebAnswer Card;            // a definition, translation or summary, shown as a taller card
+    public bool KeepsOpen;            // running it changes the search instead of leaving it
 }
 
 /// <summary>

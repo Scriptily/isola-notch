@@ -11,6 +11,13 @@ release notes.
 
 ### Added
 
+- Search suggests as you type and answers some questions itself, with no
+  browser: definitions (`subsidized meaning`), translations
+  (`translate subsidized to arabic`) and Wikipedia summaries
+  (`who is alan turing`). Enter copies the answer. Off until you turn on
+  Settings -> Search & Keys -> Web suggestions and answers, since it sends
+  what you type to Google, the dictionary and Wikipedia. File and folder
+  paths are never sent. See PRIVACY.md.
 - While you're focused (Settings -> Notifications & Sounds): notification,
   call and notice sounds can play at full volume, quieter or not at all while
   media plays. The playing app dips while a chime or ringtone plays and comes

@@ -33,6 +33,7 @@ public sealed class Hub
     public Feedback Feedback;
     public DownloadTools Tools;
     public Downloads Downloads;
+    public WebAnswers Web;
 }
 
 public interface IMediaSourceEx : IMediaSource

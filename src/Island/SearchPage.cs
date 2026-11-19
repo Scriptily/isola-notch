@@ -26,6 +26,15 @@ public sealed class SearchPage : Page
     Island isl;
     bool waiting;
     LItem armed; double armedAt;     // destructive command waiting for a second Enter
+    // the web's part: suggestions and an answer, a moment after typing stops
+    List<string> webSuggest = new();
+    WebAnswer webAnswer; WebIntent webFor;
+    bool webPending;
+    long webDebounce; CancellationTokenSource webCts;
+    internal const float CardH = 108;
+    static float RowH(LItem it) => it.Card != null ? CardH : 46;
+    bool CardPending => webPending && webAnswer == null;
+    internal IReadOnlyList<LItem> Items => items;
 
     public SearchPage() { box.Changed = Schedule; }
 
@@ -41,6 +50,7 @@ public sealed class SearchPage : Page
         isl = i;
         box.Set("", false);
         items.Clear(); answers.Clear(); files.Clear(); sel = 0; actSel = -1; armed = null;
+        ClearWeb();
         box.Submit = () => Activate();
         // fetch Home Assistant's entity list now, so devices are searchable by the time you've typed
         if (i.Svc?.Ha is { Configured: true } ha && ha.All.Count == 0 && !ha.Busy) _ = ha.RefreshAsync(true);
@@ -57,11 +67,11 @@ public sealed class SearchPage : Page
     {
         isl = i;
         bool unavailable = i.Svc?.Search?.Note != null;
-        float rows = Visible + (waiting ? Math.Min(3, (isl?.Cfg.SearchResults ?? 8) - Visible) : 0);
-        if (box.Text.Trim().Length == 0) rows = 0;
-        float listH = rows * 46;
+        float listH = (waiting ? Math.Max(0, Math.Min(3, (isl?.Cfg.SearchResults ?? 8) - Visible)) * 46 : 0) + (CardPending ? CardH : 0);
+        for (int k = 0; k < Visible; k++) listH += RowH(items[top + k]);
+        if (box.Text.Trim().Length == 0) listH = 0;
         float actH = items.Count > 0 ? Actions().Count * 34 + 20 : 0;
-        float h = 62 + (rows > 0 ? Math.Max(listH, actH) + 18 : 0) + (unavailable && rows > 0 ? 26 : 0);
+        float h = 62 + (listH > 0 ? Math.Max(listH, actH) + 18 : 0) + (unavailable && listH > 0 ? 26 : 0);
         return (680, Math.Min(h, 540), 30);
     }
 
@@ -71,13 +81,86 @@ public sealed class SearchPage : Page
         string q = box.Text;
         armed = null;
         answers = Launcher.Answers(q, isl);
+        KeepWeb(q);
         Rebuild();
-        if (q.Trim().Length == 0) { files.Clear(); waiting = false; Rebuild(); return; }
+        if (q.Trim().Length == 0) { files.Clear(); waiting = false; ClearWeb(); Rebuild(); return; }
         // "10 km to mi", "12*4", "#ff8800", "time in tokyo" are questions, not file
         // names: searching the disk for them only adds noise under the answer
-        if (answers.Any(x => x.Tag is "Calculator" or "Convert" or "Color" or "Time")) { files.Clear(); waiting = false; Rebuild(); return; }
+        if (answers.Any(x => x.Tag is "Calculator" or "Convert" or "Color" or "Time")) { files.Clear(); waiting = false; ClearWeb(); Rebuild(); return; }
+        StartWeb(q);
         waiting = true;
         debounce = Ui.After(0.09, () => Run(q));
+    }
+
+    // ---- the web: suggestions and answers --------------------------------
+
+    void ClearWeb()
+    {
+        Ui.Cancel(ref webDebounce); webCts?.Cancel(); webCts = null;
+        webSuggest = new(); webAnswer = null; webFor = null; webPending = false;
+    }
+
+    /// <summary>While typing: suggestions that still fit stay (no flicker on every key), an answer to another question goes.</summary>
+    void KeepWeb(string q)
+    {
+        string t = q.Trim();
+        webSuggest = webSuggest.Where(s => s.StartsWith(t, StringComparison.OrdinalIgnoreCase) && !string.Equals(s, t, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (webAnswer != null && !Equals(WebAnswers.Intent(q), webFor)) { webAnswer = null; webFor = null; }
+    }
+
+    void StartWeb(string q)
+    {
+        Ui.Cancel(ref webDebounce); webCts?.Cancel(); webCts = null;
+        var web = isl?.Svc?.Web;
+        // off, a path, or a web shortcut ("yt cats") already being the answer: nothing is sent
+        if (web == null || isl?.Cfg.WebAnswers != true || !WebAnswers.Sendable(q) || answers.Any(x => x.Tag == "Web")) { webSuggest = new(); webAnswer = null; webPending = false; return; }
+        webPending = WebAnswers.Intent(q) != null;
+        webDebounce = Ui.After(0.15, () => Fetch(web, q));
+    }
+
+    async void Fetch(WebAnswers web, string q)
+    {
+        webDebounce = 0;
+        var cts = new CancellationTokenSource(); webCts = cts;
+        (List<string> s, WebAnswer a) r;
+        try { r = await web.LookUp(q, cts.Token).ConfigureAwait(false); }
+        catch (Exception ex) { Log.D("web", ex.Message); r = (new(), null); }
+        Ui.Post(() =>
+        {
+            if (cts.IsCancellationRequested || q != box.Text) return;   // a newer query is on its way
+            webSuggest = r.s ?? new(); webAnswer = r.a; webFor = WebAnswers.Intent(q); webPending = false;
+            Log.D("web", $"{webSuggest.Count} suggestion(s){(webAnswer != null ? ", an answer from " + webAnswer.Source : "")}");
+            Rebuild();
+        });
+    }
+
+    static string Google(string q) => "https://www.google.com/search?q=" + Uri.EscapeDataString(q.Trim());
+
+    LItem CardItem(WebAnswer a, string q)
+    {
+        var it = new LItem
+        {
+            Title = a.Title, Subtitle = a.Meta, Tag = a.Source, Card = a, Answer = true, Score = 1000,
+            Icon = a.Kind switch { "define" => "\uE82D", "translate" => "\uF2B7", _ => "\uE774" },
+        };
+        it.Run = () => Win32.SetClipboardText(a.Copy);
+        it.Actions.Add((a.Kind == "translate" ? "Copy translation" : "Copy", Glyph.Copy, "Enter", it.Run));
+        it.Actions.Add(("Open in browser", Glyph.Globe, "", () => Win32.ShellExecute(a.Url)));
+        it.Actions.Add(("Search Google", Glyph.Search, "", () => Win32.ShellExecute(Google(q))));
+        return it;
+    }
+
+    LItem SuggestionItem(string s, int order)
+    {
+        bool answers = WebAnswers.Intent(s) != null;
+        Action fill = () => { box.Set(s); Schedule(); };
+        // one that's a question answers here, the rest search Google
+        var it = new LItem { Title = s, Subtitle = answers ? "Answer it here" : "Search Google", Tag = "Suggestion", Icon = "\uE721", Score = -500 - order, KeepsOpen = answers };
+        it.Run = answers ? fill : () => Win32.ShellExecute(Google(s));
+        it.Actions.Add((answers ? "Answer it here" : "Search Google", answers ? Glyph.Search : Glyph.Globe, "Enter", it.Run));
+        if (answers) it.Actions.Add(("Search Google", Glyph.Globe, "", () => Win32.ShellExecute(Google(s))));
+        else it.Actions.Add(("Search for this here", Glyph.Search, "", fill));
+        return it;
     }
 
     void Run(string q)
@@ -112,6 +195,16 @@ public sealed class SearchPage : Page
             FileActions(it);
             all.Add(it);
         }
+        if (webAnswer != null) all.Add(CardItem(webAnswer, q));
+        else if (q.Length > 0 && isl?.Svc?.Web != null && isl.Cfg.WebAnswers != true && WebAnswers.Intent(q) != null)
+        {
+            // a question, with web answers off: how to get the answer right here
+            var on = new LItem { Title = "Answer this right here", Subtitle = "Turn on web answers in Settings -> Search & Keys", Tag = "Web", Icon = "\uE774", Score = -900 };
+            on.Run = () => isl.Host.OpenSettings("Search & Keys");
+            on.Actions.Add(("Open Settings", Glyph.Settings, "Enter", on.Run));
+            all.Add(on);
+        }
+        for (int k = 0; k < webSuggest.Count; k++) all.Add(SuggestionItem(webSuggest[k], k));
         if (q.Length > 0) all.Add(Launcher.WebFallback(q));
         if (Launcher.IsHelp(q) && isl != null)
         {
@@ -189,10 +282,11 @@ public sealed class SearchPage : Page
         if (a == null) return;
         if (it.Confirm && (armed != it || isl.Clock.Now - armedAt > 4)) { armed = it; armedAt = isl.Clock.Now; isl.Host.RequestFrame(); return; }
         Log.I("search", $"run '{it.Title}' ({it.Tag})");
-        bool staysOpen = it.Tag is "Calculator" or "Convert" or "Color" or "Time";
+        bool flashes = (it.Tag is "Calculator" or "Convert" or "Color" or "Time" || it.Card != null) && a == it.Run;
+        bool staysOpen = flashes || (it.KeepsOpen && a == it.Run);
         Ui.Guard("launcher", a);
         if (it.File == null && !staysOpen && isl.Mode == Mode.Search) isl.CloseToRest("ran " + it.Tag);
-        if (staysOpen) { copied = it; copiedAt = isl.Clock.Now; isl.Host.RequestFrame(); }
+        if (flashes) { copied = it; copiedAt = isl.Clock.Now; isl.Host.RequestFrame(); }
     }
     LItem copied; double copiedAt;
 
@@ -251,22 +345,28 @@ public sealed class SearchPage : Page
         if (items.Count > (isl.Cfg.SearchResults))
         {
             // more than fit: the wheel scrolls, and a thin bar shows where you are
-            var view = new Box(a.X + 14, y, listW, Visible * 46);
+            float viewH = 0; for (int k = 0; k < Visible; k++) viewH += RowH(items[top + k]);
+            var view = new Box(a.X + 14, y, listW, viewH);
             var srScroll = ux.Add("sr:scroll", view, null, 0, CursorKind.Arrow); srScroll.Notched = true; srScroll.ScrollPx = 80; srScroll.Wheel = (d, hz) => { top = Math.Clamp(top - Math.Sign(d) * 2, 0, Math.Max(0, items.Count - isl.Cfg.SearchResults)); sel = Math.Clamp(sel, top, top + isl.Cfg.SearchResults - 1); isl.Host.RequestFrame(); };
             float frac = (float)isl.Cfg.SearchResults / items.Count, pos = (float)top / Math.Max(1, items.Count - isl.Cfg.SearchResults);
             float barH = Math.Max(24, view.H * frac);
             c.Fill(new Box(view.Right + 4, view.Y + (view.H - barH) * pos, 3, barH), Col.White.A(0.25f * t), 1.5f);
         }
+        // the answer on its way: a card-sized placeholder where it will land
+        if (CardPending) { Paint.SkeletonRow(c, new Box(a.X + 14, y, listW, CardH - 4), i.Clock.Now, t, 2); y += CardH; }
+        float ry = y;
         for (int k = 0; k < Visible; k++)
         {
             var it = items[top + k];
-            var row = new Box(a.X + 14, y + k * 46, listW, 42);
+            var row = new Box(a.X + 14, ry, listW, RowH(it) - 4);
+            ry += RowH(it);
             bool on = top + k == sel;
             float selT = ux.Anim("sr:sel" + k, on ? 1 : 0, SpringSpec.Snappy);
             int kk = top + k;
             ux.Add("sr:" + k, row, () => { if (sel == kk && actSel < 0) Activate(); else { sel = kk; actSel = -1; armed = null; } }, 12);
             float h = ux.HoverT("sr:" + k);
             c.Fill(row, Col.Mix(Col.White.A(0.06f * h), accent.A(0.32f), selT).A(t), 12);
+            if (it.Card != null) { DrawCard(c, it, row, on, t, i.Clock.Now); continue; }
             var ib = Box.Centered(row.X + 22, row.CY, 26, 26);
             if (it.Swatch is Color4 sw) { c.Fill(ib, sw.A(t), 7); c.Stroke(ib, Col.White.A(0.3f * t), 7); }
             else if (!string.IsNullOrEmpty(it.Icon))
@@ -297,7 +397,7 @@ public sealed class SearchPage : Page
         {
             int extra = Math.Min(3, (isl.Cfg.SearchResults) - Visible);
             for (int k = 0; k < extra; k++)
-                Paint.SkeletonRow(c, new Box(a.X + 14, y + (Visible + k) * 46, listW, 42), i.Clock.Now, t * (1 - 0.22f * k), k + 1);
+                Paint.SkeletonRow(c, new Box(a.X + 14, ry + k * 46, listW, 42), i.Clock.Now, t * (1 - 0.22f * k), k + 1);
         }
         // actions for the selection
         if (acts.Count == 0) return;
@@ -319,6 +419,25 @@ public sealed class SearchPage : Page
             float hw = string.IsNullOrEmpty(act.hint) ? 0 : c.Measure(act.hint, 9.5f, FontWeight.SemiBold).w;
             if (hw > 0 && 32 + lw + 12 + hw < row.W - 8) c.Text(act.hint, new Box(row.Right - hw - 10, row.Y, hw + 2, row.H), 9.5f, Col.White.A(0.35f * t), FontWeight.SemiBold, HAlign.Right);
         }
+    }
+
+    /// <summary>A definition, translation or summary: the answer large, what it is under it, then a few lines of it.</summary>
+    void DrawCard(Canvas c, LItem it, Box row, bool on, float t, double now)
+    {
+        var a = it.Card;
+        var ib = Box.Centered(row.X + 22, row.Y + 25, 26, 26);
+        c.Fill(ib, Col.White.A((on ? 0.16f : 0.09f) * t), 7);
+        c.Icon(it.Icon[0], ib.CX, ib.CY, 14, Col.White.A(0.92f * t));
+        float x = row.X + 44, w = row.W - 44 - 12;
+        float tw = c.Measure(it.Tag, 10, FontWeight.SemiBold).w + 14;
+        var tag = new Box(row.Right - tw - 10, row.Y + 8, tw, 17);
+        c.Fill(tag, Col.White.A(0.08f * t), 8.5f);
+        c.Text(it.Tag, tag, 10, Col.White.A(0.55f * t), FontWeight.SemiBold, HAlign.Center);
+        c.Text(a.Title, new Box(x, row.Y + 6, w - tw - 12, 26), a.Kind == "translate" ? 18 : 16, Col.White.A(t), FontWeight.SemiBold);
+        bool flash = copied == it && now - copiedAt < 1.2;
+        c.Text(flash ? "Copied to clipboard" : a.Meta, new Box(x, row.Y + 32, w, 16), 11, (flash ? Col.Hex(0x34c759) : Col.White).A((flash ? 0.9f : 0.5f) * t), FontWeight.Medium);
+        c.Text(a.Body, new Box(x, row.Y + 51, w, row.H - 57), 11.5f, Col.White.A(0.78f * t), FontWeight.Normal, HAlign.Left, VAlign.Top, true);
+        if (flash) isl.Host.RequestFrame();
     }
 
     static string Size(long b) => b < 1024 ? $"{b} B" : b < 1 << 20 ? $"{b / 1024.0:0} KB" : b < 1L << 30 ? $"{b / 1048576.0:0.#} MB" : $"{b / 1073741824.0:0.##} GB";
