@@ -288,7 +288,7 @@ public sealed unsafe partial class Host : IIslandHost
                     // enough down it opens search, up it hides); sideways it's a swipe, judged on release
                     var (sx, sy) = ScreenDip();
                     if (drag.Move(sx, sy, Ui.Clock.Now)) { isl?.Ux.CancelPress(); Log.D("host", $"drag started on the island body ({(drag.Sideways ? "sideways" : "up/down")})"); }
-                    if (drag.Dragging && !drag.Sideways) { var (ddx, ddy) = drag.Offset(sx, sy); isl?.DragTo(ddx, ddy); }
+                    if (drag.Dragging) { var (ddx, ddy) = drag.Offset(sx, sy); if (drag.Sideways) isl?.DragSide(ddx); else isl?.DragTo(ddx, ddy); }
                 }
                 return 0;
             }
@@ -316,7 +316,9 @@ public sealed unsafe partial class Host : IIslandHost
                 if (drag.Dragging)
                 {
                     var (usx, usy) = ScreenDip();
+                    float vx = drag.VelocityX(Ui.Clock.Now);
                     var (udx, udy, vy) = drag.Up(usx, usy, Ui.Clock.Now);
+                    if (drag.Sideways) isl?.SideEnd(udx, vx);
                     drag.Down(usx, usy, Ui.Clock.Now);   // done with this one
                     // dragged sideways it was never a click (it used to open the island); far enough, it's a swipe
                     if (drag.Sideways || Math.Abs(udx) > Math.Abs(udy)) { if (Math.Abs(udx) > MouseDrag.SideSwipe) isl?.Swipe(udx, 0); }

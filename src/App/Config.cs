@@ -99,6 +99,11 @@ public sealed class Config
     public string DownloadQuality { get; set; } = "1080";
     /// <summary>What "download audio" makes: mp3 or m4a.</summary>
     public string DownloadAudioFormat { get; set; } = "mp3";
+    public string DownloadCodec { get; set; } = "h264";        // "h264", "h265", "vp9", "av1" or "any" (preferred, not required)
+    public string DownloadContainer { get; set; } = "mp4";     // "mp4", "mkv" or "webm" (VP9 and AV1 only)
+    public string DownloadFps { get; set; } = "60";            // "60" (whatever it has) or "30" (at most)
+    public string DownloadAudioQuality { get; set; } = "best"; // "best", "320", "192" or "128" kbps (lossy formats)
+    public bool DownloadSubtitles { get; set; } = false;          // English subtitles kept inside the video
     public List<string> NotificationMutedApps { get; set; } = new();
     public bool Calls { get; set; } = true;
     public int AlertSeconds { get; set; } = 5;
@@ -209,8 +214,13 @@ public sealed class Config
         DownloadTo = DownloadTo is "shelf" or "folder" ? DownloadTo : "downloads";
         DownloadFolder = string.IsNullOrWhiteSpace(DownloadFolder) || !Path.IsPathFullyQualified(DownloadFolder) ? "" : DownloadFolder.Trim();
         if (DownloadTo == "folder" && DownloadFolder.Length == 0) DownloadTo = "downloads";
-        DownloadQuality = DownloadQuality is "720" or "best" ? DownloadQuality : "1080";
-        DownloadAudioFormat = DownloadAudioFormat == "m4a" ? "m4a" : "mp3";
+        DownloadQuality = DownloadQuality is "480" or "720" or "1440" or "2160" or "best" ? DownloadQuality : "1080";
+        DownloadAudioFormat = DownloadAudioFormat is "m4a" or "opus" or "flac" or "wav" ? DownloadAudioFormat : "mp3";
+        DownloadCodec = DownloadCodec is "h265" or "vp9" or "av1" or "any" ? DownloadCodec : "h264";
+        DownloadContainer = DownloadContainer is "mkv" or "webm" ? DownloadContainer : "mp4";
+        if (DownloadContainer == "webm" && DownloadCodec is not ("vp9" or "av1")) DownloadContainer = "mp4";   // WebM holds only those
+        DownloadFps = DownloadFps == "30" ? "30" : "60";
+        DownloadAudioQuality = DownloadAudioQuality is "320" or "192" or "128" ? DownloadAudioQuality : "best";
         CollapseDelayMs = Math.Clamp(CollapseDelayMs, 0, 5000);
         RevealZoneWidth = Math.Clamp(RevealZoneWidth, 80, 2000);
         RevealZoneHeight = Math.Clamp(RevealZoneHeight, 2, 40);

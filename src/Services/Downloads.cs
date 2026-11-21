@@ -100,7 +100,7 @@ public sealed class Downloads
         url = url?.Trim() ?? "";
         if (!IsLink(url)) throw new ArgumentException("That isn't a link Isola can download from.");
         var cfg = Cfg();
-        var job = new DownloadJob { Kind = audio ? "audio" : "video", Source = url, Format = audio ? (cfg.DownloadAudioFormat == "m4a" ? "m4a" : "mp3") : "mp4", ToShelf = cfg.DownloadTo == "shelf" };
+        var job = new DownloadJob { Kind = audio ? "audio" : "video", Source = url, Format = audio ? cfg.DownloadAudioFormat : cfg.DownloadContainer, ToShelf = cfg.DownloadTo == "shelf" };
         return Add(job);
     }
 
@@ -111,7 +111,7 @@ public sealed class Downloads
     public static bool IsAudioOnly(string path) => Path.GetExtension(path).ToLowerInvariant() is ".mp3" or ".m4a" or ".aac" or ".wav" or ".flac" or ".ogg" or ".opus" or ".wma" or ".aiff";
     /// <summary>The formats a file can become: audio can't become a video or a GIF.</summary>
     public static IEnumerable<string> FormatsFor(string path) => ConvertFormats.Where(f => !(IsAudioOnly(path) && f is "mp4" or "gif" or "webm" or "small") && !string.Equals("." + f, Path.GetExtension(path), StringComparison.OrdinalIgnoreCase));
-    public static string FormatName(string f) => f switch { "small" => "a smaller MP4", "webm" => "WebM", _ => f.ToUpperInvariant() };
+    public static string FormatName(string f) => f switch { "small" => "a smaller MP4", "webm" => "WebM", "opus" => "Opus", _ => f.ToUpperInvariant() };
 
     public DownloadJob Convert(string path, string format)
     {
@@ -232,18 +232,39 @@ public sealed class Downloads
             "--print", "before_dl:ISOLA|title|%(title)s",
             "--print", "after_move:ISOLA|file|%(filepath)s",
         };
-        if (job.Kind == "audio")
-            a.AddRange(new[] { "-f", "ba/b", "-x", "--audio-format", job.Format, "--audio-quality", "0", "--embed-metadata", "--embed-thumbnail" });
-        else
-        {
-            string cap = cfg.DownloadQuality switch { "best" => "", "720" => ",res:720", _ => ",res:1080" };
-            // H.264 and AAC first, so the MP4 plays everywhere (Windows' player, phones, editors)
-            a.AddRange(new[] { "-f", "bv*+ba/b", "-S", "vcodec:h264" + cap + ",acodec:m4a", "--merge-output-format", "mp4", "--embed-metadata" });
-        }
+        a.AddRange(job.Kind == "audio" ? AudioArgs(cfg, job.Format) : VideoArgs(cfg, job.Format));
         // recordings only (README, trailer): a real download, slowed so its progress can be seen
         if (Environment.GetEnvironmentVariable("ISOLA_DOWNLOAD_RATE") is { Length: > 0 } rate && System.Text.RegularExpressions.Regex.IsMatch(rate, @"^\d+[KM]?$")) a.AddRange(new[] { "--limit-rate", rate });
         a.Add("--");   // whatever comes next is the link, never an option
         a.Add(job.Source);
+        return a;
+    }
+
+    /// <summary>
+    /// What yt-dlp is asked for a video. Each choice is a preference (-S sorts by it), not a requirement: a video
+    /// that only comes in other codecs or sizes still downloads, in the nearest there is. A codec this PC can't
+    /// play falls back to H.264, so a download always plays.
+    /// </summary>
+    internal static List<string> VideoArgs(Config cfg, string container)
+    {
+        string codec = Codecs.CanPlay(cfg.DownloadCodec) ? cfg.DownloadCodec : "h264";
+        if (container == "webm" && codec is not ("vp9" or "av1")) container = "mp4";
+        var sort = new List<string>();
+        if (codec != "any") sort.Add("vcodec:" + (codec == "av1" ? "av01" : codec));
+        if (cfg.DownloadQuality != "best") sort.Add("res:" + cfg.DownloadQuality);
+        if (cfg.DownloadFps == "30") sort.Add("fps:30");
+        sort.Add(container == "mp4" ? "acodec:m4a" : "acodec:opus");   // AAC in MP4 plays everywhere; Opus suits the others
+        var a = new List<string> { "-f", "bv*+ba/b", "-S", string.Join(",", sort), "--merge-output-format", container, "--embed-metadata" };
+        if (cfg.DownloadSubtitles) a.AddRange(new[] { "--embed-subs", "--sub-langs", "en.*,-live_chat" });
+        return a;
+    }
+
+    /// <summary>What yt-dlp is asked for the sound alone: the format, its bitrate (the lossless ones have none), the cover.</summary>
+    internal static List<string> AudioArgs(Config cfg, string format)
+    {
+        bool lossless = format is "flac" or "wav";
+        var a = new List<string> { "-f", "ba/b", "-x", "--audio-format", format, "--audio-quality", lossless || cfg.DownloadAudioQuality == "best" ? "0" : cfg.DownloadAudioQuality + "K", "--embed-metadata" };
+        if (format != "wav") a.Add("--embed-thumbnail");   // WAV can't hold a cover
         return a;
     }
 

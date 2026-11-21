@@ -125,7 +125,7 @@ public sealed unsafe partial class SettingsWindow
     {
         int i = Array.FindIndex(Sections, s => s.name == name);
         if (i < 0) return;
-        section = i; scrollTarget = 0; focusField = null; helpOpen = null; dirty = true;
+        section = i; scrollTarget = 0; focusField = null; helpOpen = null; choiceOpen = null; dirty = true;
         // testing: open scrolled down, for a screenshot without touching the wheel
         if (float.TryParse(Environment.GetEnvironmentVariable("ISOLA_SETTINGS_SCROLL"), out float sy)) scrollTarget = sy;
         helpOpen = Environment.GetEnvironmentVariable("ISOLA_SETTINGS_HELP") is { Length: > 0 } hk ? hk : helpOpen;
@@ -216,6 +216,7 @@ public sealed unsafe partial class SettingsWindow
                 {
                     Win32.GetClientRect(hwnd, out var rc);
                     // precision touchpads send small deltas; mouse wheels 120 per notch
+                    choiceOpen = null;   // an open list stays with its row, so scrolling closes it
                     scrollTarget = Math.Clamp(scrollTarget - Win32.HiWord(w) / 120f * 110, 0, Math.Max(0, contentH - rc.Height / scale));
                 }
                 dirty = true; return 0;
@@ -378,9 +379,12 @@ public sealed unsafe partial class SettingsWindow
         // the height measured last frame: if this frame measured another (a page
         // just opened), draw once more so the edges match this page
         float measured = L.Y + scrollY + 32;
+        // only the bottom margin past the window: no scrolling (and no scroll bar) for that alone
+        if (measured > H && measured - H <= 32) measured = H;
         if (Math.Abs(measured - contentH) > 0.5f) dirty = true;
         contentH = measured;
         c.Unfade();
+        ChoiceMenu(W, H);
         HelpPopover(W, H);
         TooltipLayer(W, H);
         ux.EndFrame();
@@ -403,7 +407,13 @@ public sealed unsafe partial class SettingsWindow
             Y += h + 3;
             return b;
         }
-        public void Note(string t, float h = 18) { c.Text(t, new Box(X + 4, Y, W - 8, h), 11.5f, Col.White.A(0.48f), FontWeight.Normal, HAlign.Left, VAlign.Top, true); Y += h + 6; }
+        // as tall as its text wraps to (a fixed line cut a longer note off with "...")
+        public void Note(string t, float h = 18)
+        {
+            float hh = Math.Max(h, c.Measure(t, 11.5f, FontWeight.Normal, W - 8, true).h);
+            c.Text(t, new Box(X + 4, Y, W - 8, hh + 2), 11.5f, Col.White.A(0.48f), FontWeight.Normal, HAlign.Left, VAlign.Top, true);
+            Y += hh + 6;
+        }
     }
 
     // Every settings row: the title and (if any) a subtitle that wraps to two
@@ -517,6 +527,72 @@ public sealed unsafe partial class SettingsWindow
         bool can = tools.Ready && !tools.Busy;
         using (When("dlrm", can))
             Button(L, "dlrm", "Remove the tools", can ? $"Frees {tools.Bytes / 1_000_000} MB{more}" : tools.Busy ? "Busy with the tools" : "Not downloaded", "Remove", () => { tools.Remove(); dirty = true; });
+    }
+
+    const string ToolsHelp = "Free programs from their own projects: yt-dlp downloads from YouTube and most other sites, FFmpeg converts and merges, QuickJS lets yt-dlp read YouTube's player. Isola fetches them from each project's GitHub releases, checks each file against the checksum GitHub publishes, and keeps them up to date. They're removed when you uninstall Isola.";
+
+    // ---- a dropdown: the choice on a pill, its list opening over the page (like the Home tab's mode list) ----
+    string forcedChoice = Environment.GetEnvironmentVariable("ISOLA_SETTINGS_CHOICE");
+    string choiceOpen; Box choiceAnchor; List<(string label, string value, bool ok, string why)> choiceItems = new(); string choiceValue; Action<string> choicePick;
+
+    void Choice(Layout L, string id, string title, string sub, (string label, string value, bool ok, string why)[] items, string value, Action<string> set, string help = null)
+    {
+        var b = LabeledRow(L, id, title, sub, 216, 52, help);
+        var pill = new Box(b.Right - 20 - 180, b.CY - 15, 180, 30);
+        string label = items.FirstOrDefault(i => i.value == value).label ?? value;
+        var list = items.ToList();
+        string zid = "ch:" + id;
+        ux.Add(zid, pill, () =>
+        {
+            if (choiceOpen == id) choiceOpen = null;   // the pill again closes it
+            else { choiceOpen = id; choiceAnchor = pill; choiceItems = list; choiceValue = value; choicePick = v => { set(v); Changed(); }; ux.Forget("choice:in"); }
+            dirty = true;
+        }, 15);
+        if (forcedChoice == id && choiceOpen == null) { forcedChoice = null; choiceOpen = id; choiceItems = list; choiceValue = value; choicePick = v => { }; }   // screenshots
+        if (choiceOpen == id) choiceAnchor = pill;   // follows the row if the page moves under it
+        float h = ux.HoverT(zid), p = ux.PressT(zid);
+        var pb = pill.Scale(1 - 0.03f * p);
+        canvas.Fill(pb, Col.White.A(0.08f + 0.06f * h + (choiceOpen == id ? 0.06f : 0)), 15);
+        canvas.Text(label, new Box(pb.X + 14, pb.Y, pb.W - 40, pb.H), 12.5f, Col.White.A(0.95f), FontWeight.SemiBold);
+        canvas.Icon('\uE70D', pb.Right - 16, pb.CY, 10, Col.White.A(0.7f));   // a dropdown's chevron
+    }
+
+    void ChoiceMenu(float W, float H)
+    {
+        if (choiceOpen == null || choiceItems.Count == 0) return;
+        // a click anywhere else closes it
+        ux.Add("choice:away", new Box(0, 0, W, H), () => { choiceOpen = null; dirty = true; }, 0, CursorKind.Arrow);
+        const float ItemH = 34, Pad = 6, R = 14;
+        bool notes = choiceItems.Any(i => !i.ok && !string.IsNullOrEmpty(i.why));
+        float w = Math.Max(choiceAnchor.W, notes ? 340 : 220), h = choiceItems.Count * ItemH + 2 * Pad;
+        // below the pill when it fits in the window, above it when not
+        float y = choiceAnchor.Bottom + 6 + h <= H - 8 ? choiceAnchor.Bottom + 6 : Math.Max(8, choiceAnchor.Y - 6 - h);
+        float x = Math.Clamp(choiceAnchor.Right - w, 228, W - w - 8);
+        // comes in from 97%
+        float a = ux.AnimFrom("choice:in", 0, 1, SpringSpec.Content);
+        var pb = new Box(x, y, w, h).Scale(0.97f + 0.03f * a);
+        canvas.Push(null, a);
+        canvas.DropShadow(18, Col.Black.A(0.45f), 8, () => canvas.Fill(pb, Col.Black, R));
+        canvas.Fill(pb, Col.Hex(0x34343c, 0.99f), R);   // a step lighter than the cards: it floats above them
+        canvas.Stroke(pb, Col.White.A(0.1f), R, 1);
+        for (int k = 0; k < choiceItems.Count; k++)
+        {
+            var (label, value, ok, why) = choiceItems[k];
+            var row = new Box(pb.X + Pad, pb.Y + Pad + k * ItemH, pb.W - 2 * Pad, ItemH);
+            bool cur = value == choiceValue;
+            if (ok)
+            {
+                string zid = "choice:" + k; var pick = choicePick; string v = value;
+                ux.Add(zid, row, () => { choiceOpen = null; dirty = true; pick?.Invoke(v); }, R - Pad);
+                float hv = ux.HoverT(zid);
+                if (hv > 0.01f) canvas.Fill(row, Col.White.A(0.1f * hv), R - Pad);
+            }
+            canvas.Text(label, new Box(row.X + 12, row.Y, row.W - 40, row.H), 12.5f, Col.White.A(!ok ? 0.35f : cur ? 1 : 0.85f), cur ? FontWeight.SemiBold : FontWeight.Medium);
+            // one this PC can't use says why, and can't be picked
+            if (!ok && !string.IsNullOrEmpty(why)) canvas.Text(why, new Box(row.X + 12, row.Y, row.W - 24, row.H), 11, Col.White.A(0.35f), FontWeight.Medium, HAlign.Right);
+            if (cur) canvas.Icon(Glyph.Check, row.Right - 16, row.CY, 11, Col.White);
+        }
+        canvas.Pop();
     }
 
     void Toggle(Layout L, string id, string title, string sub, bool value, Action<bool> set, string help = null)
@@ -1109,14 +1185,46 @@ public sealed unsafe partial class SettingsWindow
                     string got = Native.FolderPicker.Pick(hwnd, "Save downloads to", work.DownloadFolder);
                     if (got != null) { work.DownloadFolder = got; Changed(); }
                 });
-            Seg(L, "dlq", "Video quality", "The most it downloads, as H.264 MP4 so it plays everywhere", new[] { "720p", "1080p", "Best" }, new[] { "720", "1080", "best" }, work.DownloadQuality, v => work.DownloadQuality = v);
-            Seg(L, "dla", "Audio format", "What downloading the audio makes", new[] { "MP3", "M4A" }, new[] { "mp3", "m4a" }, work.DownloadAudioFormat, v => work.DownloadAudioFormat = v);
+            Choice(L, "dlq", "Video quality", "The most it downloads; less if the video isn't that sharp",
+                new[] { ("480p", "480", true, ""), ("720p", "720", true, ""), ("1080p", "1080", true, ""), ("1440p", "1440", true, ""), ("4K", "2160", true, ""), ("Best there is", "best", true, "") },
+                work.DownloadQuality, v => work.DownloadQuality = v);
+            // only codecs this PC can play are offered (H.265, VP9 and AV1 need Windows' extensions or a graphics card that does them)
+            Choice(L, "dlcodec", "Video codec", work.DownloadCodec switch
+                {
+                    "h265" => "Smaller files at the same quality", "vp9" => "YouTube's own; smaller than H.264",
+                    "av1" => "The smallest files, for newer PCs", "any" => "Whatever the site has best", _ => "Plays everywhere: phones, editors, every player",
+                },
+                new[]
+                {
+                    ("H.264", "h264", true, ""),
+                    ("H.265 (HEVC)", "h265", Services.Codecs.CanPlay("h265"), "Needs HEVC Video Extensions"),
+                    ("VP9", "vp9", Services.Codecs.CanPlay("vp9"), "Needs VP9 Video Extensions"),
+                    ("AV1", "av1", Services.Codecs.CanPlay("av1"), "Needs AV1 Video Extension"),
+                    ("Any", "any", true, ""),
+                },
+                work.DownloadCodec, v => { work.DownloadCodec = v; if (work.DownloadContainer == "webm" && v is not ("vp9" or "av1")) work.DownloadContainer = "mp4"; });
+            Choice(L, "dlcont", "File type", work.DownloadContainer switch { "mkv" => "Holds any codec and subtitles", "webm" => "The web's open format", _ => "Opens anywhere" },
+                new[] { ("MP4", "mp4", true, ""), ("MKV", "mkv", true, ""), ("WebM", "webm", work.DownloadCodec is "vp9" or "av1", "Only with VP9 or AV1") },
+                work.DownloadContainer, v => work.DownloadContainer = v);
+            Choice(L, "dlfps", "Frame rate", "60 keeps games and sport smooth; 30 makes smaller files",
+                new[] { ("Up to 60 fps", "60", true, ""), ("Up to 30 fps", "30", true, "") }, work.DownloadFps, v => work.DownloadFps = v);
+            Toggle(L, "dlsubs", "Subtitles", "English subtitles kept inside the video, when it has them", work.DownloadSubtitles, v => work.DownloadSubtitles = v);
+            Choice(L, "dla", "Audio format", "What downloading the audio makes",
+                new[] { ("MP3", "mp3", true, ""), ("M4A (AAC)", "m4a", true, ""), ("Opus", "opus", true, ""), ("FLAC (lossless)", "flac", true, ""), ("WAV (lossless)", "wav", true, "") },
+                work.DownloadAudioFormat, v => work.DownloadAudioFormat = v);
+            bool lossy = work.DownloadAudioFormat is not ("flac" or "wav");
+            using (When("dlaq", lossy))
+                Choice(L, "dlaq", "Audio quality", lossy ? "Higher keeps more detail; lower makes smaller files" : "FLAC and WAV keep everything",
+                    new[] { ("Best there is", "best", true, ""), ("320 kbps", "320", true, ""), ("192 kbps", "192", true, ""), ("128 kbps", "128", true, "") },
+                    work.DownloadAudioQuality, v => work.DownloadAudioQuality = v);
         }
         if (tools != null)
         {
             string sub = tools.Busy ? tools.Status : tools.Ready ? $"{tools.Summary()} · {tools.Bytes / 1_000_000} MB · checked daily" : "Not installed yet: they're fetched (about 130 MB) the first time you download";
-            Button(L, "dltools", "yt-dlp, FFmpeg and QuickJS", sub, tools.Ready ? "Update now" : "Get them now", () => { _ = tools.CheckAsync(true); dirty = true; }, tools.Busy,
-                "Free programs from their own projects: yt-dlp downloads from YouTube and most other sites, FFmpeg converts and merges, QuickJS lets yt-dlp read YouTube's player. Isola fetches them from each project's GitHub releases, checks each file against the checksum GitHub publishes, and keeps them up to date. They're removed when you uninstall Isola.");
+            // installed, they're kept up to date with Isola (About & Logs -> Check for updates); the button is for getting them
+            if (tools.Ready && !tools.Busy) LabeledRow(L, "dltools", "yt-dlp, FFmpeg and QuickJS", sub, 20, 52, ToolsHelp);
+            else Button(L, "dltools", "yt-dlp, FFmpeg and QuickJS", sub, "Get them now", () => { _ = tools.CheckAsync(true); dirty = true; }, tools.Busy,
+                ToolsHelp);
             if (tools.Busy && tools.Progress >= 0)
             {
                 var bar = new Box(L.X + 4, L.Y - 6, L.W - 8, 3);

@@ -179,4 +179,49 @@ public static partial class Scenarios
         c2.Advance(1, eyes);
         True(eyes.TargetWidth < 200, $"the eyes stay small ({eyes.TargetWidth:0})");
     }
+
+    [Scenario("download options become yt-dlp's preferences: quality, codec, file type, frame rate, subtitles, audio format and bitrate")]
+    public static void DownloadOptionsToArgs()
+    {
+        try
+        {
+            Codecs.Override = c => c is "h264" or "any" or "h265" or "vp9";   // this PC: HEVC and VP9, no AV1
+            string V(Config c, string cont) => string.Join(" ", Downloads.VideoArgs(c, cont));
+            string A(Config c, string fmt) => string.Join(" ", Downloads.AudioArgs(c, fmt));
+            var c = new Config();
+            Eq("-f bv*+ba/b -S vcodec:h264,res:1080,acodec:m4a --merge-output-format mp4 --embed-metadata", V(c, "mp4"), "the default: H.264 1080p MP4, plays everywhere");
+            c.DownloadQuality = "2160"; c.DownloadCodec = "h265"; c.DownloadFps = "30"; c.DownloadSubtitles = true;
+            Eq("-f bv*+ba/b -S vcodec:h265,res:2160,fps:30,acodec:opus --merge-output-format mkv --embed-metadata --embed-subs --sub-langs en.*,-live_chat", V(c, "mkv"), "4K H.265 at 30 fps in MKV, with subtitles");
+            c = new Config { DownloadCodec = "av1" };
+            True(V(c, "mp4").Contains("vcodec:h264"), "AV1 on a PC that can't play it: H.264, so it always plays");
+            c = new Config { DownloadCodec = "vp9" };
+            True(V(c, "webm").Contains("--merge-output-format webm"), "VP9 in WebM");
+            c = new Config { DownloadCodec = "h264" };
+            True(V(c, "webm").Contains("--merge-output-format mp4"), "H.264 can't go in WebM: MP4");
+            Eq("-S res:1080,acodec:m4a", string.Join(" ", Downloads.VideoArgs(new Config { DownloadCodec = "any" }, "mp4").Skip(2).Take(2)), "Any codec: only the size and sound are preferred");
+            Eq("-f ba/b -x --audio-format mp3 --audio-quality 0 --embed-metadata --embed-thumbnail", A(new Config(), "mp3"), "MP3 at the best bitrate, with its cover");
+            Eq("-f ba/b -x --audio-format opus --audio-quality 192K --embed-metadata --embed-thumbnail", A(new Config { DownloadAudioQuality = "192" }, "opus"), "Opus at 192 kbps");
+            Eq("-f ba/b -x --audio-format wav --audio-quality 0 --embed-metadata", A(new Config { DownloadAudioQuality = "128" }, "wav"), "WAV: lossless (no bitrate), and no cover (it can't hold one)");
+            var bad = new Config { DownloadContainer = "webm", DownloadCodec = "h264", DownloadQuality = "999", DownloadAudioFormat = "ogg" }; bad.Normalize();
+            Eq("mp4|1080|mp3", $"{bad.DownloadContainer}|{bad.DownloadQuality}|{bad.DownloadAudioFormat}", "nonsense in the config falls back to what works");
+        }
+        finally { Codecs.Override = null; }
+        True(Codecs.CanPlay("h264"), "every PC plays H.264");
+    }
+
+    [Scenario("dragged sideways the island follows (it didn't move at all) and springs back; a notice dragged down springs back instead of opening search")]
+    public static void SidewaysDragAndNoticeDrag()
+    {
+        var (isl, host, clock) = NewIsland();
+        float x0 = isl.Shape.X;
+        isl.DragSide(80); clock.Advance(0.05, isl);
+        True(isl.Shape.X - x0 > 20, $"it follows, through the rubber band ({isl.Shape.X - x0:0} px for 80)");
+        isl.SideEnd(80, 0); clock.Advance(1.5, isl);
+        True(Math.Abs(isl.Shape.X - x0) < 0.5, "and springs back");
+        isl.Alert(new Alert { Key = "n", Kind = "notification", Title = "Sam", Subtitle = "WhatsApp", Detail = "hi", Seconds = 10 });
+        clock.Advance(1, isl);
+        isl.DragTo(0, 120); clock.Advance(0.1, isl);
+        isl.DragEnd(0, 120, 600); clock.Advance(0.5, isl);
+        Eq(Mode.Alert, isl.Mode, "a notice dragged down stays (it opened search)");
+    }
 }

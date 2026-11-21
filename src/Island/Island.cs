@@ -79,6 +79,7 @@ public sealed partial class Island : ITouchTarget
 
     // geometry springs (DIPs)
     readonly Spring W, H, R, Y, styleT, presence, indicator, glowAmt, squish, lean, pull, reactive;
+    readonly Spring side = new(0, SpringSpec.Wobbly, 0.05);   // a sideways drag's stretch, springing back
     public float CX => Host.WindowWidth / 2;
     public const float PillGap = 8;   // floats clear of the bezel, like the PROLED island
 
@@ -1112,7 +1113,8 @@ public sealed partial class Island : ITouchTarget
         pull.Velocity = Math.Clamp(velocityY * RubberSlope(dy, 140), -1500, 1500);
         Ux.CancelPress();
         // a real pull, not a nudge: 10 px up used to hide it, which a shaky click could do
-        if (projected > 50 && dy > 12) { Log.D("island", $"dragged down {dy:0} (projected {projected:0}) -> search"); OpenSearch(); }
+        // a notice dragged down springs back (it opened search, as the resting island does)
+        if (projected > 50 && dy > 12 && Mode != Mode.Alert) { Log.D("island", $"dragged down {dy:0} (projected {projected:0}) -> search"); OpenSearch(); }
         else if (dy < -28 || (projected < -40 && dy < -8))
         {
             Log.D("island", $"dragged up {dy:0} (projected {projected:0}) -> hide");
@@ -1121,6 +1123,19 @@ public sealed partial class Island : ITouchTarget
         }
         Host.RequestFrame();
     }
+
+    /// <summary>
+    /// A sideways drag: the island follows it through the same rubber band as up and down (it didn't move at all,
+    /// so a drag that began a little sideways felt dead), and springs back on release keeping its speed.
+    /// </summary>
+    public void DragSide(float dx) { Ui.Cancel(ref hoverTimer); side.Snap(Rubber(dx, 120)); Host.RequestFrame(); }
+    public void SideEnd(float dx, float velocityX)
+    {
+        side.To(0, SpringSpec.Wobbly);
+        side.Velocity = Math.Clamp(velocityX * RubberSlope(dx, 120), -1500, 1500);
+        Host.RequestFrame();
+    }
+    internal double SideOffset => side.Value;
 
     static float Rubber(float x, float dim)
     {
@@ -1242,7 +1257,7 @@ public sealed partial class Island : ITouchTarget
         bool m = false;
         m |= W.Step(dt); m |= H.Step(dt); m |= R.Step(dt); m |= Y.Step(dt);
         m |= styleT.Step(dt); m |= presence.Step(dt); m |= indicator.Step(dt); m |= glowAmt.Step(dt);
-        m |= squish.Step(dt); m |= lean.Step(dt); m |= pull.Step(dt);
+        m |= squish.Step(dt); m |= lean.Step(dt); m |= pull.Step(dt); m |= side.Step(dt);
         reactive.To(ReactiveShowing() ? 1 : 0); m |= reactive.Step(dt);
         if (Clock.Now >= incomingAt) m |= xfade.Step(dt); else m = true;
         m |= prevFade.Step(dt);
@@ -1305,7 +1320,7 @@ public sealed partial class Island : ITouchTarget
             float y = top + (float)Y.Value;
             if (pl > 0) { h += pl; w += pl * 0.25f; }
             else y += pl;
-            return new Box(CX - w / 2 + (float)lean.Value * 0.15f, y, Math.Max(1, w), Math.Max(1, h));
+            return new Box(CX - w / 2 + (float)lean.Value * 0.15f + (float)side.Value, y, Math.Max(1, w), Math.Max(1, h));
         }
     }
     public float Radius => (float)Math.Min(R.Value, H.Value / 2);

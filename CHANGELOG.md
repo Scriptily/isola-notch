@@ -11,6 +11,11 @@ release notes.
 
 ### Added
 
+- More download options in Settings -> Downloads, as dropdowns: video
+  quality from 480p to 4K, the video codec (H.264, H.265, VP9, AV1, or any;
+  only ones your PC can play are offered), the file type (MP4, MKV, WebM),
+  frame rate, English subtitles kept in the video, the audio format (MP3, M4A,
+  Opus, FLAC, WAV) and its bitrate.
 - A short notice names any app that starts or stops using the camera or
   microphone (Settings -> Notifications & Sounds -> Privacy, on by default).
   It's silent, and an app that uses them on and off all day, like a game
@@ -43,6 +48,13 @@ release notes.
 
 ### Fixed
 
+- A notification or popup dragged sideways didn't move at all, and dragged
+  down it opened search. It now follows the drag through the same rubber band
+  as the open island and springs back, keeping the speed you let go at.
+- The Downloads page scrolled a few pixels for nothing, and its note was cut
+  off with "..." when downloads were off. "Update now" is gone once the tools
+  are installed (Check for updates in About & Logs keeps them current), and
+  "Get them now" shows while they aren't.
 - The fades at the top and bottom of a scrolling list (and Settings) snapped
   on the moment it moved. They now come in gradually as you scroll away from
   an end, and ease off as you get back to it.
