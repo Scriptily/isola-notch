@@ -402,6 +402,7 @@ public sealed partial class Island : ITouchTarget
         else Host.RequestFrame();
     }
     internal double TargetHeight => H.Target;
+    internal double TargetWidth => W.Target;
 
     public void TrackChanged(MediaInfo old, MediaInfo now)
     {

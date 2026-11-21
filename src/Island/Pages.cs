@@ -318,7 +318,11 @@ public sealed class IdlePage : Page
     bool asleep;
     static readonly Random rng = new();
     public override string Key => "idle";
-    public override (float, float, float) Size(Island isl) => isl.Cfg.Style == "notch" ? (200, 32, 12) : (186, 34, 17);
+    // the clock face is wider: the date on the left and the weather on the right of the time
+    public override (float, float, float) Size(Island isl) => isl.Cfg.IdleFace == "clock"
+        ? (isl.Cfg.Style == "notch" ? (ClockW + 14, 32, 12) : (ClockW, 34, 17))
+        : isl.Cfg.Style == "notch" ? (200, 32, 12) : (186, 34, 17);
+    internal const float ClockW = 276;
 
     // Eyes look at the cursor while it's near and moving. Their direction comes
     // straight from the pointer's position, so a pointer resting near the top of
@@ -362,16 +366,37 @@ public sealed class IdlePage : Page
         return on && Math.Abs(dx) < NearX && dy < NearY;
     }
 
+    /// <summary>
+    /// The time with AM/PM (smaller, dimmer) in the middle, today's date on the left and the weather on the right,
+    /// like a lock screen at a glance. It was the time alone, which said little.
+    /// </summary>
+    static void ClockFace(Island isl, Canvas c, Box a, float t)
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var w = isl.Clock.Wall;
+        bool h24 = isl.Cfg.Use24Hour;
+        string time = Paint.Clock(w, h24), ampm = h24 ? null : w.ToString("tt", inv);
+        float tw = c.Measure(time, 15, FontWeight.SemiBold).w, aw = ampm == null ? 0 : c.Measure(ampm, 10, FontWeight.Bold).w;
+        float x0 = a.CX - (tw + (ampm == null ? 0 : 3 + aw)) / 2;
+        c.Text(time, new Box(x0, a.Y, tw + 2, a.H), 15, Col.White.A(0.95f * t), FontWeight.SemiBold);
+        // AM/PM sits on the time's baseline, a size down
+        if (ampm != null) c.Text(ampm, new Box(x0 + tw + 3, a.Y + 1.5f, aw + 2, a.H), 10, Col.White.A(0.5f * t), FontWeight.Bold);
+        const float Pad = 16;
+        c.Text(w.ToString("ddd d MMM", inv), new Box(a.X + Pad, a.Y, 90, a.H), 11.5f, Col.White.A(0.55f * t), FontWeight.SemiBold);
+        if (isl.Cfg.Weather && isl.Svc?.Weather?.Now is { } wx)
+        {
+            string temp = $"{wx.Temp:0}°";
+            float pw = c.Measure(temp, 11.5f, FontWeight.SemiBold).w;
+            c.Text(temp, new Box(a.Right - Pad - pw, a.Y, pw + 2, a.H), 11.5f, Col.White.A(0.75f * t), FontWeight.SemiBold);
+            Paint.Weather(c, wx.Icon, a.Right - Pad - pw - 11, a.CY, 15, t);
+        }
+    }
+
     public override void Draw(Island isl, Canvas c, Ux ux, Box a, float t)
     {
         double now = isl.Clock.Now;
         if (isl.Cfg.IdleFace == "none") return;
-        if (isl.Cfg.IdleFace == "clock")
-        {
-            var w = isl.Clock.Wall;
-            c.Text(Paint.Clock(w, isl.Cfg.Use24Hour), a, 14, Col.White.A(0.9f * t), FontWeight.SemiBold, HAlign.Center);
-            return;
-        }
+        if (isl.Cfg.IdleFace == "clock") { ClockFace(isl, c, a, t); return; }
         bool near = Near(isl, out float dx, out float dy);
         if (double.IsNaN(lastNear)) lastNear = now;   // awake when we first appear
         // dozing eyes only wake for a pointer that comes close, not one passing by

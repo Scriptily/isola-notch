@@ -23,6 +23,8 @@ release notes.
 
 ### Changed
 
+- The clock face shows the date on the left and the weather on the right of
+  the time, with AM/PM beside it (or the 24-hour time).
 - Settings that depend on another one are dimmed, and don't respond, while it
   rules them out, with a note saying why where it isn't obvious: "Stay while
   media plays" when Hide after inactivity is Never, every sound setting when

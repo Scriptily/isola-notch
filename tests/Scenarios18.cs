@@ -168,4 +168,15 @@ public static partial class Scenarios
         Eq(0, clicks, "clicking the dimmed switch does nothing");
         Eq(0, drags, "dragging the dimmed slider does nothing");
     }
+
+    [Scenario("the clock face has room for the date and the weather beside the time; the eyes keep their small pill")]
+    public static void ClockFaceIsWider()
+    {
+        var (isl, _, clock) = NewIsland(new Config { IdleFace = "clock" });
+        clock.Advance(1, isl);
+        True(isl.TargetWidth >= IdlePage.ClockW - 0.5, $"wide enough ({isl.TargetWidth:0})");
+        var (eyes, _, c2) = NewIsland(new Config { IdleFace = "eyes" });
+        c2.Advance(1, eyes);
+        True(eyes.TargetWidth < 200, $"the eyes stay small ({eyes.TargetWidth:0})");
+    }
 }
