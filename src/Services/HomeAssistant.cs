@@ -166,7 +166,20 @@ public sealed class HomeAssistant
             Ui.Post(() =>
             {
                 double now = clock.Now;
-                foreach (var e in got) { e.FetchedAt = now; if (!pendingUntil.TryGetValue(e.Id, out var until) || now > until) Entities[e.Id] = e; }
+                foreach (var e in got)
+                {
+                    e.FetchedAt = now;
+                    // a change you asked for keeps showing until Home Assistant reports it (a cloud device, like an
+                    // LG air conditioner, takes seconds): the tile went back to off a second after the tap, then on
+                    // again, and a mode stepped through went back and forth
+                    if (pending.TryGetValue(e.Id, out var p))
+                    {
+                        if (Confirms(p, e)) pending.Remove(e.Id);
+                        else if (now > p.Until) { pending.Remove(e.Id); Log.D("ha", $"{e.Id}: no confirmation in {ConfirmWithin:0} s; showing what Home Assistant reports"); }
+                        else continue;
+                    }
+                    Entities[e.Id] = e;
+                }
                 if (all || wanted.Count > 12) All = got.OrderBy(e => e.Domain).ThenBy(e => e.Name).ToList();
                 lastFetch = now;
                 Set(HaStatus.Online, $"Connected · {got.Count} entities");
@@ -198,7 +211,38 @@ public sealed class HomeAssistant
         return e;
     }
 
-    readonly Dictionary<string, double> pendingUntil = new();
+    /// <summary>A change asked for and shown at once, until Home Assistant reports it (or <see cref="ConfirmWithin"/> passes).</summary>
+    internal sealed class Pending
+    {
+        public double Until;
+        public string State;                                   // the state asked for, if it changed
+        public readonly Dictionary<string, JsonNode> Attrs = new();   // the attributes asked for
+        public Func<HaEntity, bool> Confirm;                   // or what counts as done ("on" in whatever mode)
+        public string BeforeState; public JsonObject BeforeAttr; // put back if the call fails
+    }
+    readonly Dictionary<string, Pending> pending = new();
+    internal const double ConfirmWithin = 15;
+
+    internal static bool Confirms(Pending p, HaEntity got)
+    {
+        if (p.Confirm != null) return p.Confirm(got);
+        if (p.State != null && got.State != p.State) return false;
+        foreach (var (k, v) in p.Attrs) { got.Attr.TryGetPropertyValue(k, out var g); if (!Same(v, g)) return false; }
+        return true;
+    }
+
+    /// <summary>Equal, numbers within a hair (a brightness of 127 asked for comes back as 128; 21 as 21.0).</summary>
+    static bool Same(JsonNode a, JsonNode b)
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        if (a is JsonValue && b is JsonValue && double.TryParse(a.ToJsonString(), System.Globalization.NumberStyles.Float, inv, out double da)
+            && double.TryParse(b.ToJsonString(), System.Globalization.NumberStyles.Float, inv, out double db))
+            return Math.Abs(da - db) <= Math.Max(0.6, Math.Abs(db) * 0.02);
+        return JsonNode.DeepEquals(a, b);
+    }
+
+    /// <summary>A change on its way to Home Assistant, not yet reported back (tests).</summary>
+    internal bool IsPending(string entityId) => pending.ContainsKey(entityId);
     readonly Dictionary<string, double> calling = new();   // entity -> when its service call went out
 
     /// <summary>A refresh is in flight.</summary>
@@ -210,10 +254,24 @@ public sealed class HomeAssistant
     /// Call a service. The local state flips immediately (optimistic) so the tile
     /// answers on the same frame; the next refresh, a moment later, confirms it.
     /// </summary>
-    public async Task Call(string domain, string service, string entityId, Action<JsonObject> extra = null, Action<HaEntity> optimistic = null)
+    public async Task Call(string domain, string service, string entityId, Action<JsonObject> extra = null, Action<HaEntity> optimistic = null,
+        Func<HaEntity, bool> confirmed = null)
     {
         if (!Configured) return;
-        if (optimistic != null && Entities.TryGetValue(entityId, out var ent)) { optimistic(ent); pendingUntil[entityId] = clock.Now + 2.5; Changed?.Invoke(); }
+        if (optimistic != null && Entities.TryGetValue(entityId, out var ent))
+        {
+            // what this call changes, to recognize when Home Assistant reports it; a second change before then builds
+            // on the first (its "before" is still the real state, to put back if the call fails)
+            pending.TryGetValue(entityId, out var prev);
+            string beforeState = ent.State; var beforeAttr = (JsonObject)ent.Attr.DeepClone();
+            optimistic(ent);
+            var p = new Pending { Until = clock.Now + ConfirmWithin, Confirm = confirmed, BeforeState = prev?.BeforeState ?? beforeState, BeforeAttr = prev?.BeforeAttr ?? beforeAttr };
+            if (ent.State != beforeState) p.State = ent.State; else if (prev?.State != null) p.State = prev.State;
+            if (prev != null && confirmed == null) foreach (var (k, v) in prev.Attrs) p.Attrs[k] = v?.DeepClone();
+            foreach (var (k, v) in ent.Attr) if (!JsonNode.DeepEquals(v, beforeAttr[k])) p.Attrs[k] = v?.DeepClone();
+            pending[entityId] = p;
+            Changed?.Invoke();
+        }
         calling[entityId] = clock.Now;
         var body = new JsonObject { ["entity_id"] = entityId };
         extra?.Invoke(body);
@@ -227,13 +285,26 @@ public sealed class HomeAssistant
         catch (Exception ex)
         {
             Log.W("ha", $"{domain}.{service} failed: {ex.Message}");
-            Ui.Post(() => { pendingUntil.Remove(entityId); Set(HaStatus.Unreachable, "Couldn't reach Home Assistant"); Changed?.Invoke(); });
+            Ui.Post(() =>
+            {
+                // it never got there: the tile goes back to how it really is
+                if (pending.Remove(entityId, out var p) && Entities.TryGetValue(entityId, out var back)) { back.State = p.BeforeState; back.Attr = p.BeforeAttr; }
+                Set(HaStatus.Unreachable, "Couldn't reach Home Assistant"); Changed?.Invoke();
+            });
             return;
         }
         finally { Ui.Post(() => { calling.Remove(entityId); Changed?.Invoke(); }); }
-        await Task.Delay(700).ConfigureAwait(false);
-        Ui.Post(() => pendingUntil.Remove(entityId));
-        await RefreshAsync().ConfigureAwait(false);
+        // looked at again a few times, sooner than the regular refresh, so the change is confirmed (or not) promptly
+        foreach (int ms in new[] { 700, 1500, 3000, 5000, 6000 })
+        {
+            await Task.Delay(ms).ConfigureAwait(false);
+            bool waiting = false;
+            var ask = new TaskCompletionSource();
+            Ui.Post(() => { waiting = pending.ContainsKey(entityId); ask.TrySetResult(); });
+            await Task.WhenAny(ask.Task, Task.Delay(1000)).ConfigureAwait(false);
+            if (!waiting) break;
+            await RefreshAsync().ConfigureAwait(false);
+        }
     }
 
     /// <summary>The obvious "tap" action for an entity.</summary>
@@ -247,11 +318,16 @@ public sealed class HomeAssistant
             case "script": _ = Call("script", "turn_on", e.Id, null, x => x.State = "on"); break;
             case "button": _ = Call("button", "press", e.Id); break;
             case "input_button": _ = Call("input_button", "press", e.Id); break;
-            case "cover": _ = Call("cover", "toggle", e.Id); break;
-            case "lock": _ = Call("lock", e.State == "locked" ? "unlock" : "lock", e.Id, null, x => x.State = x.State == "locked" ? "unlocked" : "locked"); break;
-            case "media_player": _ = Call("media_player", "media_play_pause", e.Id); break;
-            case "climate": _ = Call("climate", e.State == "off" ? "turn_on" : "turn_off", e.Id, null, x => x.State = x.State == "off" ? (x.List("hvac_modes").FirstOrDefault(m => m != "off") ?? "on") : "off"); break;
-            case "vacuum": _ = Call("vacuum", e.State == "cleaning" ? "return_to_base" : "start", e.Id); break;
+            // these report a step on the way (opening, locking, returning): any change from before counts as done
+            case "cover": { string was = e.State; _ = Call("cover", "toggle", e.Id, null, x => x.State = x.State is "open" or "opening" ? "closing" : "opening", s => s.State != was); break; }
+            case "lock": { string was = e.State; _ = Call("lock", e.State == "locked" ? "unlock" : "lock", e.Id, null, x => x.State = x.State == "locked" ? "unlocked" : "locked", s => s.State != was); break; }
+            case "media_player": { string was = e.State; _ = Call("media_player", "media_play_pause", e.Id, null, x => x.State = x.State == "playing" ? "paused" : "playing", s => s.State != was); break; }
+            // on: the mode it comes back in is the device's to say (the last one it ran), so any mode but off counts
+            case "climate":
+                if (e.State == "off") _ = Call("climate", "turn_on", e.Id, null, x => x.State = x.List("hvac_modes").FirstOrDefault(m => m != "off") ?? "on", s => s.State is not ("off" or "unavailable"));
+                else _ = Call("climate", "turn_off", e.Id, null, x => x.State = "off");
+                break;
+            case "vacuum": { string was = e.State; _ = Call("vacuum", e.State == "cleaning" ? "return_to_base" : "start", e.Id, null, x => x.State = x.State == "cleaning" ? "returning" : "cleaning", s => s.State != was); break; }
             default: _ = Call("homeassistant", "toggle", e.Id, null, x => x.State = x.On ? "off" : "on"); break;
         }
     }

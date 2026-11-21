@@ -17,6 +17,17 @@ release notes.
 
 ### Fixed
 
+- A Home Assistant tile you tapped went back to how it was a second later,
+  then changed again once Home Assistant caught up (a cloud device like an
+  air conditioner takes seconds to report). The tile now keeps showing what
+  you asked for until Home Assistant reports it, for up to 15 seconds, and
+  goes straight back if the change couldn't be sent.
+- Stepping through an air conditioner's modes went back and forth, and could
+  turn it off. Modes are now a list to pick from, without Off, since tapping
+  the tile turns it on and off. Home Assistant select tiles use the same list.
+- Home Assistant tiles have even space above and below, and the air
+  conditioner's temperature buttons line up with its mode list.
+- The Bluetooth switch in Devices sits beside its settings button.
 - A video playing by itself never counted as heard, so a Spotify paused for
   hours, the one on the island, kept its place: the island didn't switch to
   the video, and notification sounds ignored Quieter and didn't lower it.

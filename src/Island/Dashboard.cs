@@ -93,7 +93,7 @@ public sealed partial class DashboardPage : Page
         if (t[isl.Tab].Id == "home")
         {
             // four rows fit before the grid scrolls (440 clipped the fourth by 8 DIP)
-            h = Math.Clamp(104 + HaRows() * 86, 220, 450);
+            h = Math.Clamp(104 + HaRows() * (TileH + 10), 220, 450);
         }
         // room for the app chips: the same count the layout uses (sessions with something to show)
         if (t[isl.Tab].Id == "media" && (isl.Svc?.Media?.Sessions.Count(s => !string.IsNullOrEmpty(s.Title)) ?? 0) > 1) h += 34;
@@ -187,7 +187,7 @@ public sealed partial class DashboardPage : Page
         if (double.IsNaN(since) || isl.Clock.Now - since < 0.25) return;
         bool stateless = e.Domain is "scene" or "script" or "button" or "input_button";
         bool lit = e.On && !e.Unavailable && !offline && !stateless;
-        Paint.Spinner(c, b.X + 56, b.Y + 26, 14, lit ? Col.Hex(0x1c1c1e) : Col.White, isl.Clock.Now, t * 0.9f);
+        Paint.Spinner(c, b.X + 56, b.Y + 26, 14, lit ? Col.Hex(0x1c1c1e) : Col.White, isl.Clock.Now, t * 0.9f);   // beside the icon
     }
 
     public override bool OnKey(Island i, int vk, bool ctrl, bool shift)
@@ -587,10 +587,10 @@ public sealed partial class DashboardPage : Page
         var grid = new Box(p.X, p.Y + 20, p.W, p.H - 20);
         var homeView = grid;
         if (Paint.Scrolls(homeH, grid.H)) grid = new Box(grid.X, grid.Y, grid.W - Paint.ScrollLane, grid.H);   // the tiles narrow for the bar
-        int cols = 4; float gap = 10, tw = (grid.W - gap * (cols - 1)) / cols, th = 76;
+        int cols = 4; float gap = 10, tw = (grid.W - gap * (cols - 1)) / cols, th = TileH;
         int k = 0;
         float sc = ux.Anim("scroll:home", scroll.GetValueOrDefault("home"), ScrollSpring, 0.05);
-        ux.Add("ha:scroll", grid, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["home"] = Math.Clamp(scroll.GetValueOrDefault("home") - d / 120f * 50, 0, Math.Max(0, homeH - grid.H)); isl.Host.RequestFrame(); };
+        ux.Add("ha:scroll", grid, null, 0, CursorKind.Arrow).Wheel = (d, h) => { haMenu = null; scroll["home"] = Math.Clamp(scroll.GetValueOrDefault("home") - d / 120f * 50, 0, Math.Max(0, homeH - grid.H)); isl.Host.RequestFrame(); };
         Bar(c, ux, "home", homeView, sc, homeH, t);
         c.FadeClip(grid.Inset(-4, -2), sc > 0.5f, sc < homeH - grid.H - 0.5f);
         foreach (var id in isl.Cfg.HaEntities)
@@ -616,8 +616,70 @@ public sealed partial class DashboardPage : Page
         if (Math.Abs(measured - homeH) > 0.5f) isl.Host.RequestFrame();   // the fade used last frame's height
         homeH = measured;
         c.Unfade();
+        HaMenu(c, ux, homeView, t);
     }
     float homeH;
+    /// <summary>A tile's height: even space above the icon and below the state line.</summary>
+    internal const float TileH = 86;
+
+    // ---- a tile's dropdown (a climate mode, a select's options) ----
+    // Stepping through them with clicks sent one change per click and showed each before Home Assistant had
+    // caught up; a list shows them all and sets the one picked.
+    string haMenu;                       // the entity whose list is open
+    bool showcaseMenu = Environment.GetEnvironmentVariable("ISOLA_SHOWCASE_HAMENU") == "1";   // screenshots: a climate list open
+    Box haMenuAnchor;
+    List<(string value, string label)> haMenuItems = new();
+    string haMenuCurrent;
+    Action<string> haMenuPick;
+
+    void OpenHaMenu(string entity, Box anchor, List<(string, string)> items, string current, Action<string> pick)
+    {
+        if (haMenu == entity) { haMenu = null; return; }   // the button again closes it
+        haMenu = entity; haMenuAnchor = anchor; haMenuItems = items; haMenuCurrent = current; haMenuPick = pick;
+        isl.Ux.Forget("hamenu:in");
+        isl.Host.RequestFrame();
+    }
+
+    internal const float MenuItemH = 30, MenuPad = 6, MenuR = 14;
+
+    void HaMenu(Canvas c, Ux ux, Box view, float t)
+    {
+        if (haMenu == null || haMenuItems.Count == 0) return;
+        // a click anywhere else closes it
+        ux.Add("hamenu:away", view.Inset(-20, -30), () => haMenu = null, 0, CursorKind.Arrow);
+        float w = Math.Max(haMenuAnchor.W, 132), h = haMenuItems.Count * MenuItemH + 2 * MenuPad;
+        // below the button when it fits in the tab, above it when not
+        float y = haMenuAnchor.Bottom + 6 + h <= view.Bottom + 8 ? haMenuAnchor.Bottom + 6 : haMenuAnchor.Y - 6 - h;
+        float x = Math.Clamp(haMenuAnchor.Right - w, view.X, view.Right - w);
+        var panel = new Box(x, y, w, h);
+        // comes in from 97%, from the button it opened from
+        float a = ux.AnimFrom("hamenu:in", 0, 1, SpringSpec.Content);
+        var pb = panel.Scale(0.97f + 0.03f * a);
+        c.Push(null, a * t);
+        c.DropShadow(18, Col.Black.A(0.5f), 6, () => c.Fill(pb, Col.Black, MenuR));
+        c.Fill(pb, Col.Hex(0x2c2c31), MenuR);   // a step lighter than the tiles: it floats above them
+        c.Stroke(pb, Col.White.A(0.1f), MenuR, 1);
+        for (int k = 0; k < haMenuItems.Count; k++)
+        {
+            var (value, label) = haMenuItems[k];
+            var row = new Box(pb.X + MenuPad, pb.Y + MenuPad + k * MenuItemH, pb.W - 2 * MenuPad, MenuItemH);
+            string zid = "hamenu:" + k;
+            var pick = haMenuPick; string v = value;
+            ux.Add(zid, row, () => { haMenu = null; pick?.Invoke(v); }, MenuR - MenuPad);
+            float hv = ux.HoverT(zid);
+            if (hv > 0.01f) c.Fill(row, Col.White.A(0.1f * hv), MenuR - MenuPad);
+            bool cur = value == haMenuCurrent;
+            c.Text(label, new Box(row.X + 10, row.Y, row.W - 36, row.H), 12, Col.White.A(cur ? 1 : 0.85f), cur ? FontWeight.SemiBold : FontWeight.Medium);
+            if (cur) c.Icon(Glyph.Check, row.Right - 14, row.CY, 11, Col.White);
+        }
+        c.Pop();
+    }
+
+    /// <summary>A climate mode or an option, as a person would write it: "fan_only" is "Fan only", "heat_cool" is "Heat/Cool".</summary>
+    internal static string ModeLabel(string m) => m switch { "heat_cool" => "Heat/Cool", "fan_only" => "Fan only", _ => Pretty(m) };
+
+    /// <summary>The modes the list offers: every one but off (tapping the tile turns it on and off).</summary>
+    internal static List<string> PickableModes(HaEntity e) => e.List("hvac_modes").Where(m => m != "off").ToList();
 
     void SettingsButton(Canvas c, Ux ux, Box p, float t, string label) =>
         ux.Pill("ha:settings", Box.Centered(p.CX, p.Bottom - 18, 150, 30), label, () => isl.Host.OpenSettings("Home Assistant"), Col.White, Glyph.Settings);
@@ -681,8 +743,9 @@ public sealed partial class DashboardPage : Page
         c.Circle(ic.CX, ic.CY, 14, (coloredDisc ? disc : Col.White.A(0.14f)).A(alpha));
         c.Icon(TileGlyph(e), ic.CX, ic.CY, 14, (coloredDisc ? Col.White : Col.White.A(0.8f)).A(alpha));
 
-        c.Text(e.Name, new Box(bb.X + P, bb.Y + 42, bb.W - 2 * P, 17), 12, title.A(alpha), FontWeight.SemiBold);
-        c.Text(StateText(e, offline), new Box(bb.X + P, bb.Y + 58, bb.W - 2 * P, 15), 10.5f, sub.A(sub.A * alpha), FontWeight.Medium);
+        // the state line ends as far from the bottom as the icon starts from the top (it hugged the bottom edge)
+        c.Text(e.Name, new Box(bb.X + P, bb.Bottom - P - 31, bb.W - 2 * P, 17), 12, title.A(alpha), FontWeight.SemiBold);
+        c.Text(StateText(e, offline), new Box(bb.X + P, bb.Bottom - P - 14, bb.W - 2 * P, 14), 10.5f, sub.A(sub.A * alpha), FontWeight.Medium);
 
         if (e.Domain == "climate" && !dead)
         {
@@ -690,26 +753,34 @@ public sealed partial class DashboardPage : Page
             double step = e.Num("target_temp_step") ?? 1;
             float cy = ic.CY;
             var btnFg = Col.Mix(Col.White, Col.Gray(0.1f), onT);
-            ClimateButton(c, ux, id + ":minus", bb.Right - 92, cy, '\uE738', () => { if (!double.IsNaN(target)) ha.SetTemperature(e, target - step); }, onT, alpha);
-            c.Text(double.IsNaN(target) ? "--°" : $"{target:0.#}°", Box.Centered(bb.Right - 60, cy, 40, 20), 14, btnFg.A(alpha), FontWeight.SemiBold, HAlign.Center);
-            ClimateButton(c, ux, id + ":plus", bb.Right - 28, cy, Glyph.Add, () => { if (!double.IsNaN(target)) ha.SetTemperature(e, target + step); }, onT, alpha);
-            var modes = e.List("hvac_modes");
-            if (modes.Count > 1)
+            // minus, the target and plus span the same width as the mode list under them, inside the tile's padding
+            const float GroupW = 96;
+            float gx = bb.Right - P - GroupW;
+            ClimateButton(c, ux, id + ":minus", gx + 14, cy, '\uE738', () => { if (!double.IsNaN(target)) ha.SetTemperature(e, target - step); }, onT, alpha);
+            c.Text(double.IsNaN(target) ? "--°" : $"{target:0.#}°", Box.Centered(gx + GroupW / 2, cy, 40, 20), 14, btnFg.A(alpha), FontWeight.SemiBold, HAlign.Center);
+            ClimateButton(c, ux, id + ":plus", gx + GroupW - 14, cy, Glyph.Add, () => { if (!double.IsNaN(target)) ha.SetTemperature(e, target + step); }, onT, alpha);
+            var modes = PickableModes(e);
+            if (modes.Count > 1 || (modes.Count == 1 && e.State == "off"))
             {
-                var mb = new Box(bb.Right - P - 92, bb.Bottom - P - 24, 92, 24);
+                var mb = new Box(gx, bb.Bottom - P - 22, GroupW, 22);
                 string mid = id + ":mode";
-                ux.Add(mid, mb, () => { int i = modes.IndexOf(e.State); ha.SetHvacMode(e, modes[(i + 1) % modes.Count]); }, 12);
+                // a list of the modes (picking one while it's off turns it on in that mode)
+                ux.Add(mid, mb, () => OpenHaMenu(e.Id, mb, modes.Select(m => (m, ModeLabel(m))).ToList(), e.State, m => ha.SetHvacMode(e, m)), 11);
+                if (showcaseMenu && haMenu == null) { showcaseMenu = false; OpenHaMenu(e.Id, mb, modes.Select(m => (m, ModeLabel(m))).ToList(), e.State, m => { }); }
                 float mh = ux.HoverT(mid), mp = ux.PressT(mid);
                 var mbb = mb.Scale(1 - 0.03f * mp);
                 // a dark pill on the light tile, a light one on the dark tile
-                c.Fill(mbb, Col.Mix(Col.White.A(0.16f + 0.08f * mh), Col.Gray(0.12f, 0.88f + 0.1f * mh), onT).A(alpha), 12);
-                c.Text(Pretty(e.State), mbb, 11, Col.White.A(alpha), FontWeight.SemiBold, HAlign.Center);
+                c.Fill(mbb, Col.Mix(Col.White.A(0.16f + 0.08f * mh), Col.Gray(0.12f, 0.88f + 0.1f * mh), onT).A(alpha), 11);
+                string ml = e.State == "off" ? "Mode" : ModeLabel(e.State);
+                c.Text(ml, new Box(mbb.X + 10, mbb.Y, mbb.W - 30, mbb.H), 11, Col.White.A(alpha), FontWeight.SemiBold, HAlign.Center);
+                c.Icon('\uE70D', mbb.Right - 13, mbb.CY, 9, Col.White.A(0.8f * alpha));   // a dropdown's chevron
             }
         }
         else if ((e.Domain is "select" or "input_select") && !dead)
         {
             var opts = e.List("options");
-            z.Click = () => { if (opts.Count == 0) return; int i = opts.IndexOf(e.State); ha.SelectOption(e, opts[(i + 1) % opts.Count]); };
+            var anchor = new Box(bb.X + P, bb.Bottom - P - 14, bb.W - 2 * P, 14);
+            z.Click = () => { if (opts.Count > 0) OpenHaMenu(e.Id, anchor, opts.Select(o => (o, ModeLabel(o))).ToList(), e.State, o => ha.SelectOption(e, o)); };
         }
         else if (e.Domain is "number" or "input_number" && !dead)
         {
@@ -1249,13 +1320,14 @@ public sealed partial class DashboardPage : Page
         c.Text("Bluetooth", new Box(row.X + 32, row.Y, 200, row.H), 14, Col.White.A(t), FontWeight.SemiBold);
         if (bt?.Available == true)
         {
-            ux.Switch("bt:radio", row.Right - 120, row.CY, bt.RadioOn == true, () => { if (!bt.Switching) _ = bt.SetRadio(bt.RadioOn != true); }, Col.Hex(0x0a84ff));
+            // 12 px from the settings button (it sat 47 px away, out on its own)
+            ux.Switch("bt:radio", row.Right - 85, row.CY, bt.RadioOn == true, () => { if (!bt.Switching) _ = bt.SetRadio(bt.RadioOn != true); }, Col.Hex(0x0a84ff));
             // switching the radio takes a second or two; say it's happening. (This
             // once sat between the if above and its else, which then drew "No
             // radio" under the switch whenever it wasn't switching.)
-            if (bt.Switching) Paint.Spinner(c, row.Right - 168, row.CY, 14, Col.White.A(0.75f), isl.Clock.Now, t);
+            if (bt.Switching) Paint.Spinner(c, row.Right - 105, row.CY, 14, Col.White.A(0.75f), isl.Clock.Now, t);
         }
-        else c.Text("No radio", new Box(row.Right - 200, row.Y, 120, row.H), 12, Col.White.A(0.5f * t), FontWeight.Medium, HAlign.Right);
+        else c.Text("No radio", new Box(row.Right - 165, row.Y, 120, row.H), 12, Col.White.A(0.5f * t), FontWeight.Medium, HAlign.Right);
         ux.IconButton("bt:settings", row.Right - 18, row.CY, 30, Glyph.Settings, () => Native.Win32.ShellExecute("ms-settings:bluetooth"), null, 13);
         y += 44;
         var s = pods?.State;
