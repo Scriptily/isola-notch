@@ -357,32 +357,60 @@ public sealed partial class DashboardPage : Page
         c.Text($"{h.Count} since Isola started · newest first", new Box(p.X, p.Y - 2, p.W - 90, 16), 11, Col.White.A(0.45f * t), FontWeight.SemiBold);
         ux.Pill("recent:clear", new Box(p.Right - 70, p.Y - 4, 70, 22), "Clear", () => { h.Clear(); scroll["recent"] = 0; isl.Host.RequestFrame(); }, Col.White, '\0', false, 11);
         var list = new Box(p.X, p.Y + 26, p.W, p.H - 26);
-        const float rh = 54;
-        float total = h.Count * rh;
+        // each row as tall as its message, up to three lines (they were one line each, cut off); longer ones
+        // scroll up inside the row while it's hovered, so a long list isn't all moving at once
+        bool lane = Paint.Scrolls(recentH, list.H);
+        float rw = list.W - (lane ? Paint.ScrollLane : 0), tw = rw - 9 - 30 - 11 - 70;
+        var heights = new float[h.Count];
+        float total = 0;
+        for (int i = 0; i < h.Count; i++) { heights[i] = RecentRowH(c, h[h.Count - 1 - i].alert, tw); total += heights[i]; }
+        if (Math.Abs(total - recentH) > 0.5f) isl.Host.RequestFrame();
+        recentH = total;
         float sc = ux.Anim("scroll:recent", scroll.GetValueOrDefault("recent"), ScrollSpring, 0.05);
-        var rs = ux.Add("recent:scroll", list, null, 0, CursorKind.Arrow); rs.ScrollPx = rh;
-        rs.Wheel = (d, hz) => { scroll["recent"] = Math.Clamp(scroll.GetValueOrDefault("recent") - d / 120f * rh, 0, Math.Max(0, total - list.H)); isl.Host.RequestFrame(); };
+        var rs = ux.Add("recent:scroll", list, null, 0, CursorKind.Arrow); rs.ScrollPx = 54;
+        rs.Wheel = (d, hz) => { scroll["recent"] = Math.Clamp(scroll.GetValueOrDefault("recent") - d / 120f * 54, 0, Math.Max(0, total - list.H)); isl.Host.RequestFrame(); };
         Bar(c, ux, "recent", list, sc, total, t);
-        if (Paint.Scrolls(total, list.H)) list = new Box(list.X, list.Y, list.W - Paint.ScrollLane, list.H);
+        if (lane) list = new Box(list.X, list.Y, rw, list.H);
         c.FadeClip(list, sc > 0.5f, sc < total - list.H - 0.5f);
+        float y = list.Y - sc;
         for (int i = 0; i < h.Count; i++)
         {
             var (al, at) = h[h.Count - 1 - i];
-            var row = new Box(list.X, list.Y + i * rh - sc, list.W, rh - 6);
+            var row = new Box(list.X, y, list.W, heights[i] - 6);
+            y += heights[i];
             if (row.Bottom < list.Y || row.Y > list.Bottom) continue;
+            string rid = "recent:row:" + i;
+            ux.Add(rid, row, null, 12, CursorKind.Arrow);
+            bool hov = ux.HoverT(rid) > 0.5f;
             c.Fill(row, Col.White.A(0.05f * t), 12);
-            var ib = new Box(row.X + 9, row.CY - 15, 30, 30);
+            var ib = new Box(row.X + 9, row.Y + 10, 30, 30);
             var img = Paint.Image(c, "recent:" + al.Key + al.Created, al.Image);
             if (img != null) c.Image(img, ib, t, al.Kind == "call" ? 15 : 8);
-            else { c.Fill(ib, Col.Legible(al.Accent, 0.22f).A(t), al.Kind == "call" ? 15 : 8); c.Icon(al.Glyph == '\0' ? Glyph.Bell : al.Glyph, ib.CX, ib.CY, 13, Col.White.A(t)); }
-            float tx = ib.Right + 11, tw = row.Right - 70 - tx;
-            c.Text(al.Title, new Box(tx, row.Y + 6, tw, 19), 13, Col.White.A(0.92f * t), FontWeight.SemiBold);
-            string sub = string.IsNullOrEmpty(al.Detail) ? al.Subtitle : (string.IsNullOrEmpty(al.Subtitle) ? al.Detail : al.Subtitle + " · " + al.Detail);
-            c.Text((sub ?? "").Replace('\n', ' '), new Box(tx, row.Y + 25, tw, 17), 11.5f, Col.White.A(0.55f * t), FontWeight.Medium);
-            c.Text(at.ToString(isl.Cfg.Use24Hour ? "HH:mm" : "h:mm tt"), new Box(row.Right - 66, row.Y, 56, row.H), 11, Col.White.A(0.45f * t), FontWeight.SemiBold, HAlign.Right);
+            else
+            {
+                c.Fill(ib, Col.Legible(al.Accent, 0.22f).A(t), al.Kind == "call" || al.Message ? 15 : 8);
+                if (App.Alerts.Monogram(al) is { } ini) c.Text(ini, ib, ini.Length > 1 ? 11 : 12.5f, Col.White.A(t), FontWeight.SemiBold, HAlign.Center);
+                else c.Icon(al.Glyph == '\0' ? Glyph.Bell : al.Glyph, ib.CX, ib.CY, 13, Col.White.A(t));
+            }
+            float tx = ib.Right + 11;
+            c.Text(al.Title, new Box(tx, row.Y + 7, tw, 19), 13, Col.White.A(0.92f * t), FontWeight.SemiBold);
+            c.Text(al.Subtitle ?? "", new Box(tx, row.Y + 26, tw, 16), 11, Col.White.A(0.45f * t), FontWeight.Medium);
+            if (!string.IsNullOrEmpty(al.Detail))
+            {
+                var body = new Box(tx, row.Y + 44, tw, RecentLines(c, al, tw) * RecentLineH);
+                if (hov) c.MarqueeV(al.Detail, body, 11.5f, Col.White.A(0.7f * t), FontWeight.Normal, isl.Clock.Now);
+                else c.Text(al.Detail, body, 11.5f, Col.White.A(0.7f * t), FontWeight.Normal, HAlign.Left, VAlign.Top, true);
+            }
+            c.Text(at.ToString(isl.Cfg.Use24Hour ? "HH:mm" : "h:mm tt"), new Box(row.Right - 66, row.Y + 8, 56, 18), 11, Col.White.A(0.45f * t), FontWeight.SemiBold, HAlign.Right);
         }
         c.Unfade();
     }
+    float recentH;
+    const float RecentLineH = 15.5f;
+    static int RecentLines(Canvas c, Alert al, float w) =>
+        string.IsNullOrEmpty(al.Detail) ? 0 : Math.Clamp((int)Math.Ceiling(c.Measure(al.Detail, 11.5f, FontWeight.Normal, w, true).h / RecentLineH - 0.1f), 1, 3);
+    /// <summary>A Recent row's height: title and app, then the message's lines (three at most), with even padding.</summary>
+    static float RecentRowH(Canvas c, Alert al, float w) => string.IsNullOrEmpty(al.Detail) ? 56 : 44 + RecentLines(c, al, w) * RecentLineH + 10 + 6;
 
     /// <summary>A list's scroll bar, dragged or pressed to move the list (its scroll target and spring).</summary>
     void Bar(Canvas c, Ux ux, string key, Box view, float sc, float content, float t) =>

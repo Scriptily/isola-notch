@@ -17,6 +17,18 @@ release notes.
 
 ### Fixed
 
+- A text from your phone showed Phone Link's icon. It now shows as Messages
+  with the sender's initials, or a message icon when the sender is a number,
+  and an app relayed from your phone without its icon shows its first letter.
+  Phone Link's own icon is only for Phone Link's own notices.
+- A long notification was cut off after two lines. It shows up to three, as
+  many as it really wraps to, and anything longer scrolls up slowly so you can
+  read it all in the time it's on screen. Recent shows each message on up to
+  three lines too, and longer ones scroll while you point at them.
+- A code after a colon, like "رمز التسليم: 3036", gets a Copy button, also in
+  Arabic and a few other languages. A message that only mentions a code, like
+  "could you provide an access code", no longer offers to copy a number from
+  somewhere else in it.
 - A Home Assistant tile you tapped went back to how it was a second later,
   then changed again once Home Assistant caught up (a cloud device like an
   air conditioner takes seconds to report). The tile now keeps showing what

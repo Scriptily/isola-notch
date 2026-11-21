@@ -566,7 +566,7 @@ public sealed partial class Island : ITouchTarget
         else
         {
             c.Fill(ib, Col.Legible(al.Accent, 0.22f), al.Kind == "call" ? 18 : 9);
-            if (al.Kind == "call" && App.Alerts.Initials(al.Title) is { } ini) c.Text(ini, ib, ini.Length > 1 ? 13 : 15, Col.White, Vortice.DirectWrite.FontWeight.SemiBold, HAlign.Center);
+            if (App.Alerts.Monogram(al) is { } ini) c.Text(ini, ib, ini.Length > 1 ? 13 : 15, Col.White, Vortice.DirectWrite.FontWeight.SemiBold, HAlign.Center);
             else c.Icon(al.Glyph == '\0' ? Glyph.Bell : al.Glyph, ib.CX, ib.CY, 16, Col.White);
         }
         float tx = ib.Right + 12, tw = b.Right - 14 - tx;

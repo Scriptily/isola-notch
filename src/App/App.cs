@@ -368,7 +368,10 @@ public sealed unsafe partial class App
         }
         // an app Windows hadn't seen before has a settings key only now
         if (banners is { Active: true } && BannerKeys(n).Any(k => !bannerExempt.Contains(k))) bannerRescan = true;
-        var alert = Alerts.Notification(n.Id.ToString(), n.Via.Length > 0 ? $"{n.App} · {n.Via}" : n.App, n.Title, cfg.NotificationPreviews ? n.Body : "", n.Icon, cfg.AlertSeconds);
+        // Phone Link's own notification with no phone app behind it is a text (a relayed app has its name)
+        var alert = PhoneLink.Is(n.AppId) && n.Bundle == null && n.Lines.Count >= 2
+            ? Alerts.Text(n.Id.ToString(), n.Title, cfg.NotificationPreviews ? n.Body : "", cfg.AlertSeconds)
+            : Alerts.Notification(n.Id.ToString(), n.Via.Length > 0 ? $"{n.App} · {n.Via}" : n.App, n.Title, cfg.NotificationPreviews ? n.Body : "", n.Icon, cfg.AlertSeconds);
         island.Alert(Alerts.OfferCode(alert, OneTimeCode.Find(n.Title, n.Body), cfg.NotificationPreviews, CopyCode));
     }
 

@@ -8,15 +8,27 @@ namespace Isola.Services;
 /// shows notifications, Windows' banners (and their Copy button) are off, so
 /// the island offers it instead.
 ///
-/// It looks for 4 to 8 digits (also "123 456", "123-456" and "G-123456") in a
-/// message that talks about a code. It leaves alone what only looks like one:
+/// It looks for 4 to 8 digits (also "123 456", "123-456" and "G-123456") close to
+/// words about a code (in English, Arabic and a few more), or right after a colon
+/// ("رمز التسليم: 3036"). A number far from those words isn't one: "could you
+/// provide an access code" in a message with an order number in it offered to copy
+/// a number that had nothing to do with it. It leaves alone what only looks like one:
 /// amounts, phone numbers, order numbers, times, dates, years and percentages.
 /// </summary>
 public static partial class OneTimeCode
 {
     // the message has to be about a code, or any number would do
     [GeneratedRegex(@"\b(code|codes|otp|passcode|pass code|password|verification|verify|one[- ]time|2fa|two[- ]factor|2-step|security|log ?in|sign[- ]?in|pin|authenticat\w*|confirm\w*|token)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex Talk();
+    private static partial Regex TalkLatin();
+
+    // the same in other scripts, where words take prefixes ("برمز") and \b doesn't fit
+    [GeneratedRegex(@"(رمز|كود|التحقق|تحقق|التأكيد|كلمة المرور|الرقم السري|código|codigo|kod|kode|код|пароль|验证码|驗證碼|コード|認証)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex TalkOther();
+
+    static IEnumerable<Match> Talk(string text) => TalkLatin().Matches(text).Concat(TalkOther().Matches(text));
+
+    /// <summary>How close to the words about a code it has to be (in characters).</summary>
+    internal const int Near = 40;
 
     // the code itself: digits, alone (not part of a longer number, a decimal, a
     // time, a date, or a spaced-out run of digits like a phone number)
@@ -35,7 +47,8 @@ public static partial class OneTimeCode
     public static string Find(string title, string body)
     {
         string text = $"{title} \n {body}";
-        if (string.IsNullOrWhiteSpace(text) || !Talk().IsMatch(text)) return null;
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        bool talks = Talk(text).Any();
         string best = null; int bestScore = int.MinValue;
         foreach (Match m in Candidate().Matches(text))
         {
@@ -43,10 +56,14 @@ public static partial class OneTimeCode
             string before = text[..m.Index], after = text[(m.Index + m.Length)..];
             if (Before().IsMatch(before.TrimEnd().Length > 24 ? before.TrimEnd()[^24..] : before.TrimEnd())) continue;
             if (After().IsMatch(after)) continue;
+            // right after a colon ("Code: 4821", "رمز التسليم: 3036"), or close to the words about a code
+            bool colon = Regex.IsMatch(before, @"[:：]\s*(?:[A-Z]{1,3}-)?$");
+            int dist = talks ? Distance(text, m.Index) : int.MaxValue;
+            if (!colon && dist > Near) continue;
             // a year is a year unless it's plainly the code ("code: 2024")
             if (digits.Length == 4 && digits is ['1' or '2', '0' or '9', _, _] && !Regex.IsMatch(before, @"(code|otp|pin|passcode)(\s+(is|was))?\W{0,3}$", RegexOptions.IgnoreCase)) continue;
             // nearest to the talk of a code wins; six digits is the usual length
-            int score = -Distance(text, m.Index) + (digits.Length == 6 ? 30 : 0) + (digits.Length is >= 5 and <= 8 ? 10 : 0);
+            int score = -(talks ? Math.Min(dist, 1000) : 0) + (colon ? 25 : 0) + (digits.Length == 6 ? 30 : 0) + (digits.Length is >= 5 and <= 8 ? 10 : 0);
             if (score > bestScore) { bestScore = score; best = digits; }
         }
         return best;
@@ -55,7 +72,7 @@ public static partial class OneTimeCode
     static int Distance(string text, int at)
     {
         int best = int.MaxValue;
-        foreach (Match t in Talk().Matches(text)) best = Math.Min(best, Math.Abs(t.Index - at));
+        foreach (Match t in Talk(text)) best = Math.Min(best, Math.Min(Math.Abs(t.Index - at), Math.Abs(t.Index + t.Length - at)));
         return best == int.MaxValue ? 1000 : best;
     }
 

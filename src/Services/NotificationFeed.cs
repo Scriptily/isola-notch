@@ -100,7 +100,8 @@ public sealed partial class NotificationFeed
                 // relayed phone apps all share Phone Link's id: their icons are keyed by app
                 string iconKey = it.Bundle != null ? "phone:" + it.Bundle : it.AppId;
                 if (!string.IsNullOrEmpty(iconKey) && !icons.ContainsKey(iconKey))
-                    icons[iconKey] = (it.Bundle != null ? PhoneLink.Icon(it.Bundle) : null) ?? await Logo(n).ConfigureAwait(false);
+                    // an app relayed from the phone: its own icon or none (Phone Link's logo says nothing about it)
+                    icons[iconKey] = it.Bundle != null ? PhoneLink.Icon(it.Bundle) : await Logo(n).ConfigureAwait(false);
                 it.Icon = icons.GetValueOrDefault(iconKey);
                 items.Add(it);
             }

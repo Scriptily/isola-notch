@@ -350,6 +350,50 @@ public sealed class Canvas
         Unfade();
     }
 
+    /// <summary>How fast a long message scrolls up, DIPs a second, at the least: about a line every 1.2 s.</summary>
+    public const float MarqueeVSpeed = 13;
+
+    /// <summary>
+    /// How far a message <paramref name="over"/> DIPs taller than its box has scrolled, <paramref name="t"/> seconds in.
+    /// Given the time it's on screen (<paramref name="within"/>), it rests, scrolls to the end (faster if that's
+    /// what it takes to get there in time) and stays; without one, it goes back and forth like a title.
+    /// </summary>
+    public static float MarqueeVOffset(float over, double t, double within)
+    {
+        if (over <= 0) return 0;
+        const double hold = 1.4, endHold = 1.2;
+        static double Ease(double x) => x < 0.5 ? 2 * x * x : 1 - Math.Pow(-2 * x + 2, 2) / 2;
+        if (within <= 0)
+        {
+            double g = Math.Max(1.2, over / MarqueeVSpeed), cycle = hold + g + endHold + g;
+            t %= cycle;
+            double q = t < hold ? 0 : t < hold + g ? Ease((t - hold) / g) : t < hold + g + endHold ? 1 : 1 - Ease((t - hold - g - endHold) / g);
+            return (float)(q * over);
+        }
+        double glide = Math.Max(1.0, Math.Min(over / MarqueeVSpeed, within - hold - endHold));
+        return (float)(over * (t < hold ? 0 : Ease(Math.Min(1, (t - hold) / glide))));
+    }
+
+    /// <summary>
+    /// A message wrapped in its box; one taller than the box scrolls up slowly so all of it can be read (like a
+    /// long title slides sideways), its top and bottom fading where more of it lies beyond.
+    /// </summary>
+    public void MarqueeV(string text, Box b, float size, Color4 color, FontWeight weight, double now, double within = 0)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        float h = Measure(text, size, weight, b.W, true).h;
+        if (h <= b.H + 0.5f) { Text(text, b, size, color, weight, HAlign.Left, VAlign.Top, true); return; }
+        string key = "v|" + text + "|" + MathF.Round(b.W) + "|" + size;
+        if (!marqueeStart.TryGetValue(key, out double start)) { if (marqueeStart.Count > 64) marqueeStart.Clear(); marqueeStart[key] = start = now; }
+        float over = h - b.H, off = MarqueeVOffset(over, now - start, within);
+        marqueeFrame = Frame;
+        bool gliding = off > 0.01f && off < over - 0.01f;
+        if (gliding) glideFrame = Frame; else off = MathF.Round(off);
+        FadeClip(new Box(b.X - 2, b.Y, b.W + 4, b.H), off > 0.5f, off < over - 0.5f, 6);
+        Text(text, new Box(b.X, b.Y - off, b.W, h + 4), size, color, weight, HAlign.Left, VAlign.Top, true, moving: gliding);
+        Unfade();
+    }
+
     /// <summary>A list is gliding to a new scroll position: its text is drawn unsnapped until the list's fade ends.</summary>
     public bool MovingText;
 

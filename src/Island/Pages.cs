@@ -786,7 +786,16 @@ public sealed class AlertPage : Page
     // text's length at the width it gets; the text itself wraps exactly.
     internal const float DetailWidth = 340;
     // each action button to the right of the text takes 54 DIP of its width
-    internal static int DetailLines(string s, int actions = 0) => string.IsNullOrEmpty(s) ? 0 : Math.Clamp((int)Math.Ceiling(TextW(s, 12) / (DetailWidth - 54 * actions)), 1, 3);
+    // Once drawn, the wrapped text's real line count is known and the popup re-sizes to it: the estimate counted
+    // two lines for an Arabic text that wrapped to three, and its last line (the code) was cut off. More than
+    // three scroll up inside the box (Canvas.MarqueeV).
+    internal static readonly Dictionary<string, int> Measured = new();
+    internal static int DetailLines(string s, int actions = 0)
+    {
+        if (string.IsNullOrEmpty(s)) return 0;
+        if (Measured.TryGetValue(actions + "|" + s, out int n)) return Math.Clamp(n, 1, 3);
+        return Math.Clamp((int)Math.Ceiling(TextW(s, 12) / (DetailWidth - 54 * actions)), 1, 3);
+    }
 
     public override void Draw(Island isl, Canvas c, Ux ux, Box a, float t)
     {
@@ -803,9 +812,9 @@ public sealed class AlertPage : Page
             var la = Col.Legible(al.Accent, 0.22f);
             using var br = c.Linear(new Vector2(ib.X, ib.Y), new Vector2(ib.Right, ib.Bottom), (0, la.A(t)), (1, la.A(0.7f * t)));
             c.Fill(ib, br, al.Kind == "call" ? ib.H / 2 : 11);
-            // a caller without a picture: their initials, as the phone shows them
-            if (al.Kind == "call" && App.Alerts.Initials(al.Title) is { } ini)
-                c.Text(ini, ib, ini.Length > 1 ? 17 : 19, Col.White.A(t), FontWeight.SemiBold, HAlign.Center);
+            // a caller or a texter without a picture: their initials, as the phone shows them
+            if (App.Alerts.Monogram(al) is { } ini)
+                c.Text(ini, ib, (ini.Length > 1 ? 17 : 19) * iconS / 48, Col.White.A(t), FontWeight.SemiBold, HAlign.Center);
             else c.Icon(al.Glyph == '\0' ? Glyph.Bell : al.Glyph, ib.CX, ib.CY, iconS * 0.45f, Col.White.A(t));
         }
         float tx = ib.Right + 12;
@@ -842,7 +851,14 @@ public sealed class AlertPage : Page
         float tw = right - tx - (right >= a.Right - 14.5f ? 2 : 8);
         c.Marquee(al.Title, new Box(tx, ty, tw, 20), 14, Col.White.A(t), FontWeight.SemiBold, isl.Clock.Now);
         c.Marquee(al.Subtitle, new Box(tx, ty + 19, tw, 18), 12, (al.Kind == "call" ? Col.Hex(0x34c759) : Col.White).A(0.62f * t), FontWeight.Medium, isl.Clock.Now);
-        if (dl > 0) c.Text(al.Detail, new Box(tx, ty + 37, tw, 16 * dl + 2), 12, Col.White.A(0.8f * t), FontWeight.Normal, HAlign.Left, VAlign.Top, true);
+        if (dl > 0)
+        {
+            string mk = al.Actions.Count + "|" + al.Detail;
+            int real = (int)Math.Ceiling(c.Measure(al.Detail, 12, FontWeight.Normal, tw, true).h / 16f - 0.1f);
+            if (!Measured.TryGetValue(mk, out int was) || was != real) { if (Measured.Count > 200) Measured.Clear(); Measured[mk] = real; }
+            // longer than three lines: it scrolls up through the rest within the time it's on screen
+            c.MarqueeV(al.Detail, new Box(tx, ty + 37, tw, 16 * dl + 2), 12, Col.White.A(0.8f * t), FontWeight.Normal, isl.Clock.Now, al.Seconds);
+        }
     }
 }
 

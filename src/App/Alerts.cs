@@ -71,6 +71,28 @@ public static class Alerts
         return words.Count == 1 ? first : first + char.ToUpperInvariant(words[^1][0]);
     }
 
+    /// <summary>
+    /// What stands in for a missing picture: a caller's or a texter's initials, a relayed app's first letter; null
+    /// for the glyph (a number calling, an app with nothing better).
+    /// </summary>
+    public static string Monogram(Alert a)
+    {
+        if (a == null || a.Image != null) return null;
+        if (a.Kind == "call" || a.Message) return Initials(a.Title);
+        if (a.Kind == "notification" && a.Subtitle.EndsWith(" · Phone Link")) return Initials(a.Subtitle[..^" · Phone Link".Length]) is { } ap ? ap[..1] : null;
+        return null;
+    }
+
+    /// <summary>
+    /// A text from the phone. Phone Link sends texts as its own notifications, so its logo stood in for them: it's
+    /// shown as Messages, with the sender's initials (a message glyph on green for a number).
+    /// </summary>
+    public static Alert Text(string id, string sender, string body, double seconds) => new()
+    {
+        Key = "notif:" + id, Kind = "notification", Message = true, Title = Cap(sender, 160), Subtitle = "Messages · Phone Link", Detail = Cap(body, 400),
+        Sound = Sounds.Notification, Glyph = Glyph.Message, Accent = Col.Hex(0x34c759), Seconds = seconds,
+    };
+
     public static Alert Call(string id, string caller, byte[] icon, Action decline, Action answer, Action open) => new()
     {
         Key = "call:" + id, Kind = "call", Title = caller, Subtitle = "Incoming call · iPhone", Glyph = Glyph.Phone, Image = icon,

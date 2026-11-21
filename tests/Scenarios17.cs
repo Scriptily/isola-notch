@@ -113,4 +113,60 @@ public static partial class Scenarios
         }
         finally { listener.Stop(); }
     }
+
+    [Scenario("one-time codes: an Arabic delivery code after a colon is found; a message that only mentions an access code, with numbers far from it, isn't one")]
+    public static void CodesNearTheirWords()
+    {
+        string sms = "عزيزي العميل، سيصلكم موزع البريد السعودي | سبُل لتسليمكم شحنتكم CRDSAL1998721326\nرمز التسليم: 3036";
+        Eq("3036", OneTimeCode.Find("+1775", sms), "the delivery code after the colon");
+        string wa = "Hi, This is Md Sahin Khan, your Noon Minutes driver for order # ISAGBL022JPQJOGQZA. I'm at the security gate. Could you provide an access code or ask security to let me through so I can deliver your order? Thanks!";
+        Eq(null, OneTimeCode.Find("Md Sahin Khan", wa), "no code in it");
+        Eq(null, OneTimeCode.Find("+966 55 812 4471", wa + " Gate 2, building 4471 street 1290"), "numbers far from \"access code\" aren't a code");
+        Eq("4821", OneTimeCode.Find("Bank", "Your code: 4821"), "a code after a colon");
+        Eq("775201", OneTimeCode.Find("Courier", "Delivery PIN: 775201. Share it with the driver."), "and with a PIN");
+        Eq("5531", OneTimeCode.Find("Store", "Pickup: 5531"), "a number right after a colon counts even with no word about a code");
+        Eq(null, OneTimeCode.Find("Store", "Total: 1500 SAR"), "not an amount after a colon");
+        Eq(null, OneTimeCode.Find("Store", "Order number: 88213"), "nor an order number");
+        Eq("382914", OneTimeCode.Find("Google", "G-382914 is your Google verification code."), "the usual kind still works");
+        Eq("1234", OneTimeCode.Find("Bank", "رمز التحقق الخاص بك هو 1234"), "an Arabic verification code without a colon");
+    }
+
+    [Scenario("a text from the phone shows as Messages with the sender's initials (a number: the message glyph), never Phone Link's logo; a relayed app without its icon shows its first letter")]
+    public static void TextsAndMissingIcons()
+    {
+        var sms = Alerts.Text("1", "+1775", "Your parcel is on its way", 10);
+        Eq("Messages · Phone Link", sms.Subtitle, "Messages, through Phone Link");
+        True(sms.Image == null && sms.Message, "no Phone Link logo");
+        Eq(null, Alerts.Monogram(sms), "a number: the message glyph");
+        Eq(Render.Glyph.Message, sms.Glyph, "which is a message bubble");
+        Eq("SM", Alerts.Monogram(Alerts.Text("2", "Sam Moore", "hi", 10)), "a name: their initials");
+        Eq("Y", Alerts.Monogram(Alerts.Notification("3", "YouTube · Phone Link", "Ludwig", "New video", null, 5)), "a relayed app without its icon: its first letter");
+        Eq(null, Alerts.Monogram(Alerts.Notification("4", "YouTube · Phone Link", "Ludwig", "New video", new byte[] { 1 }, 5)), "with its icon: the icon");
+    }
+
+    [Scenario("a long message scrolls up through the rest within the time it's on screen, after a pause, and stays at the end")]
+    public static void LongMessagesScrollInTime()
+    {
+        float over = 48;   // three lines more than fit
+        Eq(0f, Render.Canvas.MarqueeVOffset(over, 1.0, 10), "rests at first");
+        float mid = Render.Canvas.MarqueeVOffset(over, 3.5, 10);
+        True(mid > 0 && mid < over, $"scrolling ({mid:0.0})");
+        Eq(over, Render.Canvas.MarqueeVOffset(over, 9.0, 10), "at the end before the 10 s are up");
+        Eq(over, Render.Canvas.MarqueeVOffset(over, 9.9, 10), "and stays there");
+        True(Render.Canvas.MarqueeVOffset(400, 4.0, 5) >= 399.9f, "a very long one speeds up to get there in time");
+        Eq(0f, Render.Canvas.MarqueeVOffset(0, 5, 10), "one that fits doesn't move");
+    }
+
+    [Scenario("the popup takes the message's real line count once it's known (an Arabic text counted as two lines wrapped to three)")]
+    public static void PopupUsesMeasuredLines()
+    {
+        string body = "عزيزي العميل، سيصلكم موزع البريد السعودي | سبُل لتسليمكم شحنتكم CRDSAL1998721326 رمز التسليم: 3036";
+        AlertPage.Measured.Remove("0|" + body);
+        int guess = AlertPage.DetailLines(body);
+        AlertPage.Measured["0|" + body] = 3;
+        Eq(3, AlertPage.DetailLines(body), $"measured: three lines (the estimate said {guess})");
+        AlertPage.Measured["0|" + body] = 7;
+        Eq(3, AlertPage.DetailLines(body), "at most three; the rest scrolls");
+        AlertPage.Measured.Remove("0|" + body);
+    }
 }

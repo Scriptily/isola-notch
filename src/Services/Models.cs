@@ -108,4 +108,5 @@ public sealed class Alert
     public string Sound;
     public double Created;
     public bool Sticky;                // stays until dismissed or resolved (calls)
+    public bool Message;               // a text from the phone (Phone Link's messages): the sender's initials when there's no picture
 }
