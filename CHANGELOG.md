@@ -18,6 +18,15 @@ release notes.
   that said it was playing but made no sound, like Spotify left playing at 0%
   in its own app. It now applies only when the media can actually be heard.
 
+### VirusTotal
+
+2 of 71 security vendors flagged `IsolaSetup.exe` on 2026-11-21. [Full report](https://www.virustotal.com/gui/file/a3d18172d60c3ab9a4bcefec74cc712e945f852a88695b5c66df5251879ed07a)
+
+- Bkav: W32.Malware.2658C44E
+- Elastic: malicious (moderate confidence)
+
+The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
+
 ## [1.8.0] - 2026-11-21
 
 ### Added
