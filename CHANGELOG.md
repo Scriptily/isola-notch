@@ -89,6 +89,15 @@ release notes.
   hours, the one on the island, kept its place: the island didn't switch to
   the video, and notification sounds ignored Quieter and didn't lower it.
 
+### VirusTotal
+
+2 of 70 security vendors flagged `IsolaSetup.exe` on 2026-11-21. [Full report](https://www.virustotal.com/gui/file/22d23c2776e79ed529fa19cd102bf071ca79bdf2e67cfec98ad07e5c347596e0)
+
+- Bkav: W32.Malware.9E815442
+- Elastic: malicious (moderate confidence)
+
+The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
+
 ## [1.7.0] - 2026-11-19
 
 ### Added
