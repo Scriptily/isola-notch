@@ -92,7 +92,6 @@
   "HaEntities": [],
   "HaRefreshSeconds": 10,
   "AutoUpdate": true,
-  "UpdateCheckHours": 6,
   "VerboseLog": false,
   "Revision": 0
 }

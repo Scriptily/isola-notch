@@ -50,6 +50,8 @@ public sealed class DownloadTools
     string StateFile => Path.Combine(Dir, "versions.json");
     Dictionary<string, Installed> installed = new();
     public Func<bool> Enabled = () => true;
+    /// <summary>Settings -> About & Logs -> Update automatically: the daily look for new versions follows it, as Isola's own does.</summary>
+    public Func<bool> AutoUpdate = () => true;
     /// <summary>A download or conversion is running (a tool in use can't be replaced).</summary>
     public Func<bool> InUse = () => false;
     public event Action Changed;
@@ -107,7 +109,8 @@ public sealed class DownloadTools
     public async Task<bool> CheckAsync(bool userAsked, CancellationToken ct = default)
     {
         Ui.Post(() => { Ui.Cancel(ref timer); timer = Ui.After(24 * 3600, () => { _ = CheckAsync(false); }); });
-        if (!Enabled() && !userAsked) return Ready;
+        // on its own (at startup, then daily): only with downloads on and updating automatically allowed
+        if ((!Enabled() || !AutoUpdate()) && !userAsked) return Ready;
         if (Busy) { while (Busy && !ct.IsCancellationRequested) await Task.Delay(250, ct).ConfigureAwait(false); return Ready; }
         Busy = true;
         try

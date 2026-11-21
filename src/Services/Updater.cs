@@ -11,7 +11,7 @@ namespace Isola.Services;
 ///
 /// A release tagged <c>vX.Y.Z</c> carries
 /// <c>IsolaSetup.exe</c> and a <c>sha256:</c> line in its notes. The
-/// island checks at startup and every few hours; a newer version is
+/// island checks when it starts and once a day after; a newer version is
 /// downloaded, its SHA-256 checked against the notes, and the setup run
 /// silently - it closes this copy, swaps the files and starts the new one.
 ///
@@ -83,6 +83,9 @@ public sealed class Updater
         catch (Exception ex) { Log.D("update", "cleaning old setups: " + ex.Message); }
     }
 
+    /// <summary>How often it looks again after the check at startup: once a day (it was every six hours).</summary>
+    public const double CheckEvery = 24 * 3600;
+
     void Schedule(double seconds) { Ui.Cancel(ref timer); timer = Ui.After(seconds, () => _ = CheckAsync(false)); }
 
     void Set(string s) { Status = s; Ui.Post(() => Changed?.Invoke()); }
@@ -95,7 +98,7 @@ public sealed class Updater
     {
         if (Packaging.IsStore) { Set("Updated by the Microsoft Store"); return; }
         var cfg = Cfg();
-        Ui.Post(() => Schedule(Math.Max(1, cfg.UpdateCheckHours) * 3600));
+        Ui.Post(() => Schedule(CheckEvery));
         if (!cfg.AutoUpdate && !userAsked) return;
         if (busy) return;
         if (IsDev()) { Set("Running from the project folder: updates are off"); return; }

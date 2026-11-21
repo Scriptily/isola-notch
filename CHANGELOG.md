@@ -23,6 +23,12 @@ release notes.
 
 ### Changed
 
+- Isola checks for updates when it starts and once a day, instead of every
+  six hours. The download tools (yt-dlp, FFmpeg, QuickJS) follow the same
+  schedule and Settings -> About & Logs -> Update automatically, and Check now
+  checks them too once they're installed.
+- "Remove the tools" stays in Settings -> Downloads, dimmed while the tools
+  aren't downloaded, instead of appearing and disappearing.
 - The clock face shows the date on the left and the weather on the right of
   the time, with AM/PM beside it (or the 24-hour time).
 - Settings that depend on another one are dimmed, and don't respond, while it

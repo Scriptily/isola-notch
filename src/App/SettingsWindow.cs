@@ -511,6 +511,14 @@ public sealed unsafe partial class SettingsWindow
         }
     }
 
+    /// <summary>Always there, dimmed while there's nothing to remove (it came and went, which read as a glitch).</summary>
+    void RemoveTools(Layout L, Services.DownloadTools tools, string more)
+    {
+        bool can = tools.Ready && !tools.Busy;
+        using (When("dlrm", can))
+            Button(L, "dlrm", "Remove the tools", can ? $"Frees {tools.Bytes / 1_000_000} MB{more}" : tools.Busy ? "Busy with the tools" : "Not downloaded", "Remove", () => { tools.Remove(); dirty = true; });
+    }
+
     void Toggle(Layout L, string id, string title, string sub, bool value, Action<bool> set, string help = null)
     {
         var b = LabeledRow(L, id, title, sub, 90, 48, help);
@@ -1077,7 +1085,7 @@ public sealed unsafe partial class SettingsWindow
         if (!work.Downloads)
         {
             L.Note("Off: the Shelf's link bar and the download commands are gone, and the tools aren't updated. They stay installed until you remove them below.");
-            if (tools?.Ready == true) Button(L, "dlrm", "Remove the tools", $"Frees {tools.Bytes / 1_000_000} MB", "Remove", () => tools.Remove());
+            if (tools != null) RemoveTools(L, tools, "");
             return;
         }
         L.Note("Paste a link in the Shelf's bar, or type download and a link in search (audio and a link for just the sound). Hover a video or song on the shelf to convert it, or type convert in search.", 34);
@@ -1116,7 +1124,7 @@ public sealed unsafe partial class SettingsWindow
                 canvas.Fill(new Box(bar.X, bar.Y, bar.W * (float)tools.Progress, bar.H), Col.Hex(0x0a84ff), 1.5f);
                 L.Y += 4;
             }
-            if (tools.Ready && !tools.Busy) Button(L, "dlrm", "Remove the tools", $"Frees {tools.Bytes / 1_000_000} MB. They come back the next time you download", "Remove", () => { tools.Remove(); dirty = true; });
+            RemoveTools(L, tools, ". They come back the next time you download");
         }
         if (dl != null)
         {
@@ -1142,7 +1150,10 @@ public sealed unsafe partial class SettingsWindow
         else
         {
             Toggle(L, "autoupd", "Update automatically", svc.Updates?.Status ?? "", work.AutoUpdate, v => work.AutoUpdate = v);
-            Button(L, "updnow", "Check for updates", $"Running v{(svc.Updates != null ? Updater.Short(svc.Updates.Current) : "?")}", "Check now", () => { checkAt = Ui.Clock.Now; apply(work.Clone()); _ = svc.Updates?.CheckAsync(true); }, svc.Updates?.Busy == true || Spinning(checkAt));
+            // Isola, and the download tools when they're installed (never fetched here for the first time)
+            Button(L, "updnow", "Check for updates", $"Running v{(svc.Updates != null ? Updater.Short(svc.Updates.Current) : "?")}{(svc.Tools?.Ready == true ? " · and the download tools" : "")}", "Check now",
+                () => { checkAt = Ui.Clock.Now; apply(work.Clone()); _ = svc.Updates?.CheckAsync(true); if (svc.Tools?.Ready == true) _ = svc.Tools.CheckAsync(true); },
+                svc.Updates?.Busy == true || svc.Tools?.Busy == true || Spinning(checkAt));
         }
         L.Header("Logs");
         Toggle(L, "verbose", "Verbose log", "Everything the island decides, for diagnosing glitches later", work.VerboseLog, v => work.VerboseLog = v);

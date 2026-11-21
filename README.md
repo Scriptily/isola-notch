@@ -249,7 +249,7 @@ Isola needs Windows 11, or Windows 10 version 2004 or later. It's developed and
 tested on Windows 11. On Windows 10 the setup installs the Segoe Fluent Icons
 font for your account if it's missing.
 
-Updates install themselves. Isola checks GitHub every six hours and downloads
+Updates install themselves. Isola checks GitHub when it starts and once a day, and downloads
 a new setup only from this repository's releases, then runs it only if the
 file's SHA-256 matches both the release notes and GitHub's own record of it.
 
@@ -296,7 +296,7 @@ Isola has no account, no telemetry and no analytics. It talks only to:
 | Your Home Assistant | if you set it up | your token, to the address you entered |
 | Open-Meteo | weather, if Home Assistant isn't the source | the city or coordinates you entered |
 | Spotify | if you connect it | your sign-in, to read and set playback |
-| GitHub | update checks, every six hours; with downloads on, the download tools' releases once a day | nothing about you |
+| GitHub | update checks when Isola starts and once a day; with downloads on, the download tools' releases at the same times | nothing about you |
 | The site a link points to | when you download from a link | the link, as a browser would, without your sign-ins |
 | Isola's feedback service | when you open Settings -> Feedback, to see whether it's open (nothing about you); and when you press Send feedback | what you wrote, a one-way ID made from your computer, the app and Windows versions, and the log if you attach it |
 

@@ -130,7 +130,6 @@ public sealed class Config
 
     // ---- updates ------------------------------------------------------------
     public bool AutoUpdate { get; set; } = true;
-    public double UpdateCheckHours { get; set; } = 6;
 
     // ---- diagnostics ------------------------------------------------------
     public bool VerboseLog { get; set; } = false;   // the detailed log is for diagnosing; off by default
@@ -220,7 +219,6 @@ public sealed class Config
         ClipboardHistory = Math.Clamp(ClipboardHistory, 0, 100);
         SearchResults = Math.Clamp(SearchResults, 3, 12);
         HaRefreshSeconds = Math.Clamp(HaRefreshSeconds, 3, 300);
-        UpdateCheckHours = Math.Clamp(double.IsFinite(UpdateCheckHours) ? UpdateCheckHours : 6, 1, 168);
         HaBaseUrl = (HaBaseUrl ?? "").Trim().TrimEnd('/');
         HaToken = (HaToken ?? "").Trim();
         SpotifyClientId = (SpotifyClientId ?? "").Trim();

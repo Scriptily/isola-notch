@@ -387,4 +387,25 @@ public static partial class Scenarios
         slow.Kill();
         True(slow.Exit.Wait(TimeSpan.FromSeconds(5)) && sw.Elapsed.TotalSeconds < 5, "Kill ends it (and what it started)");
     }
+
+    [Scenario("the download tools' own check follows Update automatically, like Isola's (at startup, then daily); Check now still checks them")]
+    public static void ToolsFollowAutoUpdate()
+    {
+        var (_, _, clock) = NewIsland();
+        var (gh, dir) = ToolsWorld();
+        try
+        {
+            bool auto = false;
+            var tools = new DownloadTools(dir, clock, gh) { AutoUpdate = () => auto };
+            Wait(tools.CheckAsync(false));
+            Eq(0, gh.Asked.Count, "updating automatically off: the daily check asks GitHub nothing");
+            True(Wait(tools.CheckAsync(true)), "Check now (or a first download) still gets them");
+            int asked = gh.Asked.Count;
+            auto = true;
+            Wait(tools.CheckAsync(false));
+            True(gh.Asked.Count > asked, "on: the daily check looks for new versions");
+            Eq(24 * 3600.0, Updater.CheckEvery, "Isola itself looks once a day after the check at startup (it was every six hours)");
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
 }

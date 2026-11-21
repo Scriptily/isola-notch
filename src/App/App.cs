@@ -217,7 +217,7 @@ public sealed unsafe partial class App
         privacy.Changed += (device, app, on) => { if (cfg.DeviceUseNotices) island.Alert(Alerts.DeviceUse(device, app, on)); };
         if (cfg.DeviceUseNotices) { sensors.Start(svc.Audio.Wrappers); privacy.Start(); }
         privacyOn = cfg.DeviceUseNotices;
-        svc.Tools = new DownloadTools(Paths.DownloadTools, clock) { Enabled = () => cfg.Downloads };
+        svc.Tools = new DownloadTools(Paths.DownloadTools, clock) { Enabled = () => cfg.Downloads, AutoUpdate = () => cfg.AutoUpdate };
         svc.Downloads = new Downloads(Paths.DownloadsHistory, svc.Tools) { Cfg = () => cfg, Shelf = svc.Shelf };
         int downloading = 0;
         svc.Downloads.Changed += () =>
