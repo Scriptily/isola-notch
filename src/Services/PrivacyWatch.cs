@@ -8,9 +8,11 @@ namespace Isola.Services;
 public readonly record struct DeviceUse(string Device, string App, string Key, bool InUse);
 
 /// <summary>
-/// Says when an app starts or stops using the camera or the microphone, naming it, for transparency. Windows
-/// keeps a record of each app's use (what its own "in use" indicator and privacy settings read): a start time,
-/// and a stop time that stays 0 while it's in use. It's looked at once a second.
+/// Says when an app starts or stops using the camera or the microphone, naming it, for transparency. It looks
+/// once a second at what's live: the processes streaming from a camera (Media Foundation's camera activity
+/// monitor, the IR camera Windows Hello uses included) and those recording from a microphone (an active session
+/// on a capture device). It first read Windows' usage record in the registry, which newer Windows no longer
+/// keeps there (it moved to a protected database), so nothing was ever seen.
 ///
 /// Background recorders (NVIDIA's container, Medal, OBS) open and close the microphone all day: a start or a stop
 /// is only told once it has held for a moment, and an app that keeps going on and off is told once, then left
@@ -33,7 +35,11 @@ public sealed class PrivacyWatch
     long timer;
     bool first = true;
 
-    public PrivacyWatch(IClock clock, Func<IEnumerable<DeviceUse>> read = null) { this.clock = clock; this.read = read ?? ReadRegistry; }
+    readonly bool background;
+    bool reading;
+
+    /// <param name="read">what's in use now; <paramref name="background"/>: read on a worker (it talks to Windows' audio and camera services)</param>
+    public PrivacyWatch(IClock clock, Func<IEnumerable<DeviceUse>> read, bool background = false) { this.clock = clock; this.read = read; this.background = background; }
 
     public void Start() { Ui.Cancel(ref timer); first = true; tracks.Clear(); Poll(); }
     public void Stop() => Ui.Cancel(ref timer);
@@ -42,9 +48,24 @@ public sealed class PrivacyWatch
     internal void Poll()
     {
         timer = Ui.After(1.0, Poll);
-        List<DeviceUse> now;
-        try { now = read().ToList(); } catch (Exception ex) { Log.D("privacy", "couldn't read the record: " + ex.Message); return; }
+        if (!background) { Apply(Read()); return; }
+        if (reading) return;
+        reading = true;
+        Task.Run(() => { var r = Read(); Ui.Post(() => { reading = false; Apply(r); }); });
+    }
+
+    List<DeviceUse> Read()
+    {
+        try { return read().ToList(); } catch (Exception ex) { Log.D("privacy", "couldn't see what's in use: " + ex.Message); return null; }
+    }
+
+    void Apply(List<DeviceUse> now)
+    {
+        if (now == null) return;
         double t = clock.Now;
+        // what's no longer listed has stopped
+        var seen = now.Select(u => u.Device + "|" + u.Key).ToHashSet();
+        foreach (var (id, tr) in tracks) if ((tr.On || !tr.Settled) && !seen.Contains(id)) { int bar = id.IndexOf('|'); now.Add(new DeviceUse(id[..bar], tr.App, id[(bar + 1)..], false)); }
         foreach (var u in now)
         {
             string id = u.Device + "|" + u.Key;
@@ -72,39 +93,30 @@ public sealed class PrivacyWatch
         first = false;
     }
 
-    // ---- Windows' record ----------------------------------------------------------------------------------
+    // ---- what's live ---------------------------------------------------------------------------------------
 
-    const string Store = @"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\";
     static readonly Dictionary<string, string> names = new();
 
-    static IEnumerable<DeviceUse> ReadRegistry()
+    /// <summary>
+    /// What's using the camera and microphone now, one entry per app (Chrome's many processes are one Chrome).
+    /// </summary>
+    public static IEnumerable<DeviceUse> Live(Func<List<uint>> recording, Func<IReadOnlyList<CameraUse>> cameras)
     {
         var list = new List<DeviceUse>();
-        foreach (var (cap, device) in new[] { ("webcam", "camera"), ("microphone", "microphone") })
-            foreach (var hive in new[] { Registry.CurrentUser, Registry.LocalMachine })
-            {
-                using var root = hive.OpenSubKey(Store + cap);
-                if (root == null) continue;
-                foreach (var sub in root.GetSubKeyNames())
-                {
-                    if (sub == "NonPackaged")
-                    {
-                        using var np = root.OpenSubKey(sub);
-                        if (np == null) continue;
-                        foreach (var exe in np.GetSubKeyNames()) Add(list, device, np, exe, true);
-                    }
-                    else Add(list, device, root, sub, false);
-                }
-            }
+        foreach (var app in (recording?.Invoke() ?? new()).Select(p => AppOf(p, false)).Where(a => a != null).Distinct())
+            list.Add(new DeviceUse("microphone", app, app.ToLowerInvariant(), true));
+        foreach (var app in (cameras?.Invoke() ?? Array.Empty<CameraUse>()).Select(c => AppOf(c.Pid, c.Infrared)).Where(a => a != null).Distinct())
+            list.Add(new DeviceUse("camera", app, app.ToLowerInvariant(), true));
         return list;
     }
 
-    static void Add(List<DeviceUse> list, string device, RegistryKey parent, string sub, bool desktop)
+    /// <summary>A process's name as people know it ("OBS Studio"); Windows' service host on the IR camera is Windows Hello.</summary>
+    internal static string AppOf(uint pid, bool infrared)
     {
-        using var k = parent.OpenSubKey(sub);
-        if (k?.GetValue("LastUsedTimeStart") is not long start || start == 0) return;
-        bool inUse = k.GetValue("LastUsedTimeStop") is long stop && stop == 0;
-        list.Add(new DeviceUse(device, NameOf(sub, desktop), sub, inUse));
+        string path = Native.Win32.ProcessPath(pid);
+        if (string.IsNullOrEmpty(path)) return null;
+        if (Path.GetFileName(path).Equals("svchost.exe", StringComparison.OrdinalIgnoreCase)) return infrared ? "Windows Hello" : "Windows";
+        return NameOf(path.Replace('\\', '#'), true);
     }
 
     /// <summary>"C:#Program Files#obs-studio#bin#64bit#obs64.exe" is "OBS Studio"; a Store app's family name, its words.</summary>

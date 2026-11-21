@@ -34,6 +34,9 @@ public sealed partial class NotificationFeed
 {
     readonly IClock clock;
     UserNotificationListener listener;
+
+    /// <summary>Takes a notification off Windows' screen and out of its notification center.</summary>
+    public void Remove(uint id) { try { listener?.RemoveNotification(id); } catch (Exception ex) { Log.D("notify", "couldn't remove one: " + ex.Message); } }
     readonly Dictionary<uint, NotificationItem> seen = new();
     readonly Dictionary<string, byte[]> icons = new();
     public readonly List<NotificationItem> Recent = new();

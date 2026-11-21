@@ -143,6 +143,17 @@ public sealed class WindowsBanners
         Active = true;
     }
 
+    /// <summary>
+    /// Windows is showing its own banner for this app's notification: banners are being kept off, but this app's
+    /// weren't yet (its first notification ever: Windows makes an app's settings only as it first notifies), and
+    /// the user hasn't turned them off themselves.
+    /// </summary>
+    public bool WouldShow(string app)
+    {
+        if (!Active || taken.ContainsKey(app) || Exempt(app)) return false;
+        try { return (store.Get(app) ?? 1) != 0; } catch { return false; }
+    }
+
     /// <summary>Gives one app its banners back (it became exempt: muted in the island).</summary>
     public void Release(string app)
     {

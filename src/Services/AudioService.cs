@@ -115,6 +115,8 @@ public sealed partial class AudioService
     static readonly PROPERTYKEY PKEY_EnumeratorName = new() { fmtid = new Guid("a45c254e-df1c-4efd-8020-67d146a850e0"), pid = 24 };
     static readonly PROPERTYKEY PKEY_ContainerId = new() { fmtid = new Guid("8c7ed206-3f8a-4827-b3ab-ae9e1faefc6c"), pid = 2 };
     readonly StrategyBasedComWrappers cw = new();
+    /// <summary>The COM wrappers Core Audio objects live in (the camera monitor shares them).</summary>
+    public StrategyBasedComWrappers Wrappers => cw;
     IMMDeviceEnumerator enumr;
     IAudioEndpointVolume vol;
     IAudioMeterInformation meter;

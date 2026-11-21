@@ -263,15 +263,36 @@ public sealed class Canvas
     /// toward, until <see cref="Unfade"/>. A hard clip sliced rows and tiles
     /// off mid-line, which read as broken rather than as "there's more".
     /// </summary>
-    public void FadeClip(Box view, bool top, bool bottom, float edge = 18)
+    public void FadeClip(Box view, bool top, bool bottom, float edge = 18) => FadeClip(view, top ? 1f : 0f, bottom ? 1f : 0f, edge);
+
+    /// <summary>How faded the top and bottom edges are, 0 (sharp) to 1.</summary>
+    public void FadeClip(Box view, float top, float bottom, float edge = 18)
     {
         C.PushAxisAlignedClip(view.Raw, AntialiasMode.PerPrimitive);
-        if ((!top && !bottom) || view.H < 4 * edge) { fades.Push(null); return; }
+        top = Math.Clamp(top, 0, 1); bottom = Math.Clamp(bottom, 0, 1);
+        if ((top <= 0.001f && bottom <= 0.001f) || view.H < 4 * edge) { fades.Push(null); return; }
         float t = edge / view.H;
         var brush = Linear(new Vector2(view.X, view.Y), new Vector2(view.X, view.Bottom),
-            (0, Col.Black.A(top ? 0 : 1)), (t, Col.Black), (1 - t, Col.Black), (1, Col.Black.A(bottom ? 0 : 1)));
+            (0, Col.Black.A(1 - top)), (t, Col.Black), (1 - t, Col.Black), (1, Col.Black.A(1 - bottom)));
         Push(null, 1, brush);
         fades.Push(brush);   // the layer reads the brush until it's popped
+    }
+
+    /// <summary>
+    /// A scrolling list's clip: each edge fades in as you scroll away from that end, over the first 1.5 fade
+    /// heights, and eases out as you arrive back. It switched on in one frame, the moment the list moved.
+    /// </summary>
+    public void FadeScroll(Box view, float scroll, float maxScroll, float edge = 18)
+    {
+        var (top, bottom) = ScrollFade(scroll, maxScroll, edge);
+        FadeClip(view, top, bottom, edge);
+    }
+
+    /// <summary>How faded a list's top and bottom are, scrolled <paramref name="scroll"/> of <paramref name="maxScroll"/>.</summary>
+    public static (float top, float bottom) ScrollFade(float scroll, float maxScroll, float edge = 18)
+    {
+        float ramp = edge * 1.5f;
+        return (Math.Clamp(scroll / ramp, 0, 1), Math.Clamp((maxScroll - scroll) / ramp, 0, 1));
     }
 
     /// <summary>
@@ -389,7 +410,7 @@ public sealed class Canvas
         marqueeFrame = Frame;
         bool gliding = off > 0.01f && off < over - 0.01f;
         if (gliding) glideFrame = Frame; else off = MathF.Round(off);
-        FadeClip(new Box(b.X - 2, b.Y, b.W + 4, b.H), off > 0.5f, off < over - 0.5f, 6);
+        FadeScroll(new Box(b.X - 2, b.Y, b.W + 4, b.H), off, over, 6);
         Text(text, new Box(b.X, b.Y - off, b.W, h + 4), size, color, weight, HAlign.Left, VAlign.Top, true, moving: gliding);
         Unfade();
     }

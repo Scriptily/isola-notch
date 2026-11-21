@@ -195,7 +195,7 @@ public sealed partial class DashboardPage
         ux.Add("dl:scroll", list, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["dl"] = Math.Clamp(scroll.GetValueOrDefault("dl") - d / 120f * 50, 0, Math.Max(0, dl.Jobs.Count * rh - list.H)); isl.Host.RequestFrame(); };
         Bar(c, ux, "dl", list, sc, dl.Jobs.Count * rh, t);
         if (Paint.Scrolls(dl.Jobs.Count * rh, list.H)) list = new Box(list.X, list.Y, list.W - Paint.ScrollLane, list.H);
-        c.FadeClip(list, sc > 0.5f, sc < dl.Jobs.Count * rh - list.H - 0.5f);
+        c.FadeScroll(list, sc, dl.Jobs.Count * rh - list.H);
         for (int i = 0; i < dl.Jobs.Count; i++)
         {
             var row = new Box(list.X, list.Y + i * rh - sc, list.W, rh - 6);

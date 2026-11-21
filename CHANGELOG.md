@@ -14,8 +14,9 @@ release notes.
 - A short notice names any app that starts or stops using the camera or
   microphone (Settings -> Notifications & Sounds -> Privacy, on by default).
   It's silent, and an app that uses them on and off all day, like a game
-  recorder, only shows once in a while. Isola reads Windows' own record of
-  this and never uses the camera or microphone itself.
+  recorder, only shows once in a while. It covers every camera, including
+  the infrared one Windows Hello uses, and Isola never uses the camera or
+  microphone itself.
 - "Come back when media starts" (Settings -> Behavior, on by default): an
   island that tucked itself away after inactivity comes back when music or a
   video starts. One you hid yourself stays hidden.
@@ -27,6 +28,13 @@ release notes.
 
 ### Fixed
 
+- The fades at the top and bottom of a scrolling list (and Settings) snapped
+  on the moment it moved. They now come in gradually as you scroll away from
+  an end, and ease off as you get back to it.
+- An app's very first notification also showed as a Windows banner, since
+  Windows only creates an app's notification settings as it first notifies.
+  The island shows it and takes Windows' copy off the screen, and that app's
+  banners stay off from then on.
 - A text from your phone showed Phone Link's icon. It now shows as Messages
   with the sender's initials, or a message icon when the sender is a number,
   and an app relayed from your phone without its icon shows its first letter.

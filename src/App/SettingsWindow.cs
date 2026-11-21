@@ -355,7 +355,7 @@ public sealed unsafe partial class SettingsWindow
         // the page fades where there's more to scroll, rather than slicing a card in half
         // its scroll bar sits in the page's right margin (32 px), so the cards needn't narrow for it
         Paint.ScrollBar(c, ux, "settings", new Box(220, 0, W - 220 - 6, H), scrollY, scrollTarget, contentH, 1, v => { scrollTarget = v; dirty = true; }, "set:scroll");
-        c.FadeClip(new Box(220, 0, W - 220, H), scrollY > 0.5f, scrollY < contentH - H - 0.5f, 28);
+        c.FadeScroll(new Box(220, 0, W - 220, H), scrollY, contentH - H, 28);
         float y = 24 - scrollY;
         c.Text(Sections[section].name, new Box(area.X, y, area.W, 36), 26, Col.White, FontWeight.SemiBold);
         y += 52;

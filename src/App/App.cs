@@ -212,9 +212,10 @@ public sealed unsafe partial class App
         svc.Updates = new Updater(clock) { Cfg = () => cfg };
         svc.Feedback = new Feedback(Paths.FeedbackState);
         svc.Web = new WebAnswers();
-        privacy = new PrivacyWatch(clock);
+        sensors = new SensorActivity();
+        privacy = new PrivacyWatch(clock, () => PrivacyWatch.Live(() => svc.Audio.RecordingPids(), () => sensors.Now), background: true);
         privacy.Changed += (device, app, on) => { if (cfg.DeviceUseNotices) island.Alert(Alerts.DeviceUse(device, app, on)); };
-        if (cfg.DeviceUseNotices) privacy.Start();
+        if (cfg.DeviceUseNotices) { sensors.Start(svc.Audio.Wrappers); privacy.Start(); }
         privacyOn = cfg.DeviceUseNotices;
         svc.Tools = new DownloadTools(Paths.DownloadTools, clock) { Enabled = () => cfg.Downloads };
         svc.Downloads = new Downloads(Paths.DownloadsHistory, svc.Tools) { Cfg = () => cfg, Shelf = svc.Shelf };
@@ -377,6 +378,14 @@ public sealed unsafe partial class App
             ? Alerts.Text(n.Id.ToString(), n.Title, cfg.NotificationPreviews ? n.Body : "", cfg.AlertSeconds)
             : Alerts.Notification(n.Id.ToString(), n.Via.Length > 0 ? $"{n.App} · {n.Via}" : n.App, n.Title, cfg.NotificationPreviews ? n.Body : "", n.Icon, cfg.AlertSeconds);
         island.Alert(Alerts.OfferCode(alert, OneTimeCode.Find(n.Title, n.Body), cfg.NotificationPreviews, CopyCode));
+        // an app's first notification ever: its banner couldn't be turned off beforehand (Windows makes an app's
+        // settings only as it first notifies), so Windows showed it too. The island has it (and Recent keeps it):
+        // it's taken off Windows' screen, and the app's banners are off from now on.
+        if (banners is { Active: true } && BannerKeys(n).Any(k => banners.WouldShow(k)))
+        {
+            Log.I("banners", $"{n.App}: its first notification showed in Windows too; taken off Windows' screen");
+            svc.Notifications.Remove(n.Id);
+        }
     }
 
     /// <summary>Copies a one-time code, kept out of clipboard history (Isola's and Windows') and cloud sync.</summary>
@@ -737,7 +746,7 @@ public sealed unsafe partial class App
         Log.MinLevel = cfg.VerboseLog ? LogLevel.Debug : LogLevel.Info;
         island.ApplyConfig(cfg);
         if (!cfg.DuckMedia || !cfg.Sounds) ducker?.RestoreAll("turned off");
-        if (cfg.DeviceUseNotices) { if (!privacyOn) privacy.Start(); } else privacy.Stop();
+        if (cfg.DeviceUseNotices) { if (!privacyOn) { sensors.Start(svc.Audio.Wrappers); privacy.Start(); } } else { privacy.Stop(); sensors.Dispose(); }
         privacyOn = cfg.DeviceUseNotices;
         if (cfg.ShowOn != showWas) displays.Refresh("screen setting"); else host.Place(displays.Laptop, cfg.Scale);
         svc.Clipboard.Max = cfg.ClipboardHistory;
@@ -805,7 +814,7 @@ public sealed unsafe partial class App
         !playing || sound == Sounds.Timer ? 1 : c.SoundsWhilePlaying switch { "quiet" => 0.35f, "mute" => 0, _ => 1 };
 
     Ducker ducker;
-    PrivacyWatch privacy; bool privacyOn = true;
+    PrivacyWatch privacy; SensorActivity sensors; bool privacyOn = true;
 
     /// <summary>Whether the media dips under a sound: the setting, and the media really being heard (paused, or at 0, there's nothing to lower).</summary>
     internal static bool DuckFor(Config c, bool mediaHeard) => c.DuckMedia && mediaHeard;

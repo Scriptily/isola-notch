@@ -371,7 +371,7 @@ public sealed partial class DashboardPage : Page
         rs.Wheel = (d, hz) => { scroll["recent"] = Math.Clamp(scroll.GetValueOrDefault("recent") - d / 120f * 54, 0, Math.Max(0, total - list.H)); isl.Host.RequestFrame(); };
         Bar(c, ux, "recent", list, sc, total, t);
         if (lane) list = new Box(list.X, list.Y, rw, list.H);
-        c.FadeClip(list, sc > 0.5f, sc < total - list.H - 0.5f);
+        c.FadeScroll(list, sc, total - list.H);
         float y = list.Y - sc;
         for (int i = 0; i < h.Count; i++)
         {
@@ -523,7 +523,7 @@ public sealed partial class DashboardPage : Page
         Bar(c, ux, "sound", view, sc, contentH, t);
         if (Paint.Scrolls(contentH, view.H)) p = new Box(p.X, p.Y, p.W - Paint.ScrollLane, p.H);
         var soundScroll = ux.Add("sound:scroll", view, null, 0, CursorKind.Arrow); soundScroll.ScrollPx = 40; soundScroll.Wheel = (d, h) => { scroll["sound"] = Math.Clamp(scroll.GetValueOrDefault("sound") - d / 120f * 40, 0, Math.Max(0, contentH - view.H)); isl.Host.RequestFrame(); };
-        c.FadeClip(view, sc > 0.5f, sc < contentH - view.H - 0.5f);
+        c.FadeScroll(view, sc, contentH - view.H);
         float y = p.Y - sc;
         c.Text("OUTPUT", new Box(p.X, y, 200, 16), 10.5f, Col.White.A(0.45f * t), FontWeight.Bold);
         y += 20;
@@ -620,7 +620,7 @@ public sealed partial class DashboardPage : Page
         float sc = ux.Anim("scroll:home", scroll.GetValueOrDefault("home"), ScrollSpring, 0.05);
         ux.Add("ha:scroll", grid, null, 0, CursorKind.Arrow).Wheel = (d, h) => { haMenu = null; scroll["home"] = Math.Clamp(scroll.GetValueOrDefault("home") - d / 120f * 50, 0, Math.Max(0, homeH - grid.H)); isl.Host.RequestFrame(); };
         Bar(c, ux, "home", homeView, sc, homeH, t);
-        c.FadeClip(grid.Inset(-4, -2), sc > 0.5f, sc < homeH - grid.H - 0.5f);
+        c.FadeScroll(grid.Inset(-4, -2), sc, homeH - grid.H);
         foreach (var id in isl.Cfg.HaEntities)
         {
             ha.Entities.TryGetValue(id, out var e);
@@ -1024,7 +1024,7 @@ public sealed partial class DashboardPage : Page
         if (notes.Items.Count == 0) { c.Text("Nothing here yet. Type above and press Enter.", list.Inset(0, 30), 12, Col.White.A(0.4f * t), FontWeight.Normal, HAlign.Center, VAlign.Top); return; }
         Bar(c, ux, "notes", list, sc, notes.Items.Count * 38, t);
         if (Paint.Scrolls(notes.Items.Count * 38, list.H)) list = new Box(list.X, list.Y, list.W - Paint.ScrollLane, list.H);
-        c.FadeClip(list, sc > 0.5f, sc < notes.Items.Count * 38 - list.H - 0.5f);
+        c.FadeScroll(list, sc, notes.Items.Count * 38 - list.H);
         float y = list.Y - sc;
         float added = ux.Anim("notes:added", 0, SpringSpec.Wobbly);
         for (int i = 0; i < notes.Items.Count; i++)
@@ -1119,7 +1119,7 @@ public sealed partial class DashboardPage : Page
         int cols = 5; float cw = grid.W / cols, ch = 96;
         float sc = ux.Anim("scroll:shelf", scroll.GetValueOrDefault("shelf"), ScrollSpring, 0.05);
         ux.Add("shelf:scroll", grid, null, 0, CursorKind.Arrow).Wheel = (d, h) => { scroll["shelf"] = Math.Clamp(scroll.GetValueOrDefault("shelf") - d / 120f * 50, 0, Math.Max(0, (float)Math.Ceiling(shelf.Items.Count / (double)cols) * ch - grid.H)); isl.Host.RequestFrame(); };
-        c.FadeClip(grid, sc > 0.5f, sc < (float)Math.Ceiling(shelf.Items.Count / (double)cols) * ch - grid.H - 0.5f);
+        c.FadeScroll(grid, sc, (float)Math.Ceiling(shelf.Items.Count / (double)cols) * ch - grid.H);
         for (int i = 0; i < shelf.Items.Count; i++)
         {
             var it = shelf.Items[i];
@@ -1220,7 +1220,7 @@ public sealed partial class DashboardPage : Page
         var clipScroll = ux.Add("clip:scroll", list, null, 0, CursorKind.Arrow); clipScroll.ScrollPx = 44; clipScroll.Wheel = (d, h) => { scroll["clip"] = Math.Clamp(scroll.GetValueOrDefault("clip") - d / 120f * 44, 0, Math.Max(0, total - list.H)); isl.Host.RequestFrame(); };
         Bar(c, ux, "clip", list, sc, total, t);
         if (Paint.Scrolls(total, list.H)) list = new Box(list.X, list.Y, list.W - Paint.ScrollLane, list.H);
-        c.FadeClip(list, sc > 0.5f, sc < total - list.H - 0.5f);
+        c.FadeScroll(list, sc, total - list.H);
         float y = list.Y - sc;
         foreach (var item in cb.Items.ToList())
         {

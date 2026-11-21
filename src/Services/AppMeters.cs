@@ -87,6 +87,36 @@ public sealed partial class AudioService
         return best;
     }
 
+    /// <summary>
+    /// The processes recording from a microphone right now: an active session on any capture device (what
+    /// Windows' own microphone indicator shows). Isola's own process never is.
+    /// </summary>
+    public List<uint> RecordingPids()
+    {
+        var pids = new List<uint>();
+        if (enumr == null || enumr.EnumAudioEndpoints(1 /* capture */, 1 /* active */, out nint pc) < 0 || pc == 0) return pids;
+        var col = (IMMDeviceCollection)cw.GetOrCreateObjectForComInstance(pc, CreateObjectFlags.None); Marshal.Release(pc);
+        col.GetCount(out uint n);
+        uint self = (uint)Environment.ProcessId;
+        for (uint i = 0; i < n; i++)
+        {
+            if (col.Item(i, out var d) < 0 || d == null) continue;
+            if (d.Activate(typeof(IAudioSessionManager2).GUID, 23, 0, out nint pm) < 0 || pm == 0) continue;
+            var mgr = (IAudioSessionManager2)cw.GetOrCreateObjectForComInstance(pm, CreateObjectFlags.None); Marshal.Release(pm);
+            if (mgr.GetSessionEnumerator(out var en) < 0 || en == null) continue;
+            en.GetCount(out int sn);
+            for (int k = 0; k < sn; k++)
+            {
+                if (en.GetSession(k, out var s) < 0 || s == null) continue;
+                s.GetState(out int state);
+                if (state != 1) continue;   // active: recording now
+                s.GetProcessId(out uint pid);
+                if (pid != 0 && pid != self && !pids.Contains(pid)) pids.Add(pid);
+            }
+        }
+        return pids;
+    }
+
     /// <summary>The media app's audio sessions, to turn down under a chime (see <see cref="Ducker"/>).</summary>
     public List<DuckSession> DuckSessionsOf(string aumid, string appName) =>
         metered.Where(m => m.Vol != null && Owns(m, aumid, appName)).Select(ToDuck).ToList();
