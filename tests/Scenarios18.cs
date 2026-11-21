@@ -209,15 +209,10 @@ public static partial class Scenarios
         True(Codecs.CanPlay("h264"), "every PC plays H.264");
     }
 
-    [Scenario("dragged sideways the island follows (it didn't move at all) and springs back; a notice dragged down springs back instead of opening search")]
-    public static void SidewaysDragAndNoticeDrag()
+    [Scenario("a notice dragged down springs back instead of opening search (as the resting island does)")]
+    public static void NoticeDragDownSpringsBack()
     {
         var (isl, host, clock) = NewIsland();
-        float x0 = isl.Shape.X;
-        isl.DragSide(80); clock.Advance(0.05, isl);
-        True(isl.Shape.X - x0 > 20, $"it follows, through the rubber band ({isl.Shape.X - x0:0} px for 80)");
-        isl.SideEnd(80, 0); clock.Advance(1.5, isl);
-        True(Math.Abs(isl.Shape.X - x0) < 0.5, "and springs back");
         isl.Alert(new Alert { Key = "n", Kind = "notification", Title = "Sam", Subtitle = "WhatsApp", Detail = "hi", Seconds = 10 });
         clock.Advance(1, isl);
         isl.DragTo(0, 120); clock.Advance(0.1, isl);

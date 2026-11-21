@@ -9,8 +9,8 @@ namespace Isola.Services;
 /// the island offers it instead.
 ///
 /// It looks for 4 to 8 digits (also "123 456", "123-456" and "G-123456") close to
-/// words about a code (in English, Arabic and a few more), or right after a colon
-/// ("رمز التسليم: 3036"). A number far from those words isn't one: "could you
+/// words about a code (in English and a few more languages), or right after a
+/// colon ("Delivery code: 3036"). A number far from those words isn't one: "could you
 /// provide an access code" in a message with an order number in it offered to copy
 /// a number that had nothing to do with it. It leaves alone what only looks like one:
 /// amounts, phone numbers, order numbers, times, dates, years and percentages.
@@ -21,8 +21,8 @@ public static partial class OneTimeCode
     [GeneratedRegex(@"\b(code|codes|otp|passcode|pass code|password|verification|verify|one[- ]time|2fa|two[- ]factor|2-step|security|log ?in|sign[- ]?in|pin|authenticat\w*|confirm\w*|token)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex TalkLatin();
 
-    // the same in other scripts, where words take prefixes ("برمز") and \b doesn't fit
-    [GeneratedRegex(@"(رمز|كود|التحقق|تحقق|التأكيد|كلمة المرور|الرقم السري|código|codigo|kod|kode|код|пароль|验证码|驗證碼|コード|認証)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    // the same in other languages and scripts, where \b doesn't always fit
+    [GeneratedRegex(@"(código|codigo|kod|kode|код|пароль|验证码|驗證碼|コード|認証)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex TalkOther();
 
     static IEnumerable<Match> Talk(string text) => TalkLatin().Matches(text).Concat(TalkOther().Matches(text));
@@ -56,7 +56,7 @@ public static partial class OneTimeCode
             string before = text[..m.Index], after = text[(m.Index + m.Length)..];
             if (Before().IsMatch(before.TrimEnd().Length > 24 ? before.TrimEnd()[^24..] : before.TrimEnd())) continue;
             if (After().IsMatch(after)) continue;
-            // right after a colon ("Code: 4821", "رمز التسليم: 3036"), or close to the words about a code
+            // right after a colon ("Code: 4821", "Delivery code: 3036"), or close to the words about a code
             bool colon = Regex.IsMatch(before, @"[:：]\s*(?:[A-Z]{1,3}-)?$");
             int dist = talks ? Distance(text, m.Index) : int.MaxValue;
             if (!colon && dist > Near) continue;

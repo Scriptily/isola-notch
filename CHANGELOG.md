@@ -48,9 +48,7 @@ release notes.
 
 ### Fixed
 
-- A notification or popup dragged sideways didn't move at all, and dragged
-  down it opened search. It now follows the drag through the same rubber band
-  as the open island and springs back, keeping the speed you let go at.
+- A notification dragged down opened search. It now springs back.
 - The Downloads page scrolled a few pixels for nothing, and its note was cut
   off with "..." when downloads were off. "Update now" is gone once the tools
   are installed (Check for updates in About & Logs keeps them current), and
@@ -70,8 +68,8 @@ release notes.
   many as it really wraps to, and anything longer scrolls up slowly so you can
   read it all in the time it's on screen. Recent shows each message on up to
   three lines too, and longer ones scroll while you point at them.
-- A code after a colon, like "رمز التسليم: 3036", gets a Copy button, also in
-  Arabic and a few other languages. A message that only mentions a code, like
+- A code after a colon, like "Delivery code: 3036", gets a Copy button, also
+  in a few other languages. A message that only mentions a code, like
   "could you provide an access code", no longer offers to copy a number from
   somewhere else in it.
 - A Home Assistant tile you tapped went back to how it was a second later,
@@ -104,7 +102,7 @@ The setup isn't code-signed yet, and a new unsigned program often trips a few en
 
 - Search suggests as you type and answers some questions itself, with no
   browser: definitions (`subsidized meaning`), translations
-  (`translate subsidized to arabic`) and Wikipedia summaries
+  (`translate subsidized to spanish`) and Wikipedia summaries
   (`who is alan turing`). Enter copies the answer. Off until you turn on
   Settings -> Search & Keys -> Web suggestions and answers, since it sends
   what you type to Google, the dictionary and Wikipedia. File and folder

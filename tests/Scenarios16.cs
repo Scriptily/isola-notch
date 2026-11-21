@@ -23,7 +23,7 @@ public static partial class Scenarios
                 "suggestqueries.google.com" => "[\"subsidized mea\",[\"subsidized meaning\",\"subsidized meaning in hindi\",\"subsidized meals\",\"subsidized mea\"],[],{}]",
                 "api.dictionaryapi.dev" when u.Contains("/subsidized") => "[{\"word\":\"subsidized\",\"phonetics\":[],\"meanings\":[{\"partOfSpeech\":\"verb\",\"definitions\":[{\"definition\":\"To assist (someone or something) by granting a subsidy.\"}]},{\"partOfSpeech\":\"adjective\",\"definitions\":[{\"definition\":\"That receives a subsidy\"}]}],\"sourceUrls\":[\"https://en.wiktionary.org/wiki/subsidize\"]}]",
                 "api.dictionaryapi.dev" => null,
-                "translate.googleapis.com" => "[[[\"مدعومة\",\"subsidized\",null,null,3]],null,\"en\",null]",
+                "translate.googleapis.com" => "[[[\"subvencionado\",\"subsidized\",null,null,3]],null,\"en\",null]",
                 "en.wikipedia.org" when u.Contains("opensearch") && u.Contains("alan") => "[\"alan turing\",[\"Alan Turing\"],[\"\"],[\"https://en.wikipedia.org/wiki/Alan_Turing\"]]",
                 "en.wikipedia.org" when u.Contains("opensearch") => "[\"x\",[],[],[]]",
                 "en.wikipedia.org" => "{\"type\":\"standard\",\"title\":\"Alan Turing\",\"description\":\"English computer scientist (1912-1954)\",\"extract\":\"Alan Mathison Turing was an English mathematician and computer scientist.\",\"content_urls\":{\"desktop\":{\"page\":\"https://en.wikipedia.org/wiki/Alan_Turing\"}}}",
@@ -47,11 +47,11 @@ public static partial class Scenarios
         Is("meaning of ad hoc", "define", "ad hoc");
         Is("what does ephemeral mean", "define", "ephemeral");
         Is("serendipity definition", "define", "serendipity");
-        Is("translate subsidized to arabic", "translate", "subsidized", "ar");
+        Is("translate subsidized to spanish", "translate", "subsidized", "es");
         Is("translate good morning into Spanish", "translate", "good morning", "es");
         Is("how do you say thank you in japanese", "translate", "thank you", "ja");
         Is("subsidized meaning in hindi", "translate", "subsidized", "hi");
-        Is("hello in arabic", "translate", "hello", "ar");
+        Is("hello in french", "translate", "hello", "fr");
         Is("translate bonjour", "translate", "bonjour", "en");
         Is("who is alan turing", "wiki", "alan turing");
         Is("what is a black hole", "wiki", "black hole");
@@ -80,10 +80,10 @@ public static partial class Scenarios
         True(a.Body.Contains("verb: To assist") && a.Body.Contains("adjective: That receives a subsidy"), "a line per part of speech: " + a.Body);
         Eq("To assist (someone or something) by granting a subsidy.", a.Copy, "Enter copies the first meaning");
 
-        var (_, t) = web.LookUp("translate subsidized to arabic", default).GetAwaiter().GetResult();
-        Eq("مدعومة", t?.Title, "the translation");
-        Eq("Arabic, from English", t.Meta, "into what, from what");
-        True(t.Url.Contains("tl=ar"), "opens Google Translate on it");
+        var (_, t) = web.LookUp("translate subsidized to spanish", default).GetAwaiter().GetResult();
+        Eq("subvencionado", t?.Title, "the translation");
+        Eq("Spanish, from English", t.Meta, "into what, from what");
+        True(t.Url.Contains("tl=es"), "opens Google Translate on it");
 
         var (_, w) = web.LookUp("who is alan turing", default).GetAwaiter().GetResult();
         Eq("Alan Turing", w?.Title, "the article");
@@ -109,7 +109,7 @@ public static partial class Scenarios
         {
             Eq(0, WebAnswers.ParseSuggestions(bad, "q").Count, "suggestions from " + bad);
             Eq(null, WebAnswers.ParseDefinition(bad, "q"), "definition from " + bad);
-            Eq(null, WebAnswers.ParseTranslation(bad, new WebIntent("translate", "q", "ar", "Arabic")), "translation from " + bad);
+            Eq(null, WebAnswers.ParseTranslation(bad, new WebIntent("translate", "q", "es", "Spanish")), "translation from " + bad);
             Eq(null, WebAnswers.ParseWiki(bad), "summary from " + bad);
         }
         var net = new FakeWeb();
@@ -173,16 +173,16 @@ public static partial class Scenarios
         Eq("subsidized", isl.P.Search.Items.FirstOrDefault()?.Card?.Title, "and its answer shows");
         // typed fast: only the last query's answers land
         isl.P.Search.Type("who is alan turing");
-        isl.P.Search.Type("hello in arabic");
+        isl.P.Search.Type("hello in spanish");
         Settle(clock, isl);
-        Eq("مدعومة", isl.P.Search.Items.FirstOrDefault()?.Card?.Title, "the newest query's answer, not the one before");
+        Eq("subvencionado", isl.P.Search.Items.FirstOrDefault()?.Card?.Title, "the newest query's answer, not the one before");
     }
 
     [Scenario("with web answers off, nothing is sent at all; a question offers to turn them on")]
     public static void PaletteWebOff()
     {
         var (isl, clock, net) = PaletteWithWeb(false);
-        foreach (var q in new[] { "subsidized meaning", "spotify", "translate hi to arabic" }) { isl.P.Search.Type(q); Settle(clock, isl); }
+        foreach (var q in new[] { "subsidized meaning", "spotify", "translate hi to spanish" }) { isl.P.Search.Type(q); Settle(clock, isl); }
         Eq(0, net.Asked.Count, "not one request");
         True(isl.P.Search.Items.Any(x => x.Title == "Answer this right here"), "how to get it answered here");
         var (isl2, clock2, net2) = PaletteWithWeb(true);
@@ -256,9 +256,9 @@ public static partial class Scenarios
     [Scenario("web answers don't mistake questions about translating for phrases to translate")]
     public static void WebIntentsAboutTranslating()
     {
-        foreach (var q in new[] { "how to translate english to arabic", "how to translate in arabic", "learn to speak in spanish", "what is hello in french" })
+        foreach (var q in new[] { "how to translate english to spanish", "how to translate in spanish", "learn to speak in spanish", "what is hello in french" })
             True(WebAnswers.Intent(q)?.Kind != "translate", $"\"{q}\" isn't a phrase to translate");
-        Eq("subsidies|ar", WebAnswers.Intent("translate subsidies from english to arabic") is { } i ? i.Text + "|" + i.Lang : "none", "\"from English\" is the source, not part of the phrase");
+        Eq("subsidies|es", WebAnswers.Intent("translate subsidies from english to spanish") is { } i ? i.Text + "|" + i.Lang : "none", "\"from English\" is the source, not part of the phrase");
         Eq("good night|es", WebAnswers.Intent("good night in spanish") is { } j ? j.Text + "|" + j.Lang : "none", "a short phrase in a language still is");
     }
 
@@ -269,7 +269,7 @@ public static partial class Scenarios
         Eq("M", Isola.App.Alerts.Initials("Mom"), "one name");
         Eq("AL", Isola.App.Alerts.Initials("Dr. Ana Lee"), "titles skipped");
         Eq("JS", Isola.App.Alerts.Initials("john michael smith"), "first and last, capitalized");
-        Eq("أح", Isola.App.Alerts.Initials("أحمد حسن") is { } ar ? ar[0] + "" + ar[1] : null, "any alphabet");
+        Eq("ΝΠ", Isola.App.Alerts.Initials("Νίκος Παπαδόπουλος"), "any alphabet");
         Eq(null, Isola.App.Alerts.Initials("+1 415 555 0132"), "a number: the phone glyph");
         Eq(null, Isola.App.Alerts.Initials("  "), "nothing");
     }

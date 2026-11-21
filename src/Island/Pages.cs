@@ -812,7 +812,7 @@ public sealed class AlertPage : Page
     internal const float DetailWidth = 340;
     // each action button to the right of the text takes 54 DIP of its width
     // Once drawn, the wrapped text's real line count is known and the popup re-sizes to it: the estimate counted
-    // two lines for an Arabic text that wrapped to three, and its last line (the code) was cut off. More than
+    // two lines for a text that wrapped to three, and its last line (the code) was cut off. More than
     // three scroll up inside the box (Canvas.MarqueeV).
     internal static readonly Dictionary<string, int> Measured = new();
     internal static int DetailLines(string s, int actions = 0)

@@ -21,10 +21,7 @@ public sealed class MouseDrag
     public bool Dragging { get; private set; }
     public bool Sideways { get; private set; }
 
-    public void Down(float x, float y, double t) { x0 = x; y0 = y; lastY = y; lastX = x; lastT = t; vel = 0; velX = 0; Dragging = Sideways = false; }
-    float lastX, velX;
-    /// <summary>The sideways speed at the last move (DIP/s), for a sideways drag's spring back.</summary>
-    public float VelocityX(double t) => t - lastT > StillBeforeRelease ? 0 : velX;
+    public void Down(float x, float y, double t) { x0 = x; y0 = y; lastY = y; lastT = t; vel = 0; Dragging = Sideways = false; }
 
     /// <returns>True the moment it becomes a drag.</returns>
     public bool Move(float x, float y, double t)
@@ -32,8 +29,8 @@ public sealed class MouseDrag
         float dx = x - x0, dy = y - y0;
         bool began = false;
         if (!Dragging && dx * dx + dy * dy > Start * Start) { Dragging = began = true; Sideways = Math.Abs(dx) > Math.Abs(dy); }
-        if (t > lastT) { vel = vel * 0.6f + 0.4f * (float)((y - lastY) / (t - lastT)); velX = velX * 0.6f + 0.4f * (float)((x - lastX) / (t - lastT)); }
-        lastY = y; lastX = x; lastT = t;
+        if (t > lastT) vel = vel * 0.6f + 0.4f * (float)((y - lastY) / (t - lastT));
+        lastY = y; lastT = t;
         return began;
     }
 

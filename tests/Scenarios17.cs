@@ -114,13 +114,13 @@ public static partial class Scenarios
         finally { listener.Stop(); }
     }
 
-    [Scenario("one-time codes: an Arabic delivery code after a colon is found; a message that only mentions an access code, with numbers far from it, isn't one")]
+    [Scenario("one-time codes: a delivery code after a colon is found; a message that only mentions an access code, with numbers far from it, isn't one")]
     public static void CodesNearTheirWords()
     {
-        string sms = "عزيزي العميل، سيصلكم موزع البريد السعودي | سبُل لتسليمكم شحنتكم CRDSAL1998721326\nرمز التسليم: 3036";
-        Eq("3036", OneTimeCode.Find("+1775", sms), "the delivery code after the colon");
-        string wa = "Hi, This is Md Sahin Khan, your Noon Minutes driver for order # ISAGBL022JPQJOGQZA. I'm at the security gate. Could you provide an access code or ask security to let me through so I can deliver your order? Thanks!";
-        Eq(null, OneTimeCode.Find("Md Sahin Khan", wa), "no code in it");
+        string sms = "Dear customer, your courier is on the way with shipment AB1234567890\nDelivery code: 3036";
+        Eq("3036", OneTimeCode.Find("+1555", sms), "the delivery code after the colon");
+        string wa = "Hi, This is Alex, your delivery driver for order # A1B2C3D4E5. I'm at the security gate. Could you provide an access code or ask security to let me through so I can deliver your order? Thanks!";
+        Eq(null, OneTimeCode.Find("Alex", wa), "no code in it");
         Eq(null, OneTimeCode.Find("+966 55 812 4471", wa + " Gate 2, building 4471 street 1290"), "numbers far from \"access code\" aren't a code");
         Eq("4821", OneTimeCode.Find("Bank", "Your code: 4821"), "a code after a colon");
         Eq("775201", OneTimeCode.Find("Courier", "Delivery PIN: 775201. Share it with the driver."), "and with a PIN");
@@ -128,13 +128,13 @@ public static partial class Scenarios
         Eq(null, OneTimeCode.Find("Store", "Total: 1500 SAR"), "not an amount after a colon");
         Eq(null, OneTimeCode.Find("Store", "Order number: 88213"), "nor an order number");
         Eq("382914", OneTimeCode.Find("Google", "G-382914 is your Google verification code."), "the usual kind still works");
-        Eq("1234", OneTimeCode.Find("Bank", "رمز التحقق الخاص بك هو 1234"), "an Arabic verification code without a colon");
+        Eq("1234", OneTimeCode.Find("Banco", "Tu código de verificación es 1234"), "a Spanish verification code without a colon");
     }
 
     [Scenario("a text from the phone shows as Messages with the sender's initials (a number: the message glyph), never Phone Link's logo; a relayed app without its icon shows its first letter")]
     public static void TextsAndMissingIcons()
     {
-        var sms = Alerts.Text("1", "+1775", "Your parcel is on its way", 10);
+        var sms = Alerts.Text("1", "+1555", "Your parcel is on its way", 10);
         Eq("Messages · Phone Link", sms.Subtitle, "Messages, through Phone Link");
         True(sms.Image == null && sms.Message, "no Phone Link logo");
         Eq(null, Alerts.Monogram(sms), "a number: the message glyph");
@@ -157,10 +157,10 @@ public static partial class Scenarios
         Eq(0f, Render.Canvas.MarqueeVOffset(0, 5, 10), "one that fits doesn't move");
     }
 
-    [Scenario("the popup takes the message's real line count once it's known (an Arabic text counted as two lines wrapped to three)")]
+    [Scenario("the popup takes the message's real line count once it's known (a text estimated at two lines wrapped to three)")]
     public static void PopupUsesMeasuredLines()
     {
-        string body = "عزيزي العميل، سيصلكم موزع البريد السعودي | سبُل لتسليمكم شحنتكم CRDSAL1998721326 رمز التسليم: 3036";
+        string body = "Dear customer, your courier is on the way with shipment AB1234567890 and will arrive today. Delivery code: 3036";
         AlertPage.Measured.Remove("0|" + body);
         int guess = AlertPage.DetailLines(body);
         AlertPage.Measured["0|" + body] = 3;

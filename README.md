@@ -168,7 +168,7 @@ files come first. Type `help` to see everything.
 Turn on web suggestions and answers (Settings -> Search & Keys) and it also
 suggests searches as you type and answers some questions itself, without
 opening a browser: `subsidized meaning` shows the definition,
-`translate subsidized to arabic` the translation, and `who is alan turing` a
+`translate subsidized to spanish` the translation, and `who is alan turing` a
 Wikipedia summary. Enter copies the answer. It's off until you turn it on,
 because it sends what you type to those services. File and folder paths are
 never sent.
