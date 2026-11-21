@@ -7,6 +7,17 @@ the number of changes in a release that only fixes and adjusts things, so
 1.4.0 with two fixes is 1.4.2. Each release's section below is also its GitHub
 release notes.
 
+## [1.8.2] - 2026-11-21
+
+### Fixed
+
+- Switching between two players, the island took 1.5 seconds to follow even
+  when the one you started could be heard and the one on screen was paused or
+  silent. It follows at once now; a muted preview still waits its moment.
+- "Sounds while media plays" turned notifications down, or off, for media
+  that said it was playing but made no sound, like Spotify left playing at 0%
+  in its own app. It now applies only when the media can actually be heard.
+
 ## [1.8.0] - 2026-11-21
 
 ### Added
@@ -95,17 +106,6 @@ release notes.
 - Elastic: malicious (moderate confidence)
 
 The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
-
-## [Unreleased]
-
-### Fixed
-
-- Switching between two players, the island took 1.5 seconds to follow even
-  when the one you started could be heard and the one on screen was paused or
-  silent. It follows at once now; a muted preview still waits its moment.
-- "Sounds while media plays" turned notifications down, or off, for media
-  that said it was playing but made no sound, like Spotify left playing at 0%
-  in its own app. It now applies only when the media can actually be heard.
 
 ## [1.7.0] - 2026-11-19
 
