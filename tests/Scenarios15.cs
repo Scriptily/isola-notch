@@ -1,5 +1,6 @@
 using Isola.App;
 using Isola.Services;
+using Isola.Island;
 
 
 namespace Isola.Tests;
@@ -461,5 +462,90 @@ public static partial class Scenarios
         vol = 0;   // turned to 0 in the app
         clock.Advance(2);
         True(!m.Sounding, "and silent once it really is");
+    }
+
+    [Scenario("Spotify paused for hours on the island, then a video resumes alone: the island shows the video, and its sounds go quiet with the dip")]
+    public static void ResumedVideoTakesOverFromPausedSpotify()
+    {
+        var cfg = new Config { SoundsWhilePlaying = "quiet" };
+        var (isl, _, clock) = NewIsland(cfg);
+        var spotify = new MediaInfo { AppName = "Spotify", SessionId = "Spotify.exe", Title = "Eyes", Playing = false };
+        var chrome = new MediaInfo { AppName = "Chrome", SessionId = "Chrome", Title = "Can You Trust MKBHD?", Playing = false };
+        var video = new Vol { V = 0.8f };
+        var ducker = new Ducker(() => new() { video.Session() }, null);
+        // Spotify sits at 0% in its own app; the video's sound follows its volume, as the captured level does
+        var ms = new MediaService(clock, null) { AppPeak = m => m == chrome && chrome.Playing ? 0.5f * video.V : 0f, OutputPeak = () => 0, Ducked = () => ducker.Factor };
+        ms.Track(spotify); ms.Track(chrome);
+        ms.Current = spotify;
+        ms.StartWatching();
+        isl.Svc.Media = ms;
+        clock.Advance(3 * 3600, isl);   // hours, both paused
+        chrome.Playing = true; chrome.PlayingSince = clock.Now; ms.Track(chrome);
+        clock.Advance(6, isl);
+        Eq("Chrome", ms.Current?.AppName, "the video that's playing, not Spotify paused at 0%");
+        var played = new List<(float vol, float videoAt)>();
+        var snd = new AlertSounds(() => cfg, () => ms.Current is { Playing: true }, () => ms.Sounding, ducker)
+        { Play = (k, v, t) => played.Add((v, video.V)), Stop = () => { }, Length = (k, t) => 0.6 };
+        isl.SoundOn = snd.On; isl.SoundOff = snd.Off;
+        isl.Alert(new Alert { Key = "n1", Kind = "notification", Title = "Sam", Subtitle = "Discord", Detail = "hi", Sound = Sounds.Notification, Seconds = 3 });
+        clock.Advance(1, isl);
+        Eq(1, played.Count, "the chime");
+        True(played[0].vol < Isola.App.App.SoundVolumeOf(cfg) * 0.5f, "quieter, as set");
+        True(played[0].videoAt < 0.4f, $"with the video dipped under it ({played[0].videoAt:0.00})");
+        clock.Advance(5, isl);
+        Eq(0.8f, video.V, "and back up");
+        // and a player paused on the island still stays when nothing else plays (pausing mustn't swap it out)
+        chrome.Playing = false; ms.Track(chrome);
+        clock.Advance(10, isl);
+        Eq("Chrome", ms.Current?.AppName, "paused: it stays on the island");
+    }
+
+    [Scenario("media starting brings back an island that hid itself after inactivity (a setting); one hidden by hand stays hidden")]
+    public static void MediaWakesSelfHiddenIsland()
+    {
+        var (isl, _, clock) = NewIsland(new Config { AutoHideMinutes = 2 });
+        var media = new FakeMedia(clock) { Current = new MediaInfo { AppName = "Chrome", SessionId = "Chrome", Title = "A video", Playing = false } };
+        isl.Svc.Media = media;
+        clock.Advance(130, isl);
+        Eq(Mode.Hidden, isl.Mode, "hid itself after 2 minutes");
+        True(isl.HiddenByItself, "by itself");
+        media.Current.Playing = true; isl.ActivityChanged(); clock.Advance(0.5, isl);
+        Eq(Mode.Rest, isl.Mode, "the video starts: it comes back");
+
+        media.Current.Playing = false; isl.ActivityChanged();
+        isl.RightClick(450, 20); clock.Advance(0.5, isl);
+        Eq(Mode.Hidden, isl.Mode, "hidden by hand");
+        media.Current.Playing = true; isl.ActivityChanged(); clock.Advance(0.5, isl);
+        Eq(Mode.Hidden, isl.Mode, "stays hidden when the video starts");
+
+        var (isl2, _, clock2) = NewIsland(new Config { AutoHideMinutes = 2, WakeForMedia = false });
+        var m2 = new FakeMedia(clock2) { Current = new MediaInfo { AppName = "Chrome", SessionId = "Chrome", Title = "A video", Playing = false } };
+        isl2.Svc.Media = m2;
+        clock2.Advance(130, isl2);
+        m2.Current.Playing = true; isl2.ActivityChanged(); clock2.Advance(0.5, isl2);
+        Eq(Mode.Hidden, isl2.Mode, "with the setting off it stays tucked away");
+    }
+
+    [Scenario("a call over a video: quieter ringtone, the video down while it rings; paused to answer, the video still comes back when the call ends")]
+    public static void CallPausedToAnswerStillRestores()
+    {
+        var r = new LiveRig(new Config { SoundsWhilePlaying = "quiet" });
+        r.Isl.Alert(new Alert { Key = "call", Kind = "call", Title = "Mom", Priority = 3, Sticky = true, MaxSeconds = 60, Sound = Sounds.Call });
+        r.Clock.Advance(1, r.Isl);
+        var ring = r.Played.Single(p => p.kind == Sounds.Call);
+        True(ring.vol < Isola.App.App.SoundVolumeOf(new Config()) * 0.5f, "the ringtone follows Quieter");
+        True(ring.videoAt < 0.45f, "and rings with the video down");
+        r.Media.Current.Playing = false;   // paused the video to answer
+        r.Clock.Advance(10, r.Isl);
+        True(r.Video.V < 0.45f, "still ringing: still down");
+        r.Isl.DismissAlert("call");
+        r.Clock.Advance(3, r.Isl);
+        Eq(0.9f, r.Video.V, "the call over: the video's volume back where it was, paused or not");
+
+        var m = new LiveRig(new Config { SoundsWhilePlaying = "mute" });
+        m.Isl.Alert(new Alert { Key = "call", Kind = "call", Title = "Mom", Priority = 3, Sticky = true, MaxSeconds = 60, Sound = Sounds.Call });
+        m.Clock.Advance(2, m.Isl);
+        Eq(0, m.Played.Count, "muted: no ringtone over the video");
+        Eq(0, m.Video.Sets, "and the video untouched");
     }
 }

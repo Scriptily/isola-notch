@@ -7,6 +7,20 @@ the number of changes in a release that only fixes and adjusts things, so
 1.4.0 with two fixes is 1.4.2. Each release's section below is also its GitHub
 release notes.
 
+## [Unreleased]
+
+### Added
+
+- "Come back when media starts" (Settings -> Behavior, on by default): an
+  island that tucked itself away after inactivity comes back when music or a
+  video starts. One you hid yourself stays hidden.
+
+### Fixed
+
+- A video playing by itself never counted as heard, so a Spotify paused for
+  hours, the one on the island, kept its place: the island didn't switch to
+  the video, and notification sounds ignored Quieter and didn't lower it.
+
 ## [1.7.0] - 2026-11-19
 
 ### Added

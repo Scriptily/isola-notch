@@ -58,6 +58,9 @@ public sealed partial class MediaService : IMediaSourceEx
         return LevelFrom(app, OutputPeak());
     }
 
+    /// <summary>Tests: a session seen (or changed), as Windows' events report it.</summary>
+    internal void Track(MediaInfo i) { infos[i.SessionId] = i; Choose(); }
+
     /// <summary>Tests: the quarter-second watch that StartAsync starts.</summary>
     internal void StartWatching() { Ui.Cancel(ref heardTimer); WatchHeard(); }
     /// <summary>How long without sound before the visualizer settles (a gap between songs is shorter).</summary>
@@ -107,7 +110,10 @@ public sealed partial class MediaService : IMediaSourceEx
     bool? Heard(MediaInfo i)
     {
         if (AppPeak(i) == null) return null;   // can't tell
-        return heardAt.TryGetValue(i.SessionId, out var t) && clock.Now - t < HeardFor;
+        if (heardAt.TryGetValue(i.SessionId, out var t) && clock.Now - t < HeardFor) return true;
+        // only just started: not listened to long enough to call it silent (counted as heard until it has been)
+        if (i.Playing && !double.IsNaN(i.PlayingSince) && clock.Now - i.PlayingSince < HeardFor) return null;
+        return false;
     }
 
     /// <summary>While two or more apps play, checks four times a second which of them can be heard, and re-picks when that changes.</summary>
@@ -135,7 +141,10 @@ public sealed partial class MediaService : IMediaSourceEx
             float? cap = audio?.CapturedPeak(c.SessionId, c.AppName, clock.Now);
             Log.D("media", $"level of {c.SessionId}: {(cap != null ? "captured" : "metered")} {(app == null ? "unknown" : app.Value.ToString("0.0000"))}, output {OutputPeak():0.0000}, sounding {Sounding}");
         }
-        if (playing.Count < 2) { heardSet = ""; return; }
+        // which playing apps can be heard, kept for every one of them, one alone included: it was only kept
+        // while two or more played, so a video playing by itself never counted as heard, and a Spotify paused
+        // for hours (the one on screen) kept the island, the sounds' dip and their volume from the video
+        if (playing.Count == 0) { heardSet = ""; return; }
         audio?.RefreshAppMeters(clock.Now);
         double now = clock.Now;
         foreach (var i in playing) if (AppPeak(i) is float p && p > Silence) heardAt[i.SessionId] = now;

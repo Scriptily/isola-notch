@@ -203,6 +203,8 @@ public sealed partial class Island : ITouchTarget
             var silenced = CurrentAlert;
             Ui.Guard("alert sound", () => SoundOff(silenced));
         }
+        // a notice over the hidden island goes back to hidden as it was: by itself or by hand
+        if (m == Mode.Hidden && !why.StartsWith("back to hidden")) HiddenByItself = hidingByItself;
         Mode = m;
         if (m == Mode.Off) { Host.SetHitArea(default, 0); }
         else Host.SetShown(true);
@@ -330,7 +332,7 @@ public sealed partial class Island : ITouchTarget
         {
             if (Mode == Mode.Rest && KeptByMedia()) { lastActivity = Clock.Now; ScheduleAutoHide(); return; }
             if (Mode == Mode.Rest && !Hovering && Clock.Now - lastActivity >= Cfg.AutoHideMinutes * 60 - 0.01)
-                SetMode(Mode.Hidden, $"no activity for {Cfg.AutoHideMinutes:0.#} min");
+            { hidingByItself = true; SetMode(Mode.Hidden, $"no activity for {Cfg.AutoHideMinutes:0.#} min"); hidingByItself = false; }
             else ScheduleAutoHide();
         });
     }
@@ -386,6 +388,12 @@ public sealed partial class Island : ITouchTarget
     public void ActivityChanged()
     {
         CheckHeld();
+        // media starting brings back an island that tucked itself away after inactivity (a setting); one hidden
+        // by hand stays hidden
+        bool playingNow = Svc?.Media?.Current is { Playing: true };
+        if (playingNow && !mediaWasPlaying && Mode == Mode.Hidden && HiddenByItself && Cfg.WakeForMedia)
+        { MarkActive(); SetMode(Mode.Rest, "media started"); }
+        mediaWasPlaying = playingNow;
         if (Mode is Mode.Rest or Mode.Peek or Mode.Expanded) Retarget();
         else Host.RequestFrame();
     }
@@ -1387,6 +1395,9 @@ public sealed partial class Island : ITouchTarget
     }
 
     bool resizeQueued;
+    bool mediaWasPlaying, hidingByItself;
+    /// <summary>Hidden after inactivity (not by hand): media starting may bring it back.</summary>
+    public bool HiddenByItself { get; private set; }
     ID2D1Bitmap1 chromeBmp; string chromeKey;
     bool GlowColorsSettled()
     {

@@ -602,6 +602,7 @@ public sealed unsafe partial class SettingsWindow
         L.Header("Auto-hide");
         Slider(L, "autohide", "Hide after inactivity", "0 keeps it visible", work.AutoHideMinutes, 0, 30, v => v <= 0 ? "Never" : $"{v:0.#} min", v => work.AutoHideMinutes = v, 0.5);
         Toggle(L, "stayplay", "Stay while media plays", "Music and videos keep it on screen", work.StayWhilePlaying, v => work.StayWhilePlaying = v);
+        Toggle(L, "wakeplay", "Come back when media starts", "When it hid itself after inactivity; hidden by you, it stays hidden", work.WakeForMedia, v => work.WakeForMedia = v);
         Toggle(L, "ind", "Leave a small indicator when hidden", "Point at the top center of the screen to bring it back", work.ShowIndicatorWhenHidden, v => work.ShowIndicatorWhenHidden = v);
         Slider(L, "zone", "Reveal zone width", null, work.RevealZoneWidth, 120, 1200, v => $"{v:0}", v => work.RevealZoneWidth = (int)v, 20);
         L.Header("Screen");
