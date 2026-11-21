@@ -1,6 +1,7 @@
 using Isola.App;
 using Isola.Island;
 using Isola.Services;
+using Box = Isola.Render.Box;
 
 namespace Isola.Tests;
 
@@ -145,5 +146,26 @@ public static partial class Scenarios
         Eq("Windows", PrivacyWatch.AppOf(0xFFFFFFF0, false), "no path, another camera: Windows");
         var uses = PrivacyWatch.Live(() => new(), () => new List<CameraUse> { new(0xFFFFFFF0, "IR Camera", true) }).ToList();
         Eq("Windows Hello", uses.Single().App, "and it reaches the watcher instead of being dropped");
+    }
+
+    [Scenario("a setting that's dimmed takes no clicks, drags or hover: its switch, slider and buttons are all off")]
+    public static void DimmedSettingsAreInert()
+    {
+        var u = new Ux();
+        int clicks = 0, drags = 0;
+        u.BeginFrame(null);
+        u.Add("on:switch", new Box(0, 0, 40, 22), () => clicks++);
+        int mark = u.ZoneCount;
+        u.Add("off:switch", new Box(0, 40, 40, 22), () => clicks += 100);
+        u.Add("off:slider", new Box(0, 80, 200, 22)).Drag = (x, y, fin) => drags++;
+        u.Inert(mark);
+        u.EndFrame();
+        Eq("on:switch", u.HitTest(20, 10)?.Id, "a live switch answers");
+        Eq(null, u.HitTest(20, 50), "the dimmed switch doesn't (no hover, no click)");
+        Eq(null, u.HitTest(100, 90), "nor the dimmed slider");
+        u.Move(20, 50); u.Down(20, 50); u.Up(20, 50);
+        u.Move(100, 90); u.Down(100, 90); u.Move(150, 90); u.Up(150, 90);
+        Eq(0, clicks, "clicking the dimmed switch does nothing");
+        Eq(0, drags, "dragging the dimmed slider does nothing");
     }
 }

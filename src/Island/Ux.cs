@@ -35,11 +35,12 @@ public sealed class Ux
     readonly List<Zone> building = new();
     List<Zone> live = new();
     /// <summary>How many zones are in this frame so far (to mark where a block of controls starts).</summary>
-    public int ZoneCount => live.Count;
+    public int ZoneCount => building.Count;
     /// <summary>The zones added since <paramref name="from"/> stop answering clicks and drags (a setting that's off).</summary>
     public void Inert(int from)
     {
-        for (int i = from; i < live.Count; i++) { var z = live[i]; z.Click = null; z.Drag = null; z.RightClick = null; z.Cursor = CursorKind.Arrow; z.Tooltip = null; }
+        // the zones being drawn this frame (it changed last frame's, already replaced: the controls kept working)
+        for (int i = from; i < building.Count; i++) { var z = building[i]; z.Click = null; z.Drag = null; z.RightClick = null; z.Cursor = CursorKind.Arrow; z.Tooltip = null; }
     }
     readonly Dictionary<string, Spring> springs = new();
     readonly HashSet<string> touched = new();
