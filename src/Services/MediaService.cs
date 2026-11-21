@@ -70,6 +70,10 @@ public sealed partial class MediaService : IMediaSourceEx
     /// app sends nothing, and its visualizer kept dancing anyway: it moved whenever something was playing.
     /// </summary>
     public bool Sounding => clock.Now - lastSoundAt < QuietFor;
+    /// <summary>Sound has come from what's shown within <paramref name="seconds"/> (a quiet moment in a song isn't silence).</summary>
+    public bool HeardWithin(double seconds) => clock.Now - lastSoundAt < seconds;
+    /// <summary>How long without sound before playing media counts as silent for the island's sounds.</summary>
+    internal const double SilentAfter = 3;
     internal static float LevelFrom(float? app, float output) => app ?? output;
 
     /// <summary>An app's own sound level right now, or null when its audio sessions can't be told apart (tests replace it).</summary>

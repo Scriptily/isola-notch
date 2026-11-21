@@ -542,4 +542,37 @@ public static partial class Scenarios
         Eq(0, m.Played.Count, "muted: no ringtone over the video");
         Eq(0, m.Video.Sets, "and the video untouched");
     }
+
+    [Scenario("media that says it's playing but makes no sound (Spotify at 0%) doesn't count: Quieter and Muted leave the chime alone, and nothing dips")]
+    public static void SilentPlayingMediaIsntPlaying()
+    {
+        foreach (var setting in new[] { "quiet", "mute" })
+        {
+            var r = new SoundRig(new Config { SoundsWhilePlaying = setting });
+            r.Heard = false;   // Windows says playing; nothing comes out
+            r.Isl.Alert(SoundRig.Message()); r.Clock.Advance(0.3, r.Isl);
+            Eq(1, r.Played.Count, $"{setting}: the chime still plays");
+            Eq(Isola.App.App.SoundVolumeOf(new Config()), r.Played[0].vol, $"{setting}: at its normal volume");
+            Eq(0, r.Music.Sets, $"{setting}: nothing to dip");
+        }
+        var heard = new SoundRig(new Config { SoundsWhilePlaying = "mute" });
+        heard.Isl.Alert(SoundRig.Message()); heard.Clock.Advance(0.3, heard.Isl);
+        Eq(0, heard.Played.Count, "music you can hear, muted: silent as set");
+    }
+
+    [Scenario("a quiet moment in a song isn't silence: playing media counts as silent only after 3 s without sound")]
+    public static void QuietMomentIsntSilence()
+    {
+        var clock = Clock();
+        float level = 0.4f;
+        var m = new MediaService(clock, null) { AppPeak = _ => level, OutputPeak = () => 0 };
+        m.Current = new MediaInfo { AppName = "Spotify", SessionId = "Spotify.exe", Title = "A song", Playing = true };
+        m.StartWatching();
+        clock.Advance(2);
+        level = 0;   // a pause in the music
+        clock.Advance(2);
+        True(m.HeardWithin(MediaService.SilentAfter), "2 s of quiet: still playing");
+        clock.Advance(2);
+        True(!m.HeardWithin(MediaService.SilentAfter), "4 s of nothing: silent");
+    }
 }

@@ -260,7 +260,8 @@ public sealed unsafe partial class App
         island.PreviewPopups = PreviewPopups;
         // the chosen sounds, built in the background now so the first one plays without a wait
         { var c0 = cfg; Task.Run(() => { foreach (var k in Sounds.All) Sounds.Warm(k, ToneFor(c0, k)); }); }
-        var sounds = new AlertSounds(() => cfg, () => svc.Media?.Current is { Playing: true }, () => svc.Media?.Sounding ?? false, ducker);
+        var sounds = new AlertSounds(() => cfg, () => svc.Media?.Current is { Playing: true },
+            () => svc.Media is MediaService ms ? ms.HeardWithin(MediaService.SilentAfter) : svc.Media?.Sounding ?? false, ducker);
         island.SoundOn = sounds.On;
         island.SoundOff = sounds.Off;
         if (FeedWanted(cfg)) _ = svc.Notifications.StartAsync();

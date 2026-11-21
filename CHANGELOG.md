@@ -96,6 +96,14 @@ release notes.
 
 The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
 
+## [Unreleased]
+
+### Fixed
+
+- "Sounds while media plays" turned notifications down, or off, for media
+  that said it was playing but made no sound, like Spotify left playing at 0%
+  in its own app. It now applies only when the media can actually be heard.
+
 ## [1.7.0] - 2026-11-19
 
 ### Added

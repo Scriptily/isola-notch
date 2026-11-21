@@ -26,12 +26,14 @@ internal sealed class AlertSounds
     {
         var c = cfg();
         if (!App.SoundAllowed(c, a)) return;
-        bool media = playing();
+        // media that says it's playing but makes no sound (Spotify left "playing" at 0%, or paused without telling
+        // Windows) isn't playing for this: the chime keeps its own volume, and there's nothing to dip
+        bool media = playing() && heard();
         float v = App.SoundVolumeOf(c) * App.WhilePlayingScale(c, a.Sound, media);
         if (v <= 0) return;   // muted while media plays: nothing to make room for either
         string kind = a.Sound, tone = App.ToneFor(c, kind);
         // the media dips first, then the sound plays into the room it made
-        double wait = ducker != null && App.DuckFor(c, media && heard()) ? ducker.Duck(Length(kind, tone), Sounds.Loops(kind) ? a : null) : 0;
+        double wait = ducker != null && App.DuckFor(c, media) ? ducker.Duck(Length(kind, tone), Sounds.Loops(kind) ? a : null) : 0;
         Ui.Cancel(ref pending); pendingFor = null;
         if (wait < 0.005) Play(kind, v, tone);
         else { pendingFor = a; pending = Ui.After(wait, () => { pending = 0; pendingFor = null; Play(kind, v, tone); }); }
