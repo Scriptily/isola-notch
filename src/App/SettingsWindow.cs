@@ -1151,7 +1151,7 @@ public sealed unsafe partial class SettingsWindow
         {
             Toggle(L, "autoupd", "Update automatically", svc.Updates?.Status ?? "", work.AutoUpdate, v => work.AutoUpdate = v);
             // Isola, and the download tools when they're installed (never fetched here for the first time)
-            Button(L, "updnow", "Check for updates", $"Running v{(svc.Updates != null ? Updater.Short(svc.Updates.Current) : "?")}{(svc.Tools?.Ready == true ? " · and the download tools" : "")}", "Check now",
+            Button(L, "updnow", "Check for updates", $"{(svc.Tools?.Ready == true ? "Isola" : "Running")} v{(svc.Updates != null ? Updater.Short(svc.Updates.Current) : "?")}{(svc.Tools?.Ready == true ? " and the download tools" : "")}", "Check now",
                 () => { checkAt = Ui.Clock.Now; apply(work.Clone()); _ = svc.Updates?.CheckAsync(true); if (svc.Tools?.Ready == true) _ = svc.Tools.CheckAsync(true); },
                 svc.Updates?.Busy == true || svc.Tools?.Busy == true || Spinning(checkAt));
         }
