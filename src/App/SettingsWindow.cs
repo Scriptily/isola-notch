@@ -698,8 +698,9 @@ public sealed unsafe partial class SettingsWindow
         using (When("focussnd", work.Sounds))
             Seg(L, "focussnd", "Sounds while media plays", (work.Sounds ? "For notifications, calls and notices" : "Island sounds are off"),
             new[] { "Full", "Quieter", "Muted" }, new[] { "full", "quiet", "mute" }, work.SoundsWhilePlaying, v => work.SoundsWhilePlaying = v);
-        using (When("focusduck", work.Sounds))
-            Toggle(L, "focusduck", "Lower the media for sounds", (work.Sounds ? "The playing app dips while a chime or ringtone plays, then comes back up" : "Island sounds are off"),
+        // muted while media plays: no sound to make room for
+        using (When("focusduck", work.Sounds && work.SoundsWhilePlaying != "mute"))
+            Toggle(L, "focusduck", "Lower the media for sounds", !work.Sounds ? "Island sounds are off" : work.SoundsWhilePlaying == "mute" ? "Sounds are muted while media plays" : "The playing app dips while a chime or ringtone plays, then comes back up",
             work.DuckMedia, v => work.DuckMedia = v);
         Toggle(L, "focushold", "Hold notifications until you're done", "While media plays or a game or video is fullscreen on any screen, they wait and show as one summary when it stops, or when you open the island",
             work.HoldWhileFocused, v => work.HoldWhileFocused = v);
@@ -1080,25 +1081,29 @@ public sealed unsafe partial class SettingsWindow
             return;
         }
         L.Note("Paste a link in the Shelf's bar, or type download and a link in search (audio and a link for just the sound). Hover a video or song on the shelf to convert it, or type convert in search.", 34);
-        Seg(L, "dlto", "Save to", work.DownloadTo == "folder" ? work.DownloadFolder : work.DownloadTo == "shelf" ? "Kept on the shelf, in Isola's own folder" : "Your Downloads folder",
-            new[] { "Downloads", "Shelf", "A folder" }, new[] { "downloads", "shelf", "folder" }, work.DownloadTo, v =>
-            {
-                if (v == "folder")
+        // where and how downloads are saved only matter with downloads on
+        using (When("dlopts", work.Downloads))
+        {
+            Seg(L, "dlto", "Save to", work.DownloadTo == "folder" ? work.DownloadFolder : work.DownloadTo == "shelf" ? "Kept on the shelf, in Isola's own folder" : "Your Downloads folder",
+                new[] { "Downloads", "Shelf", "A folder" }, new[] { "downloads", "shelf", "folder" }, work.DownloadTo, v =>
                 {
-                    string got = Native.FolderPicker.Pick(hwnd, "Save downloads to", string.IsNullOrEmpty(work.DownloadFolder) ? Services.KnownFolders.Downloads : work.DownloadFolder);
-                    if (got == null) return;   // cancelled: stays where it was
-                    work.DownloadFolder = got;
-                }
-                work.DownloadTo = v;
-            });
-        if (work.DownloadTo == "folder")
-            Button(L, "dlfolder", "Folder", work.DownloadFolder, "Change", () =>
-            {
-                string got = Native.FolderPicker.Pick(hwnd, "Save downloads to", work.DownloadFolder);
-                if (got != null) { work.DownloadFolder = got; Changed(); }
-            });
-        Seg(L, "dlq", "Video quality", "The most it downloads, as H.264 MP4 so it plays everywhere", new[] { "720p", "1080p", "Best" }, new[] { "720", "1080", "best" }, work.DownloadQuality, v => work.DownloadQuality = v);
-        Seg(L, "dla", "Audio format", "What downloading the audio makes", new[] { "MP3", "M4A" }, new[] { "mp3", "m4a" }, work.DownloadAudioFormat, v => work.DownloadAudioFormat = v);
+                    if (v == "folder")
+                    {
+                        string got = Native.FolderPicker.Pick(hwnd, "Save downloads to", string.IsNullOrEmpty(work.DownloadFolder) ? Services.KnownFolders.Downloads : work.DownloadFolder);
+                        if (got == null) return;   // cancelled: stays where it was
+                        work.DownloadFolder = got;
+                    }
+                    work.DownloadTo = v;
+                });
+            if (work.DownloadTo == "folder")
+                Button(L, "dlfolder", "Folder", work.DownloadFolder, "Change", () =>
+                {
+                    string got = Native.FolderPicker.Pick(hwnd, "Save downloads to", work.DownloadFolder);
+                    if (got != null) { work.DownloadFolder = got; Changed(); }
+                });
+            Seg(L, "dlq", "Video quality", "The most it downloads, as H.264 MP4 so it plays everywhere", new[] { "720p", "1080p", "Best" }, new[] { "720", "1080", "best" }, work.DownloadQuality, v => work.DownloadQuality = v);
+            Seg(L, "dla", "Audio format", "What downloading the audio makes", new[] { "MP3", "M4A" }, new[] { "mp3", "m4a" }, work.DownloadAudioFormat, v => work.DownloadAudioFormat = v);
+        }
         if (tools != null)
         {
             string sub = tools.Busy ? tools.Status : tools.Ready ? $"{tools.Summary()} · {tools.Bytes / 1_000_000} MB · checked daily" : "Not installed yet: they're fetched (about 130 MB) the first time you download";

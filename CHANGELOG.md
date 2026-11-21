@@ -27,7 +27,9 @@ release notes.
   rules them out, with a note saying why where it isn't obvious: "Stay while
   media plays" when Hide after inactivity is Never, every sound setting when
   Island sounds is off, each sound choice when its own chime is off, glow
-  options when the rim is off, weather details when Weather is off, and more.
+  options when the rim is off, weather details when Weather is off, "Lower
+  the media for sounds" when sounds are muted while media plays, download
+  options when Downloads is off, and more.
 - A notice that changes in place, like the sound output as you cycle through
   them, fades from the old text to the new instead of swapping it.
 
