@@ -5,7 +5,7 @@ Isola ships in two forms built from the same tag with the same version:
 | | GitHub release | Microsoft Store |
 |---|---|---|
 | File | `IsolaSetup.exe` (per-user installer) | MSIX package |
-| Signing | not yet (see [CODE_SIGNING_POLICY.md](../CODE_SIGNING_POLICY.md)) | signed by Microsoft when it passes certification |
+| Signing | none (see [CODE_SIGNING_POLICY.md](../CODE_SIGNING_POLICY.md)) | signed by Microsoft when it passes certification |
 | Updates | Isola updates itself from GitHub releases | the Store updates it; Isola never checks GitHub |
 | Start with Windows | sign-in task and Run entry | the package's startup task |
 | Hiding Windows' own banners | Isola turns them off per app and restores them | not available: Settings opens Windows' notification settings instead |

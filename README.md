@@ -227,7 +227,7 @@ Notifications opens Windows' page where you can turn them off yourself.
 1. Download `IsolaSetup.exe` from the
    [latest release](https://github.com/Scriptily/isola-notch/releases/latest).
 2. Run it. Windows may say it protected your computer, because the setup isn't
-   code-signed yet (see the [code signing policy](CODE_SIGNING_POLICY.md)):
+   code-signed (see the [code signing policy](CODE_SIGNING_POLICY.md)):
    choose **More info**, then **Run anyway**. Every release is built by GitHub
    Actions from the public source, and its notes link a
    [VirusTotal](https://www.virustotal.com/) scan of the setup and list
