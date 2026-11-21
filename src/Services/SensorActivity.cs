@@ -53,6 +53,7 @@ public readonly record struct CameraUse(uint Pid, string Camera, bool Infrared);
 internal sealed unsafe partial class SensorReportHandler : IMFSensorActivitiesReportCallback, IAgileObject
 {
     public volatile List<CameraUse> Latest = new();
+    string lastSig = "";
 
     public int OnActivitiesReport(IMFSensorActivitiesReport report)
     {
@@ -78,6 +79,9 @@ internal sealed unsafe partial class SensorReportHandler : IMFSensorActivitiesRe
             }
         }
         catch (Exception ex) { Log.D("privacy", "camera report unreadable: " + ex.Message); }
+        // what the camera monitor said, when it changes (to see what a sign-in or an app really reports)
+        string sig = string.Join("; ", list.Select(u => $"pid {u.Pid} on {u.Camera}{(u.Infrared ? " (IR)" : "")}"));
+        if (sig != lastSig) { lastSig = sig; Log.D("privacy", "camera report: " + (sig.Length > 0 ? sig : "nothing streaming")); }
         Latest = list;
         return 0;
     }

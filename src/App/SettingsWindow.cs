@@ -488,6 +488,29 @@ public sealed unsafe partial class SettingsWindow
         canvas.Text(helpBody, new Box(card.X + pad, card.Y + pad + 26, cw - 2 * pad, bodyH + 2), 12, Col.White.A(0.78f * appear), FontWeight.Normal, HAlign.Left, VAlign.Top, true);
     }
 
+    /// <summary>
+    /// Rows that only apply when another setting allows them: drawn dimmed and not answering while they don't
+    /// (fading between the two), so what has no effect doesn't look like it does. Use: using (When("id", on)) { rows }
+    /// </summary>
+    IDisposable When(string id, bool on) => new Gate(this, id, on);
+
+    sealed class Gate : IDisposable
+    {
+        readonly SettingsWindow w; readonly bool on, layer; readonly int mark;
+        public Gate(SettingsWindow w, string id, bool on)
+        {
+            this.w = w; this.on = on; mark = w.ux.ZoneCount;
+            float a = w.ux.Anim("gate:" + id, on ? 1 : 0.38f, SpringSpec.Snappy);
+            layer = a < 0.995f;
+            if (layer) w.canvas.Push(null, a);
+        }
+        public void Dispose()
+        {
+            if (layer) w.canvas.Pop();
+            if (!on) w.ux.Inert(mark);
+        }
+    }
+
     void Toggle(Layout L, string id, string title, string sub, bool value, Action<bool> set, string help = null)
     {
         var b = LabeledRow(L, id, title, sub, 90, 48, help);
@@ -580,13 +603,17 @@ public sealed unsafe partial class SettingsWindow
         L.Header("Style");
         Seg(L, "style", "Island style", "A floating pill, or a notch that melts into the top edge", new[] { "Island", "Notch" }, new[] { "pill", "notch" }, work.Style, v => work.Style = v);
         Seg(L, "face", "When idle, show", null, new[] { "Eyes", "Clock", "Nothing" }, new[] { "eyes", "clock", "none" }, work.IdleFace, v => work.IdleFace = v);
-        Toggle(L, "eyes", "Eyes follow the pointer", "They look toward the cursor when it's near", work.EyesFollowCursor, v => work.EyesFollowCursor = v);
+        using (When("eyes", work.IdleFace == "eyes"))
+            Toggle(L, "eyes", "Eyes follow the pointer", (work.IdleFace == "eyes" ? "They look toward the cursor when it's near" : "When idle shows the eyes"), work.EyesFollowCursor, v => work.EyesFollowCursor = v);
         Slider(L, "scale", "Size", "Scales the whole island on top of Windows' display scaling", work.Scale, 0.8, 1.4, v => $"{v * 100:0}%", v => work.Scale = v, 0.05);
         L.Header("Glow");
         Toggle(L, "glow", "Colorful rim", "A soft gradient along the island's edge", work.Glow, v => work.Glow = v);
-        Slider(L, "glow", "Glow strength", null, work.GlowIntensity, 0, 1, v => $"{v * 100:0}%", v => work.GlowIntensity = v, 0.05);
-        Seg(L, "glowc", "Glow colors", "Auto follows the album art of what's playing", new[] { "Auto", "Aurora", "Sunset", "Ocean", "Mono" }, new[] { "auto", "aurora", "sunset", "ocean", "mono" }, work.GlowColors, v => work.GlowColors = v);
-        Toggle(L, "glowdrift", "Glow drift", "Colors wander slowly along the edge; off, they hold still", work.GlowDrift, v => work.GlowDrift = v);
+        using (When("glow1", work.Glow))
+            Slider(L, "glow", "Glow strength", null, work.GlowIntensity, 0, 1, v => $"{v * 100:0}%", v => work.GlowIntensity = v, 0.05);
+        using (When("glow2", work.Glow))
+            Seg(L, "glowc", "Glow colors", "Auto follows the album art of what's playing", new[] { "Auto", "Aurora", "Sunset", "Ocean", "Mono" }, new[] { "auto", "aurora", "sunset", "ocean", "mono" }, work.GlowColors, v => work.GlowColors = v);
+        using (When("glow3", work.Glow))
+            Toggle(L, "glowdrift", "Glow drift", "Colors wander slowly along the edge; off, they hold still", work.GlowDrift, v => work.GlowDrift = v);
         L.Header("Motion");
         Toggle(L, "rm", "Reduce motion", "Springs settle without bouncing", work.ReduceMotion, v => work.ReduceMotion = v);
         Toggle(L, "hello", "Say hello at startup", null, work.HelloOnLaunch, v => work.HelloOnLaunch = v);
@@ -597,12 +624,13 @@ public sealed unsafe partial class SettingsWindow
     {
         L.Header("Hover and click");
         Toggle(L, "hover", "Expand on hover", "Hovering shows controls; clicking opens the full island", work.HoverToExpand, v => work.HoverToExpand = v);
-        Slider(L, "hdelay", "Hover delay", null, work.HoverDelayMs, 0, 800, v => $"{v:0} ms", v => work.HoverDelayMs = (int)v, 10);
+        using (When("hdelay", work.HoverToExpand))
+            Slider(L, "hdelay", "Hover delay", null, work.HoverDelayMs, 0, 800, v => $"{v:0} ms", v => work.HoverDelayMs = (int)v, 10);
         Slider(L, "cdelay", "Collapse delay", "How long it waits after the pointer leaves", work.CollapseDelayMs, 0, 2000, v => $"{v:0} ms", v => work.CollapseDelayMs = (int)v, 50);
         L.Header("Auto-hide");
         Slider(L, "autohide", "Hide after inactivity", "0 keeps it visible", work.AutoHideMinutes, 0, 30, v => v <= 0 ? "Never" : $"{v:0.#} min", v => work.AutoHideMinutes = v, 0.5);
-        Toggle(L, "stayplay", "Stay while media plays", "Music and videos keep it on screen", work.StayWhilePlaying, v => work.StayWhilePlaying = v);
-        Toggle(L, "wakeplay", "Come back when media starts", "When it hid itself after inactivity; hidden by you, it stays hidden", work.WakeForMedia, v => work.WakeForMedia = v);
+        using (When("stayplay", work.AutoHideMinutes > 0))
+            Toggle(L, "stayplay", "Stay while media plays", (work.AutoHideMinutes > 0 ? "Music and videos keep it on screen" : "Hide after inactivity is set to Never"), work.StayWhilePlaying, v => work.StayWhilePlaying = v);
         Toggle(L, "ind", "Leave a small indicator when hidden", "Point at the top center of the screen to bring it back", work.ShowIndicatorWhenHidden, v => work.ShowIndicatorWhenHidden = v);
         Slider(L, "zone", "Reveal zone width", null, work.RevealZoneWidth, 120, 1200, v => $"{v:0}", v => work.RevealZoneWidth = (int)v, 20);
         L.Header("Screen");
@@ -611,7 +639,8 @@ public sealed unsafe partial class SettingsWindow
             choices.Any(x => x.value == work.ShowOn) ? work.ShowOn : "laptop", v => work.ShowOn = v);
         L.Header("Fullscreen and stacking");
         Toggle(L, "fs", "Step aside for fullscreen apps", "Only on the island's own screen; fullscreen on another screen doesn't hide it", work.HideInFullscreen, v => work.HideInFullscreen = v);
-        Toggle(L, "fsalert", "Still show alerts over fullscreen", null, work.AlertsOverFullscreen, v => work.AlertsOverFullscreen = v);
+        using (When("fsalert", work.HideInFullscreen))
+            Toggle(L, "fsalert", "Still show alerts over fullscreen", null, work.AlertsOverFullscreen, v => work.AlertsOverFullscreen = v);
         Toggle(L, "top", "Stay on top of other always-on-top windows", null, work.KeepOnTop, v => work.KeepOnTop = v);
         Toggle(L, "start", "Start with Windows", null, work.StartWithWindows, v => work.StartWithWindows = v);
         L.End();
@@ -621,16 +650,20 @@ public sealed unsafe partial class SettingsWindow
     {
         L.Header("Media");
         Toggle(L, "media", "Now Playing", "Spotify, YouTube in Chrome, Plex - anything in Windows' media controls", work.Media, v => work.Media = v);
-        Toggle(L, "wave", "Live waveform", "Bars that move with the actual sound", work.MediaWaveform, v => work.MediaWaveform = v);
-        Toggle(L, "track", "Peek out when the track changes", "Even while the island is hidden", work.ShowOnTrackChange, v => work.ShowOnTrackChange = v);
+        using (When("wave", work.Media))
+            Toggle(L, "wave", "Live waveform", "Bars that move with the actual sound", work.MediaWaveform, v => work.MediaWaveform = v);
+        using (When("track", work.Media))
+            Toggle(L, "track", "Peek out when the track changes", "Even while the island is hidden", work.ShowOnTrackChange, v => work.ShowOnTrackChange = v);
         L.Header("Devices");
         Toggle(L, "bt", "Bluetooth alerts", "Devices connecting and disconnecting, and the radio turning on or off", work.BluetoothAlerts, v => work.BluetoothAlerts = v);
         Toggle(L, "pods", "AirPods detail", "Left, right and case battery, in-ear and lid", work.AirPods, v => work.AirPods = v);
-        Toggle(L, "magic", "Read live AirPods data from MagicPods", svc.AirPods?.MagicPodsFound == true ? "MagicPods found" : "MagicPods not found - using Bluetooth broadcasts", work.UseMagicPods, v => work.UseMagicPods = v);
+        using (When("magic", work.AirPods))
+            Toggle(L, "magic", "Read live AirPods data from MagicPods", svc.AirPods?.MagicPodsFound == true ? "MagicPods found" : "MagicPods not found - using Bluetooth broadcasts", work.UseMagicPods, v => work.UseMagicPods = v);
         Toggle(L, "disp", "Display alerts", "When a screen connects or disconnects", work.DisplayAlerts, v => work.DisplayAlerts = v);
         L.Header("System");
         Toggle(L, "bat", "Battery alerts", "Charger connected, unplugged, low and full", work.BatteryAlerts, v => work.BatteryAlerts = v);
-        Slider(L, "low", "Low battery at", null, work.LowBatteryPercent, 5, 50, v => $"{v:0}%", v => work.LowBatteryPercent = (int)v, 1);
+        using (When("low", work.BatteryAlerts))
+            Slider(L, "low", "Low battery at", null, work.LowBatteryPercent, 5, 50, v => $"{v:0}%", v => work.LowBatteryPercent = (int)v, 1);
         Toggle(L, "vol", "Volume HUD", null, work.VolumeHud, v => work.VolumeHud = v);
         Toggle(L, "caps", "Caps Lock HUD", null, work.CapsLockHud, v => work.CapsLockHud = v);
         Toggle(L, "lay", "Keyboard language HUD", null, work.KeyboardLayoutHud, v => work.KeyboardLayoutHud = v);
@@ -641,14 +674,17 @@ public sealed unsafe partial class SettingsWindow
     {
         L.Header("Windows notifications");
         Toggle(L, "notif", "Show notifications in the island", "Including iPhone messages through Phone Link", work.Notifications, v => work.Notifications = v);
-        Toggle(L, "prev", "Show message previews", null, work.NotificationPreviews, v => work.NotificationPreviews = v);
+        using (When("prev", work.Notifications))
+            Toggle(L, "prev", "Show message previews", null, work.NotificationPreviews, v => work.NotificationPreviews = v);
+        using (When("winbanners", work.Notifications))
         if (Packaging.IsStore)
             Button(L, "winbanners", "Windows' own popups", "Turn off their banners so each notification shows once", "Open settings",
                 () => Win32.ShellExecute("ms-settings:notifications"));
         else
             Toggle(L, "winbanners", "Hide Windows' own popups and chime", "Changes each app's Windows notification setting while the island shows them, and puts it back when it stops", work.HideWindowsBanners, v => work.HideWindowsBanners = v);
         Slider(L, "alertsec", "Keep alerts on screen for", null, work.AlertSeconds, 2, 15, v => $"{v:0} s", v => work.AlertSeconds = (int)v, 1);
-        Text(L, "muted", "Don't show these apps", "Comma separated, e.g. Discord, Teams", string.Join(", ", work.NotificationMutedApps), v => work.NotificationMutedApps = v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList(), "App names");
+        using (When("muted", work.Notifications))
+            Text(L, "muted", "Don't show these apps", "Comma separated, e.g. Discord, Teams", string.Join(", ", work.NotificationMutedApps), v => work.NotificationMutedApps = v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList(), "App names");
         L.End();
         L.Note("Status: " + (svc.Notifications?.Status ?? "Off"));
         L.Header("Calls");
@@ -659,9 +695,11 @@ public sealed unsafe partial class SettingsWindow
             work.DeviceUseNotices, v => work.DeviceUseNotices = v);
         L.End();
         L.Header("While you're focused");
-        Seg(L, "focussnd", "Sounds while media plays", "For notifications, calls and notices",
+        using (When("focussnd", work.Sounds))
+            Seg(L, "focussnd", "Sounds while media plays", (work.Sounds ? "For notifications, calls and notices" : "Island sounds are off"),
             new[] { "Full", "Quieter", "Muted" }, new[] { "full", "quiet", "mute" }, work.SoundsWhilePlaying, v => work.SoundsWhilePlaying = v);
-        Toggle(L, "focusduck", "Lower the media for sounds", "The playing app dips while a chime or ringtone plays, then comes back up",
+        using (When("focusduck", work.Sounds))
+            Toggle(L, "focusduck", "Lower the media for sounds", (work.Sounds ? "The playing app dips while a chime or ringtone plays, then comes back up" : "Island sounds are off"),
             work.DuckMedia, v => work.DuckMedia = v);
         Toggle(L, "focushold", "Hold notifications until you're done", "While media plays or a game or video is fullscreen on any screen, they wait and show as one summary when it stops, or when you open the island",
             work.HoldWhileFocused, v => work.HoldWhileFocused = v);
@@ -669,18 +707,30 @@ public sealed unsafe partial class SettingsWindow
         L.Note("Timers and low battery always come through. Held ones are in Recent right away.");
         L.Header("Sounds");
         Toggle(L, "snd", "Island sounds", Packaging.IsStore ? "Its own chimes and ringtone" : "Its own chimes and ringtone; Windows' chime is off while the island shows notifications", work.Sounds, v => work.Sounds = v);
-        Slider(L, "sndvol", "Sound volume", "100% is the level they were tuned at; Windows' volume applies too", work.SoundLevel, 0.5, 1.5, v => $"{v * 100:0}%", v => work.SoundLevel = v, 0.05);
-        Toggle(L, "sndnotif", "Chime for notifications", null, work.NotificationSound, v => work.NotificationSound = v);
-        Tone(L, "tone:n", "Notification sound", Sounds.Notification, work.NotificationTone, v => work.NotificationTone = v);
-        Toggle(L, "sndcall", "Ringtone for calls", null, work.CallRingtone, v => work.CallRingtone = v);
-        Tone(L, "tone:c", "Ringtone", Sounds.Call, work.Ringtone, v => work.Ringtone = v);
-        Tone(L, "tone:t", "Timer sound", Sounds.Timer, work.TimerTone, v => work.TimerTone = v);
-        Toggle(L, "snddev", "Sounds for devices and the charger", "Connecting, disconnecting, plugging in, low battery", work.DeviceSounds, v => work.DeviceSounds = v);
-        Tone(L, "tone:d", "Devices connecting", Sounds.Connect, work.DeviceTone, v => work.DeviceTone = v);
-        Tone(L, "tone:g", "Charger plugged in", Sounds.Charge, work.ChargeTone, v => work.ChargeTone = v);
-        Tone(L, "tone:l", "Low battery", Sounds.Low, work.LowTone, v => work.LowTone = v);
-        Toggle(L, "sndnotice", "Sounds for notices", "Fully charged, displays, sound output, updates and downloads", work.NoticeSound, v => work.NoticeSound = v);
-        Tone(L, "tone:i", "Notice sound", Sounds.Notice, work.NoticeTone, v => work.NoticeTone = v);
+        using (When("sndvol", work.Sounds))
+            Slider(L, "sndvol", "Sound volume", "100% is the level they were tuned at; Windows' volume applies too", work.SoundLevel, 0.5, 1.5, v => $"{v * 100:0}%", v => work.SoundLevel = v, 0.05);
+        using (When("sndnotif", work.Sounds))
+            Toggle(L, "sndnotif", "Chime for notifications", null, work.NotificationSound, v => work.NotificationSound = v);
+        using (When("tone:n", work.Sounds && work.NotificationSound))
+            Tone(L, "tone:n", "Notification sound", Sounds.Notification, work.NotificationTone, v => work.NotificationTone = v);
+        using (When("sndcall", work.Sounds && work.Calls))
+            Toggle(L, "sndcall", "Ringtone for calls", null, work.CallRingtone, v => work.CallRingtone = v);
+        using (When("tone:c", work.Sounds && work.Calls && work.CallRingtone))
+            Tone(L, "tone:c", "Ringtone", Sounds.Call, work.Ringtone, v => work.Ringtone = v);
+        using (When("tone:t", work.Sounds))
+            Tone(L, "tone:t", "Timer sound", Sounds.Timer, work.TimerTone, v => work.TimerTone = v);
+        using (When("snddev", work.Sounds))
+            Toggle(L, "snddev", "Sounds for devices and the charger", "Connecting, disconnecting, plugging in, low battery", work.DeviceSounds, v => work.DeviceSounds = v);
+        using (When("tone:d", work.Sounds && work.DeviceSounds))
+            Tone(L, "tone:d", "Devices connecting", Sounds.Connect, work.DeviceTone, v => work.DeviceTone = v);
+        using (When("tone:g", work.Sounds && work.DeviceSounds))
+            Tone(L, "tone:g", "Charger plugged in", Sounds.Charge, work.ChargeTone, v => work.ChargeTone = v);
+        using (When("tone:l", work.Sounds && work.DeviceSounds))
+            Tone(L, "tone:l", "Low battery", Sounds.Low, work.LowTone, v => work.LowTone = v);
+        using (When("sndnotice", work.Sounds))
+            Toggle(L, "sndnotice", "Sounds for notices", "Fully charged, displays, sound output, updates and downloads", work.NoticeSound, v => work.NoticeSound = v);
+        using (When("tone:i", work.Sounds && work.NoticeSound))
+            Tone(L, "tone:i", "Notice sound", Sounds.Notice, work.NoticeTone, v => work.NoticeTone = v);
         L.End();
         L.Note("Picking a sound plays it; pick it again to hear it again.");
         Button(L, "preview", "Preview popups", "Shows one of each kind the island can show, in turn, with its sound", "Preview", () => app.PreviewPopups());
@@ -690,17 +740,22 @@ public sealed unsafe partial class SettingsWindow
     {
         L.Header("Weather");
         Toggle(L, "wx", "Weather", null, work.Weather, v => work.Weather = v);
-        Seg(L, "wxsrc", "Source", "Auto uses your Home Assistant weather when it's reachable", new[] { "Auto", "Home Assistant", "Open-Meteo" }, new[] { "auto", "homeassistant", "openmeteo" }, work.WeatherSource, v => work.WeatherSource = v);
-        Text(L, "city", "City (Open-Meteo)", "Used when Home Assistant isn't reachable", work.City, v => work.City = v, "e.g. New York");
-        Text(L, "wxent", "Weather entity (Home Assistant)", "Leave empty for the first weather.* entity", work.WeatherEntity, v => work.WeatherEntity = v, "weather.home");
-        Toggle(L, "f", "Fahrenheit", null, work.Fahrenheit, v => work.Fahrenheit = v);
+        using (When("wxsrc", work.Weather))
+            Seg(L, "wxsrc", "Source", "Auto uses your Home Assistant weather when it's reachable", new[] { "Auto", "Home Assistant", "Open-Meteo" }, new[] { "auto", "homeassistant", "openmeteo" }, work.WeatherSource, v => work.WeatherSource = v);
+        using (When("city", work.Weather && work.WeatherSource != "homeassistant"))
+            Text(L, "city", "City (Open-Meteo)", "Used when Home Assistant isn't reachable", work.City, v => work.City = v, "e.g. New York");
+        using (When("wxent", work.Weather && work.WeatherSource != "openmeteo"))
+            Text(L, "wxent", "Weather entity (Home Assistant)", "Leave empty for the first weather.* entity", work.WeatherEntity, v => work.WeatherEntity = v, "weather.home");
+        using (When("f", work.Weather))
+            Toggle(L, "f", "Fahrenheit", null, work.Fahrenheit, v => work.Fahrenheit = v);
         Toggle(L, "24h", "24-hour clock", null, work.Use24Hour, v => work.Use24Hour = v);
         L.Header("Tools");
         Toggle(L, "notes", "Notes and to-dos", null, work.Notes, v => work.Notes = v);
         Toggle(L, "shelf", "File shelf", "Drop files on the island to park them", work.Shelf, v => work.Shelf = v);
         Toggle(L, "clip", "Clipboard history", "Kept in memory only, never written to disk", work.Clipboard, v => work.Clipboard = v);
         Toggle(L, "timer", "Timer", "A countdown of any length; also \"timer 10m\" in search", work.Timer, v => work.Timer = v);
-        Toggle(L, "tsound", "Ring when a timer ends", "Windows' alarm, until you dismiss it (a minute at most)", work.TimerSound, v => work.TimerSound = v);
+        using (When("tsound", work.Timer))
+            Toggle(L, "tsound", "Ring when a timer ends", "Windows' alarm, until you dismiss it (a minute at most)", work.TimerSound, v => work.TimerSound = v);
         L.End();
     }
 
@@ -708,8 +763,10 @@ public sealed unsafe partial class SettingsWindow
     {
         L.Header("Search");
         Toggle(L, "search", "Search apps and files", svc.Search?.UsingEverything == true ? "Through Everything" : "Everything isn't running: the built-in index of apps and your folders", work.Search, v => work.Search = v);
-        Slider(L, "results", "Results to show", null, work.SearchResults, 3, 12, v => $"{v:0}", v => work.SearchResults = (int)v, 1);
-        Toggle(L, "webans", "Web suggestions and answers", "Suggestions as you type, and definitions, translations and Wikipedia right in search. What you type is sent to Google, the dictionary and Wikipedia; file paths never are",
+        using (When("results", work.Search))
+            Slider(L, "results", "Results to show", null, work.SearchResults, 3, 12, v => $"{v:0}", v => work.SearchResults = (int)v, 1);
+        using (When("webans", work.Search))
+            Toggle(L, "webans", "Web suggestions and answers", "Suggestions as you type, and definitions, translations and Wikipedia right in search. What you type is sent to Google, the dictionary and Wikipedia; file paths never are",
             work.WebAnswers, v => work.WebAnswers = v);
         L.Header("Shortcuts");
         Text(L, "hks", "Open search", "e.g. Alt+Space, Ctrl+Shift+Space", work.SearchHotkey, v => { if (Hotkey.TryParse(v, out _, out _)) work.SearchHotkey = v; }, "Alt+Space", false, 200);

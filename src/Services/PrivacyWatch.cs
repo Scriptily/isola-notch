@@ -114,7 +114,9 @@ public sealed class PrivacyWatch
     internal static string AppOf(uint pid, bool infrared)
     {
         string path = Native.Win32.ProcessPath(pid);
-        if (string.IsNullOrEmpty(path)) return null;
+        // a protected system process can't be looked into: Windows Hello's face recognition is one, on the IR camera
+        // (it was dropped for having no name, so a Windows Hello sign-in never showed)
+        if (string.IsNullOrEmpty(path)) return infrared ? "Windows Hello" : "Windows";
         if (Path.GetFileName(path).Equals("svchost.exe", StringComparison.OrdinalIgnoreCase)) return infrared ? "Windows Hello" : "Windows";
         return NameOf(path.Replace('\\', '#'), true);
     }

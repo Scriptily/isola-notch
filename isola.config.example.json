@@ -14,7 +14,6 @@
   "CollapseDelayMs": 450,
   "AutoHideMinutes": 2,
   "StayWhilePlaying": true,
-  "WakeForMedia": true,
   "ShowIndicatorWhenHidden": true,
   "RevealZoneWidth": 200,
   "RevealZoneHeight": 6,

@@ -392,10 +392,10 @@ public sealed partial class Island : ITouchTarget
     public void ActivityChanged()
     {
         CheckHeld();
-        // media starting brings back an island that tucked itself away after inactivity (a setting); one hidden
-        // by hand stays hidden
+        // media starting brings back an island that tucked itself away after inactivity (and "Stay while media
+        // plays" keeps it, or with that off it hides again after the inactivity time); one hidden by hand stays hidden
         bool playingNow = Svc?.Media?.Current is { Playing: true };
-        if (playingNow && !mediaWasPlaying && Mode == Mode.Hidden && HiddenByItself && Cfg.WakeForMedia)
+        if (playingNow && !mediaWasPlaying && Mode == Mode.Hidden && HiddenByItself)
         { MarkActive(); SetMode(Mode.Rest, "media started"); }
         mediaWasPlaying = playingNow;
         if (Mode is Mode.Rest or Mode.Peek or Mode.Expanded) Retarget();

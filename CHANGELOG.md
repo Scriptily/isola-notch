@@ -17,12 +17,17 @@ release notes.
   recorder, only shows once in a while. It covers every camera, including
   the infrared one Windows Hello uses, and Isola never uses the camera or
   microphone itself.
-- "Come back when media starts" (Settings -> Behavior, on by default): an
-  island that tucked itself away after inactivity comes back when music or a
-  video starts. One you hid yourself stays hidden.
+- An island that tucked itself away after inactivity comes back when music or
+  a video starts, and "Stay while media plays" keeps it there (turned off, it
+  hides again after the inactivity time). One you hid yourself stays hidden.
 
 ### Changed
 
+- Settings that depend on another one are dimmed, and don't respond, while it
+  rules them out, with a note saying why where it isn't obvious: "Stay while
+  media plays" when Hide after inactivity is Never, every sound setting when
+  Island sounds is off, each sound choice when its own chime is off, glow
+  options when the rim is off, weather details when Weather is off, and more.
 - A notice that changes in place, like the sound output as you cycle through
   them, fades from the old text to the new instead of swapping it.
 

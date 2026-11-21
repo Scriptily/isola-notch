@@ -74,10 +74,10 @@ public static partial class Scenarios
         Eq("Windows Hello off camera", told.LastOrDefault(), "gone from the list: stopped");
     }
 
-    [Scenario("Stay while media plays and Come back when media starts work together: it stays while playing, hides after inactivity once stopped, comes back when it starts; hidden by hand, it stays hidden")]
+    [Scenario("with Stay while media plays it stays while playing, hides after inactivity once stopped, comes back when media starts; hidden by hand, it stays hidden; Stay off, it hides mid-song")]
     public static void StayAndComeBackTogether()
     {
-        var (isl, _, clock) = NewIsland(new Config { AutoHideMinutes = 2, StayWhilePlaying = true, WakeForMedia = true });
+        var (isl, _, clock) = NewIsland(new Config { AutoHideMinutes = 2, StayWhilePlaying = true });
         var media = new FakeMedia(clock) { Current = new MediaInfo { AppName = "Spotify", SessionId = "Spotify.exe", Title = "A song", Playing = true } };
         isl.Svc.Media = media; isl.ActivityChanged(); isl.MarkActive();
         clock.Advance(600, isl);
@@ -96,7 +96,7 @@ public static partial class Scenarios
         Eq(Mode.Hidden, isl.Mode, "a pause and play doesn't bring back one you hid");
 
         // Stay off: it hides after inactivity even while playing, and only comes back on the next start
-        var (isl2, _, clock2) = NewIsland(new Config { AutoHideMinutes = 2, StayWhilePlaying = false, WakeForMedia = true });
+        var (isl2, _, clock2) = NewIsland(new Config { AutoHideMinutes = 2, StayWhilePlaying = false });
         var m2 = new FakeMedia(clock2) { Current = new MediaInfo { AppName = "Spotify", SessionId = "Spotify.exe", Title = "A song", Playing = true } };
         isl2.Svc.Media = m2; isl2.ActivityChanged(); isl2.MarkActive();
         clock2.Advance(130, isl2);
@@ -136,5 +136,14 @@ public static partial class Scenarios
         store.Values["App.UserOff"] = 0;
         Eq(false, b.WouldShow("App.UserOff"), "banners off by you: none showed");
         b.Restore("test");
+    }
+
+    [Scenario("a camera user that can't be looked into (a protected system process) still shows: Windows Hello on the IR camera")]
+    public static void ProtectedCameraUserNamed()
+    {
+        Eq("Windows Hello", PrivacyWatch.AppOf(0xFFFFFFF0, true), "no path, on the IR camera: Windows Hello's face recognition");
+        Eq("Windows", PrivacyWatch.AppOf(0xFFFFFFF0, false), "no path, another camera: Windows");
+        var uses = PrivacyWatch.Live(() => new(), () => new List<CameraUse> { new(0xFFFFFFF0, "IR Camera", true) }).ToList();
+        Eq("Windows Hello", uses.Single().App, "and it reaches the watcher instead of being dropped");
     }
 }

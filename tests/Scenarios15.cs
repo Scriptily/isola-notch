@@ -500,7 +500,7 @@ public static partial class Scenarios
         Eq("Chrome", ms.Current?.AppName, "paused: it stays on the island");
     }
 
-    [Scenario("media starting brings back an island that hid itself after inactivity (a setting); one hidden by hand stays hidden")]
+    [Scenario("media starting brings back an island that hid itself after inactivity; one hidden by hand stays hidden")]
     public static void MediaWakesSelfHiddenIsland()
     {
         var (isl, _, clock) = NewIsland(new Config { AutoHideMinutes = 2 });
@@ -518,12 +518,6 @@ public static partial class Scenarios
         media.Current.Playing = true; isl.ActivityChanged(); clock.Advance(0.5, isl);
         Eq(Mode.Hidden, isl.Mode, "stays hidden when the video starts");
 
-        var (isl2, _, clock2) = NewIsland(new Config { AutoHideMinutes = 2, WakeForMedia = false });
-        var m2 = new FakeMedia(clock2) { Current = new MediaInfo { AppName = "Chrome", SessionId = "Chrome", Title = "A video", Playing = false } };
-        isl2.Svc.Media = m2;
-        clock2.Advance(130, isl2);
-        m2.Current.Playing = true; isl2.ActivityChanged(); clock2.Advance(0.5, isl2);
-        Eq(Mode.Hidden, isl2.Mode, "with the setting off it stays tucked away");
     }
 
     [Scenario("a call over a video: quieter ringtone, the video down while it rings; paused to answer, the video still comes back when the call ends")]
