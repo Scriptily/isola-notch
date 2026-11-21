@@ -100,6 +100,9 @@ The setup isn't code-signed yet, and a new unsigned program often trips a few en
 
 ### Fixed
 
+- Switching between two players, the island took 1.5 seconds to follow even
+  when the one you started could be heard and the one on screen was paused or
+  silent. It follows at once now; a muted preview still waits its moment.
 - "Sounds while media plays" turned notifications down, or off, for media
   that said it was playing but made no sound, like Spotify left playing at 0%
   in its own app. It now applies only when the media can actually be heard.

@@ -315,6 +315,7 @@ public sealed partial class MediaService : IMediaSourceEx
         {
             double predicted = m.LivePosition(clock.Now), oldDuration = m.Duration;
             var tl = s.GetTimelineProperties();
+            if (tl == null) return false;   // Windows has none for a moment (a track changing): read again next time
             double start = tl.StartTime.TotalSeconds, end = tl.EndTime.TotalSeconds;
             m.Duration = Math.Max(0, end - start);
             double pos = tl.Position.TotalSeconds - start;
@@ -426,6 +427,10 @@ public sealed partial class MediaService : IMediaSourceEx
         // open and close sessions every few hundred ms; without the wait the island flickered between them)
         if (currentAlive && want != null && !ReferenceEquals(want, current) && want.Playing)
         {
+            // the one on screen is paused or silent and this one can be heard: it's what's being listened to, so it
+            // shows now (it waited 1.5 s like a preview, which felt stuck when switching back and forth). Previews
+            // play muted, so they still wait.
+            if (heard(want) == true && (!current.Playing || heard(current) == false)) return (want, double.NaN);
             double settle = want.IsPlaceholder && !current.IsPlaceholder ? PlaceholderSettle : Settle;
             double since = double.IsNaN(want.PlayingSince) ? now : want.PlayingSince;
             if (now - since < settle) return (current, since + settle);

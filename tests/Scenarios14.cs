@@ -1027,4 +1027,26 @@ public static partial class Scenarios
         Eq("n1", isl.InlineAlert?.Key, "the notice shows as its banner, there to be seen");
         Eq(0, isl.HeldAlerts.Count, "nothing left waiting");
     }
+
+    [Scenario("switching back and forth: a player you can hear takes over at once from a paused or silent one; a muted preview still waits")]
+    public static void HeardNewcomerTakesOverAtOnce()
+    {
+        static bool none(MediaInfo _) => false;
+        var spotify = Playing("Spotify", "Spotify.exe", 10); var chrome = Playing("Chrome", "Chrome", 100);
+        var all = new List<MediaInfo> { spotify, chrome };
+        // Spotify on screen, silent at 0%; the video starts and is heard 0.3 s in
+        var (p1, r1) = MediaService.Pick(spotify, all, null, null, none, 100.3, i => i == chrome ? true : false);
+        Eq("Chrome", p1.AppName, "the video shows right away");
+        True(double.IsNaN(r1), "no wait");
+        // Spotify on screen and paused
+        spotify.Playing = false;
+        Eq("Chrome", MediaService.Pick(spotify, all, null, null, none, 100.3, i => i == chrome ? true : null).pick.AppName, "over a paused one too");
+        // a preview: playing but muted (not heard), over a paused Spotify: it still waits its moment
+        var (p2, r2) = MediaService.Pick(spotify, all, null, null, none, 100.3, i => null);
+        Eq("Spotify", p2.AppName, "a muted newcomer (a hover preview) waits before taking over");
+        True(!double.IsNaN(r2), "and is looked at again after the wait");
+        // and over music you can hear, an unheard newcomer doesn't take over at all
+        spotify.Playing = true;
+        Eq("Spotify", MediaService.Pick(spotify, all, null, null, none, 103, i => i == spotify ? true : null).pick.AppName, "music you can hear stays");
+    }
 }
