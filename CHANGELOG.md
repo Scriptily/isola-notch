@@ -89,9 +89,9 @@ release notes.
 
 ### VirusTotal
 
-2 of 70 security vendors flagged `IsolaSetup.exe` on 2026-11-21. [Full report](https://www.virustotal.com/gui/file/22d23c2776e79ed529fa19cd102bf071ca79bdf2e67cfec98ad07e5c347596e0)
+2 of 71 security vendors flagged `IsolaSetup.exe` on 2026-11-21. [Full report](https://www.virustotal.com/gui/file/9166d8acf0edd4fbd70ba229bc507aa413e44cb88c1fb9ad1b7dfeaaea08539d)
 
-- Bkav: W32.Malware.9E815442
+- Bkav: W32.Malware.13F9C3DF
 - Elastic: malicious (moderate confidence)
 
 The setup isn't code-signed yet, and a new unsigned program often trips a few engines' heuristics. The source and the build are public, and the SHA-256 in the release notes is the file this report covers.
