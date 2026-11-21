@@ -169,4 +169,20 @@ public static partial class Scenarios
         Eq(3, AlertPage.DetailLines(body), "at most three; the rest scrolls");
         AlertPage.Measured.Remove("0|" + body);
     }
+
+    [Scenario("a notice that changes in place (cycling sound outputs) crossfades to the new text instead of swapping it; the same notice again doesn't")]
+    public static void InPlaceNoticesCrossfade()
+    {
+        var (isl, host, clock) = NewIsland();
+        isl.Alert(Alerts.Output("Speakers (Realtek(R) Audio)")); clock.Advance(0.4, isl);
+        var first = isl.CurrentPage;
+        isl.Alert(Alerts.Output("LG TV SSCR2 (NVIDIA High Definition Audio)")); clock.Advance(0.02, isl);
+        var second = isl.CurrentPage;
+        True(!ReferenceEquals(first, second), "the next output comes in on the other page (the island crossfades between them)");
+        Eq("output", isl.CurrentAlert?.Key, "still the one notice");
+        isl.Alert(Alerts.Output("LG TV SSCR2 (NVIDIA High Definition Audio)")); clock.Advance(0.02, isl);
+        True(ReferenceEquals(second, isl.CurrentPage), "the same output again: nothing to crossfade");
+        isl.Alert(Alerts.Output("AirPods Pro 2")); clock.Advance(0.02, isl);
+        True(ReferenceEquals(first, isl.CurrentPage), "and the next one fades back over");
+    }
 }

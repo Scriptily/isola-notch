@@ -235,7 +235,11 @@ public sealed partial class Island : ITouchTarget
     internal Page ShownPage => PageFor(Mode);
     Page AlertPageNow()
     {
-        string k = CurrentAlert?.Key ?? "";
+        // a notice that changes in place (the next output as you cycle them, AirPods connecting, then their
+        // battery) switches page too, so its old text fades out as the new fades in; it just swapped before
+        var al = CurrentAlert;
+        string k = al == null ? "" : string.Join("", al.Key, al.Title, al.Subtitle, al.Detail, al.Image?.Length ?? 0,
+            string.Join(",", al.Batteries.Select(x => x.percent)), al.Actions.Count);
         if (k != alertPageFor) { alertPageFor = k; alertFlip = !alertFlip; }
         return alertFlip ? P.AlertPage2 : P.AlertPage;
     }

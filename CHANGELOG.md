@@ -15,6 +15,11 @@ release notes.
   island that tucked itself away after inactivity comes back when music or a
   video starts. One you hid yourself stays hidden.
 
+### Changed
+
+- A notice that changes in place, like the sound output as you cycle through
+  them, fades from the old text to the new instead of swapping it.
+
 ### Fixed
 
 - A text from your phone showed Phone Link's icon. It now shows as Messages
