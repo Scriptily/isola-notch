@@ -19,6 +19,9 @@ anywhere:
 - Bluetooth devices and battery levels, including AirPods
 - The files you drop on the shelf, your notes and your timer
 - Search results from your apps and folders, or from Everything if it's running
+- Which apps use the camera and microphone, from Windows' own record of it, to
+  name them as they start and stop (Settings -> Notifications & Sounds ->
+  Privacy). Isola never uses the camera or microphone itself
 - MagicPods' log file, if MagicPods is installed, to read AirPods battery levels
 
 Your settings, notes, shelf and log are stored in `%LOCALAPPDATA%\Isola` for

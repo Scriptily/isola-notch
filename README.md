@@ -65,6 +65,8 @@ Link (answer or decline right on the island), track changes, Bluetooth devices
 with battery levels, AirPods per bud and case, screens and chargers, the timer,
 and volume and Caps Lock changes. A burst of notifications queues up, and
 anything past the newest four folds into one summary. A call always goes first.
+When an app starts or stops using the camera or microphone, a short notice
+names it, so nothing records you unnoticed.
 A notification with a sign-in or verification code gets a Copy button and stays
 a little longer, as Windows' own banners do. While you watch, listen or play,
 their sounds can go quieter or silent, and they can wait until you're done:

@@ -654,6 +654,10 @@ public sealed unsafe partial class SettingsWindow
         L.Header("Calls");
         Toggle(L, "calls", "Phone calls", "Incoming calls from Phone Link, with answer and decline", work.Calls, v => work.Calls = v);
         L.End();
+        L.Header("Privacy");
+        Toggle(L, "devuse", "Show when the camera or microphone is used", "Names the app as it starts and stops. Apps that use them all day only show once in a while",
+            work.DeviceUseNotices, v => work.DeviceUseNotices = v);
+        L.End();
         L.Header("While you're focused");
         Seg(L, "focussnd", "Sounds while media plays", "For notifications, calls and notices",
             new[] { "Full", "Quieter", "Muted" }, new[] { "full", "quiet", "mute" }, work.SoundsWhilePlaying, v => work.SoundsWhilePlaying = v);

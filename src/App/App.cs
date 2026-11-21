@@ -212,6 +212,10 @@ public sealed unsafe partial class App
         svc.Updates = new Updater(clock) { Cfg = () => cfg };
         svc.Feedback = new Feedback(Paths.FeedbackState);
         svc.Web = new WebAnswers();
+        privacy = new PrivacyWatch(clock);
+        privacy.Changed += (device, app, on) => { if (cfg.DeviceUseNotices) island.Alert(Alerts.DeviceUse(device, app, on)); };
+        if (cfg.DeviceUseNotices) privacy.Start();
+        privacyOn = cfg.DeviceUseNotices;
         svc.Tools = new DownloadTools(Paths.DownloadTools, clock) { Enabled = () => cfg.Downloads };
         svc.Downloads = new Downloads(Paths.DownloadsHistory, svc.Tools) { Cfg = () => cfg, Shelf = svc.Shelf };
         int downloading = 0;
@@ -733,6 +737,8 @@ public sealed unsafe partial class App
         Log.MinLevel = cfg.VerboseLog ? LogLevel.Debug : LogLevel.Info;
         island.ApplyConfig(cfg);
         if (!cfg.DuckMedia || !cfg.Sounds) ducker?.RestoreAll("turned off");
+        if (cfg.DeviceUseNotices) { if (!privacyOn) privacy.Start(); } else privacy.Stop();
+        privacyOn = cfg.DeviceUseNotices;
         if (cfg.ShowOn != showWas) displays.Refresh("screen setting"); else host.Place(displays.Laptop, cfg.Scale);
         svc.Clipboard.Max = cfg.ClipboardHistory;
         if (cfg.Media && !mediaWas) _ = ((MediaService)svc.Media).StartAsync();
@@ -799,6 +805,7 @@ public sealed unsafe partial class App
         !playing || sound == Sounds.Timer ? 1 : c.SoundsWhilePlaying switch { "quiet" => 0.35f, "mute" => 0, _ => 1 };
 
     Ducker ducker;
+    PrivacyWatch privacy; bool privacyOn = true;
 
     /// <summary>Whether the media dips under a sound: the setting, and the media really being heard (paused, or at 0, there's nothing to lower).</summary>
     internal static bool DuckFor(Config c, bool mediaHeard) => c.DuckMedia && mediaHeard;

@@ -11,6 +11,11 @@ release notes.
 
 ### Added
 
+- A short notice names any app that starts or stops using the camera or
+  microphone (Settings -> Notifications & Sounds -> Privacy, on by default).
+  It's silent, and an app that uses them on and off all day, like a game
+  recorder, only shows once in a while. Isola reads Windows' own record of
+  this and never uses the camera or microphone itself.
 - "Come back when media starts" (Settings -> Behavior, on by default): an
   island that tucked itself away after inactivity comes back when music or a
   video starts. One you hid yourself stays hidden.

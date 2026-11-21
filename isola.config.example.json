@@ -59,6 +59,7 @@
   "NoticeSound": true,
   "NoticeTone": "drop",
   "SoundsWhilePlaying": "full",
+  "DeviceUseNotices": true,
   "WebAnswers": false,
   "DuckMedia": true,
   "HoldWhileFocused": false,

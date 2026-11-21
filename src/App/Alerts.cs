@@ -93,6 +93,17 @@ public static class Alerts
         Sound = Sounds.Notification, Glyph = Glyph.Message, Accent = Col.Hex(0x34c759), Seconds = seconds,
     };
 
+    /// <summary>An app started or stopped using the camera or the microphone: brief and silent (it can be often).</summary>
+    public static Alert DeviceUse(string device, string app, bool on) => new()
+    {
+        Key = "device:" + device + ":" + app, Kind = "privacy", Title = app,
+        Subtitle = (on ? "Using the " : "Stopped using the ") + device,
+        Glyph = device == "camera" ? '\uE722' : '\uE720',
+        // the colors of the phone's own indicators: green for the camera, orange for the microphone
+        Accent = !on ? Col.Hex(0x8e8e93) : device == "camera" ? Col.Hex(0x34c759) : Col.Hex(0xff9f0a),
+        Seconds = on ? 2.5 : 1.8,
+    };
+
     public static Alert Call(string id, string caller, byte[] icon, Action decline, Action answer, Action open) => new()
     {
         Key = "call:" + id, Kind = "call", Title = caller, Subtitle = "Incoming call · iPhone", Glyph = Glyph.Phone, Image = icon,
@@ -264,6 +275,8 @@ public static class Alerts
             Notification("preview", "Messages", "Sam", "Are you still coming tonight? We're leaving around 8 if you want a ride", null, 3.5),
             Track("Golden Hour", "Isola Sample", art, artAccent),
             Call("preview", "Mom", null, () => dismiss("call:preview"), () => dismiss("call:preview"), null),
+            Text("preview-text", "Sam Moore", "Running late, the traffic on the bridge is terrible. Grab us a table by the window if you can, and order the garlic bread. Be there in twenty minutes. Door code: 4821", 10),
+            DeviceUse("camera", "Microsoft Teams", true),
             Timer(600, false, () => dismiss("timer"), () => dismiss("timer"), null),
             Updated("1.0.0"),
         };

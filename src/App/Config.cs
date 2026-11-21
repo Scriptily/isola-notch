@@ -87,6 +87,7 @@ public sealed class Config
     public bool NoticeSound { get; set; } = true;
     public string NoticeTone { get; set; } = "drop";
     public string SoundsWhilePlaying { get; set; } = "full";   // "full", "quiet" or "mute": the island's sounds while media plays
+    public bool DeviceUseNotices { get; set; } = true;       // a notice naming the app that starts or stops using the camera or microphone
     public bool WebAnswers { get; set; } = false;             // the command palette's suggestions and answers (sends what you type)
     public bool DuckMedia { get; set; } = true;               // the playing media dips under the island's sounds
     public bool HoldWhileFocused { get; set; } = false;        // notices wait while media plays or something is fullscreen, then one summary
