@@ -428,9 +428,10 @@ public sealed partial class MediaService : IMediaSourceEx
         if (currentAlive && want != null && !ReferenceEquals(want, current) && want.Playing)
         {
             // the one on screen is paused or silent and this one can be heard: it's what's being listened to, so it
-            // shows now (it waited 1.5 s like a preview, which felt stuck when switching back and forth). Previews
-            // play muted, so they still wait.
-            if (heard(want) == true && (!current.Playing || heard(current) == false)) return (want, double.NaN);
+            // shows now (it waited 1.5 s like a preview, which felt stuck when switching back and forth). Not for a
+            // site's placeholder: hovering videos on a profile opens and closes those every 0.7 s, sound or not, and
+            // the island flipped to each and back; those keep their full wait. Muted previews aren't heard, so wait too.
+            if (!want.IsPlaceholder && heard(want) == true && (!current.Playing || heard(current) == false)) return (want, double.NaN);
             double settle = want.IsPlaceholder && !current.IsPlaceholder ? PlaceholderSettle : Settle;
             double since = double.IsNaN(want.PlayingSince) ? now : want.PlayingSince;
             if (now - since < settle) return (current, since + settle);

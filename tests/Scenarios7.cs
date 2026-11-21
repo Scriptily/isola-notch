@@ -948,6 +948,28 @@ public static partial class Scenarios
         Eq(0, flips, "the island stays on Spotify through 20 hover previews");
         Eq("Spotify", current.AppName, "and shows Spotify");
 
+        // the same with Spotify paused and the previews playing with sound: still no flipping
+        spotify.Playing = false;
+        foreach (var heardPreview in new[] { true, false })
+            for (int i = 0; i < 20; i++)
+            {
+                var chrome = new MediaInfo { SessionId = "Chrome", AppName = "Chrome", Title = "A site is playing media", Playing = true, PlayingSince = now };
+                all.Add(chrome);
+                foreach (var dt in new[] { 0.0, 0.35, 0.35 })
+                {
+                    now += dt;
+                    var (pick, _) = MediaService.Pick(current, all, null, "Chrome", none, now, x => x == chrome ? heardPreview : (bool?)false);
+                    if (!ReferenceEquals(pick, current)) flips++;
+                    current = pick;
+                }
+                all.Remove(chrome); now += 0.05;
+                var (back, _) = MediaService.Pick(current, all, null, "Spotify.exe", none, now);
+                if (!ReferenceEquals(back, current)) flips++;
+                current = back;
+            }
+        Eq(0, flips, "Spotify paused, previews with sound or without: the island still stays put");
+        spotify.Playing = true;
+
         // a video that keeps playing does take over, once it has played a moment
         var video = new MediaInfo { SessionId = "Chrome", AppName = "Chrome", Title = "A site is playing media", Playing = true, PlayingSince = now };
         all.Add(video);
